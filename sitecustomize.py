@@ -3,6 +3,8 @@
 AJAP stores SQLite on Railway's persistent Volume. Prefer the mount path
 reported by Railway itself and keep /data only as a compatibility fallback.
 Never silently fall back to the ephemeral container filesystem on Railway.
+Once the persistent Volume contains an AJAP database, that database is
+authoritative and is never overwritten by an older copy found elsewhere.
 """
 
 import os
@@ -165,23 +167,23 @@ def configure_database_path():
         preferred_target = mount_db
         preferred_source = "RAILWAY_VOLUME_MOUNT_PATH"
 
-    # If another existing AJAP DB contains richer state, recover it into the
-    # authoritative destination before opening SQLite there.
     if preferred_target:
-        if best_existing:
+        target_stats = _db_stats(preferred_target)
+
+        # Recovery is allowed only when the persistent target is genuinely empty.
+        # Once /data/ajap_market.db has been created and contains AJAP tables, it
+        # is the canonical database and must never be replaced by another copy.
+        if target_stats is None and best_existing:
             _, source_path, source_priority, source_stats = best_existing
-            target_stats = _db_stats(preferred_target)
             if source_path.resolve(strict=False) != preferred_target.resolve(strict=False):
-                if _score(source_stats, source_priority) > _score(target_stats, 100):
-                    try:
-                        preferred_target.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(source_path, preferred_target)
-                        print(
-                            f"AJAP DB recovery: copied {source_path} -> {preferred_target} "
-                            f"because source had richer persistent state"
-                        )
-                    except Exception as exc:
-                        print(f"WARNING AJAP: no se pudo recuperar DB hacia {preferred_target}: {exc}")
+                try:
+                    preferred_target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_path, preferred_target)
+                    print(
+                        f"AJAP DB first-boot recovery: copied {source_path} -> {preferred_target}"
+                    )
+                except Exception as exc:
+                    print(f"WARNING AJAP: no se pudo recuperar DB hacia {preferred_target}: {exc}")
 
         preferred_target.parent.mkdir(parents=True, exist_ok=True)
         os.environ["DB_PATH"] = str(preferred_target)
