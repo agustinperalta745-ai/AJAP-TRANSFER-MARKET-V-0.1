@@ -1,33 +1,15 @@
-"""Fixed 24-team assignment for AJAP Transfer Market."""
+"""Temporary single-team assignment test for AJAP Transfer Market.
+
+For this test build, only Olympique de Lyon is exposed to players. The rest of
+AJAP's fixed-team system can be restored later without changing the persistent
+club/roster model.
+"""
 
 import discord
 
 
 OFFICIAL_TEAMS = [
-    ("Tottenham Hotspur", "Inglaterra"),
-    ("Newcastle United", "Inglaterra"),
-    ("Aston Villa", "Inglaterra"),
-    ("Everton", "Inglaterra"),
-    ("West Ham United", "Inglaterra"),
-    ("Manchester City", "Inglaterra"),
-    ("Bolton Wanderers", "Inglaterra"),
-    ("Middlesbrough", "Inglaterra"),
-    ("Fulham", "Inglaterra"),
-    ("Lazio", "Italia"),
-    ("Fiorentina", "Italia"),
-    ("Torino", "Italia"),
-    ("Villarreal", "España"),
-    ("Sevilla", "España"),
-    ("Real Betis", "España"),
-    ("Atlético de Madrid", "España"),
-    ("Real Zaragoza", "España"),
-    ("Celta de Vigo", "España"),
     ("Olympique de Lyon", "Francia"),
-    ("Olympique de Marsella", "Francia"),
-    ("París Saint-Germain (PSG)", "Francia"),
-    ("Ajax", "Países Bajos"),
-    ("Porto", "Portugal"),
-    ("Benfica", "Portugal"),
 ]
 OFFICIAL = {name.casefold(): name for name, _ in OFFICIAL_TEAMS}
 APP = None
@@ -62,12 +44,17 @@ def ensure_schema():
             );
             """
         )
+
+        # Test mode: keep previous teams in the database but hide/deactivate them.
+        conn.execute("UPDATE league_teams SET active = 0")
         for name, country in OFFICIAL_TEAMS:
             conn.execute(
                 """
                 INSERT INTO league_teams (name, country, active)
                 VALUES (?, ?, 1)
-                ON CONFLICT(name) DO UPDATE SET country=excluded.country, active=1
+                ON CONFLICT(name) DO UPDATE SET
+                    country = excluded.country,
+                    active = 1
                 """,
                 (name, country),
             )
@@ -92,7 +79,8 @@ def assignments():
 def assign_team(user_id, team_name):
     team = official_name(team_name)
     if not team:
-        return False, "Ese equipo no forma parte de la liga."
+        return False, "Ese equipo no está habilitado en esta prueba."
+
     conn = db()
     try:
         conn.execute("BEGIN IMMEDIATE")
@@ -103,6 +91,7 @@ def assign_team(user_id, team_name):
         if current_team:
             conn.rollback()
             return False, f"Ya tenés asignado **{current_team}**."
+
         occupied = conn.execute(
             """
             SELECT user_id FROM clubs
@@ -113,11 +102,14 @@ def assign_team(user_id, team_name):
         if occupied:
             conn.rollback()
             return False, f"**{team}** ya está asignado a otro jugador."
+
+        # If this account had an old test club, replace it with Lyon.
         conn.execute(
             """
             INSERT INTO clubs (user_id, name) VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
-                name=excluded.name, created_at=CURRENT_TIMESTAMP
+                name = excluded.name,
+                created_at = CURRENT_TIMESTAMP
             """,
             (int(user_id), team),
         )
@@ -138,7 +130,7 @@ def assign_team(user_id, team_name):
 
 
 def unlink_team(user_id, admin_id):
-    # Deliberately touches only clubs + audit history. roster_players stays intact.
+    # Only the Discord <-> club assignment is removed. The Lyon roster stays.
     with db() as conn:
         row = conn.execute(
             "SELECT name FROM clubs WHERE user_id = ?", (int(user_id),)
@@ -159,27 +151,32 @@ def unlink_team(user_id, admin_id):
 
 def welcome_embed():
     embed = discord.Embed(
-        title="🏟️ Elegí tu equipo",
+        title="🧪 Prueba de asignación • Olympique de Lyon",
         description=(
-            "Seleccioná **el equipo que te asignó la organización**.\n\n"
-            "⚠️ Si te equivocás, un administrador puede revertir la asignación."
+            "Por ahora está habilitado **un solo club para probar el sistema**.\n\n"
+            "Elegí **Olympique de Lyon** para vincularlo a tu cuenta y acceder a su plantilla."
         ),
     )
-    embed.add_field(name="Equipos oficiales", value="24", inline=True)
+    embed.add_field(name="Club habilitado", value="Olympique de Lyon", inline=False)
+    embed.add_field(name="País", value="🇫🇷 Francia", inline=True)
     embed.add_field(name="Por cuenta", value="1 equipo", inline=True)
-    embed.set_footer(text="La plantilla pertenece al club y nunca se borra al cambiar su dueño")
+    embed.set_footer(text="La plantilla queda guardada aunque un admin desvincule al dueño")
     return embed
 
 
 def assignments_embed():
     rows = assignments()
-    embed = discord.Embed(title="👥 Asignaciones de equipos")
+    embed = discord.Embed(title="👥 Asignaciones de equipos • prueba Lyon")
     if not rows:
-        embed.description = "Todavía no hay equipos asignados."
+        embed.description = "Olympique de Lyon todavía no está asignado."
         return embed
     for row in rows:
-        embed.add_field(name=official_name(row["name"]), value=f"<@{row['user_id']}>", inline=True)
-    embed.set_footer(text=f"{len(rows)}/24 asignados • Revertir no modifica la plantilla")
+        embed.add_field(
+            name=official_name(row["name"]),
+            value=f"<@{row['user_id']}>",
+            inline=True,
+        )
+    embed.set_footer(text=f"{len(rows)}/1 asignado • Revertir no modifica la plantilla")
     return embed
 
 
@@ -189,12 +186,21 @@ class TeamSelect(discord.ui.Select):
         options = [
             discord.SelectOption(
                 label=name,
-                description=f"{country} • {'🔒 Ya asignado' if name.casefold() in occupied else '✅ Disponible'}"[:100],
+                description=(
+                    f"{country} • "
+                    f"{'🔒 Ya asignado' if name.casefold() in occupied else '✅ Disponible para probar'}"
+                )[:100],
                 value=name,
+                emoji="🇫🇷",
             )
             for name, country in OFFICIAL_TEAMS
         ]
-        super().__init__(placeholder="Elegí el equipo que te asignaron", options=options)
+        super().__init__(
+            placeholder="Elegí Olympique de Lyon",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
 
     async def callback(self, interaction: discord.Interaction):
         current = club_de(interaction.user.id)
@@ -204,16 +210,20 @@ class TeamSelect(discord.ui.Select):
                 ephemeral=True,
             )
             return
+
         ok, result = assign_team(interaction.user.id, self.values[0])
         if not ok:
             await interaction.response.send_message(f"⚠️ {result}", ephemeral=True)
             return
+
+        jugadores = APP.jugadores_de_club(result, 50)
         await interaction.response.edit_message(
             embed=discord.Embed(
-                title="✅ Equipo asignado",
+                title="✅ Olympique de Lyon asignado",
                 description=(
                     f"Desde ahora manejás **{result}**.\n\n"
-                    "Su plantilla se conservará y se actualizará con las transferencias aplicadas en PES."
+                    f"Plantilla cargada: **{len(jugadores)} jugadores**.\n"
+                    "Ya podés entrar a **Mi club** o **Publicar jugador** para probar el flujo."
                 ),
             ),
             view=APP.MercadoView(),
@@ -232,7 +242,11 @@ class ConfirmUnlinkView(discord.ui.View):
         self.user_id = int(user_id)
         self.team = team
 
-    @discord.ui.button(label="Desvincular equipo", emoji="↩️", style=discord.ButtonStyle.danger)
+    @discord.ui.button(
+        label="Desvincular equipo",
+        emoji="↩️",
+        style=discord.ButtonStyle.danger,
+    )
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not APP.es_admin(interaction):
             await interaction.response.send_message("⛔ Solo admins.", ephemeral=True)
@@ -247,13 +261,17 @@ class ConfirmUnlinkView(discord.ui.View):
                 title="↩️ Asignación revertida",
                 description=(
                     f"<@{self.user_id}> ya no tiene **{removed}**.\n\n"
-                    "✅ La plantilla quedó intacta. Al abrir `/mercado`, verá otra vez los 24 equipos."
+                    "✅ La plantilla de Lyon quedó intacta. Al abrir `/mercado`, podrá elegir Lyon de nuevo."
                 ),
             ),
             view=None,
         )
 
-    @discord.ui.button(label="Cancelar", emoji="✖️", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="Cancelar",
+        emoji="✖️",
+        style=discord.ButtonStyle.secondary,
+    )
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not APP.es_admin(interaction):
             await interaction.response.send_message("⛔ Solo admins.", ephemeral=True)
@@ -271,11 +289,16 @@ class AssignmentSelect(discord.ui.Select):
             )
             for row in rows[:25]
         ]
-        super().__init__(placeholder="Elegí una asignación para revertir", options=options)
+        super().__init__(
+            placeholder="Elegí la asignación para revertir",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
 
     async def callback(self, interaction: discord.Interaction):
         if not APP.es_admin(interaction):
-            await interaction.response.send_message("⛔ Solo admins.", ephemeral=True)
+            await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
         user_id = int(self.values[0])
         team = club_de(user_id)
@@ -313,6 +336,7 @@ def build_market_view():
                     item.callback = self._fixed_mi_club
                 elif getattr(item, "custom_id", None) == "mercado_publicar":
                     item.callback = self._fixed_publicar
+
             admin_button = discord.ui.Button(
                 label="Asignaciones",
                 emoji="👥",
@@ -326,23 +350,36 @@ def build_market_view():
         async def _fixed_mi_club(self, interaction):
             team = club_de(interaction.user.id)
             if not team:
-                await interaction.response.send_message(embed=welcome_embed(), view=TeamChoiceView(), ephemeral=True)
+                await interaction.response.send_message(
+                    embed=welcome_embed(),
+                    view=TeamChoiceView(),
+                    ephemeral=True,
+                )
                 return
-            await interaction.response.send_message(embed=APP.plantel_embed(team), ephemeral=True)
+            await interaction.response.send_message(
+                embed=APP.plantel_embed(team),
+                ephemeral=True,
+            )
 
         async def _fixed_publicar(self, interaction):
             team = club_de(interaction.user.id)
             if not team:
-                await interaction.response.send_message(embed=welcome_embed(), view=TeamChoiceView(), ephemeral=True)
+                await interaction.response.send_message(
+                    embed=welcome_embed(),
+                    view=TeamChoiceView(),
+                    ephemeral=True,
+                )
                 return
+
             jugadores = [
-                j for j in APP.jugadores_de_club(team, 50)
+                j
+                for j in APP.jugadores_de_club(team, 50)
                 if not APP.publicacion_activa_del_jugador(j["name"])
                 and not APP.operacion_abierta_del_jugador(j["name"])
             ]
             if not jugadores:
                 await interaction.response.send_message(
-                    "⚠️ No tenés jugadores disponibles para publicar. Puede que la plantilla todavía no esté cargada.",
+                    "⚠️ No tenés jugadores disponibles para publicar.",
                     ephemeral=True,
                 )
                 return
@@ -354,11 +391,16 @@ def build_market_view():
 
         async def _assignments(self, interaction):
             if not APP.es_admin(interaction):
-                await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
+                await interaction.response.send_message(
+                    "⛔ Solo administradores.",
+                    ephemeral=True,
+                )
                 return
             rows = assignments()
             await interaction.response.send_message(
-                embed=assignments_embed(), view=AssignmentsView(rows), ephemeral=True
+                embed=assignments_embed(),
+                view=AssignmentsView(rows),
+                ephemeral=True,
             )
 
     PatchedMercadoView.__name__ = "MercadoView"
@@ -367,10 +409,15 @@ def build_market_view():
 
 async def mercado_command(interaction: discord.Interaction):
     if not club_de(interaction.user.id):
-        await interaction.response.send_message(embed=welcome_embed(), view=TeamChoiceView(), ephemeral=True)
+        await interaction.response.send_message(
+            embed=welcome_embed(),
+            view=TeamChoiceView(),
+            ephemeral=True,
+        )
         return
     await interaction.response.send_message(
-        embed=APP.panel_embed(interaction.user.id), view=APP.MercadoView()
+        embed=APP.panel_embed(interaction.user.id),
+        view=APP.MercadoView(),
     )
 
 
@@ -379,7 +426,11 @@ async def assignments_command(interaction: discord.Interaction):
         await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
         return
     rows = assignments()
-    await interaction.response.send_message(embed=assignments_embed(), view=AssignmentsView(rows), ephemeral=True)
+    await interaction.response.send_message(
+        embed=assignments_embed(),
+        view=AssignmentsView(rows),
+        ephemeral=True,
+    )
 
 
 async def unlink_command(interaction: discord.Interaction, usuario: discord.Member):
@@ -388,7 +439,10 @@ async def unlink_command(interaction: discord.Interaction, usuario: discord.Memb
         return
     team = club_de(usuario.id)
     if not team:
-        await interaction.response.send_message(f"⚠️ {usuario.mention} no tiene un equipo asignado.", ephemeral=True)
+        await interaction.response.send_message(
+            f"⚠️ {usuario.mention} no tiene un equipo asignado.",
+            ephemeral=True,
+        )
         return
     await interaction.response.send_message(
         embed=discord.Embed(
@@ -407,22 +461,30 @@ def apply_team_assignment_patch(main_module, bot):
     global APP
     if getattr(bot, "_ajap_fixed_team_patch", False):
         return
+
     APP = main_module
     ensure_schema()
 
-    # Make every existing market function use only the fixed league assignments.
     main_module.club_de = club_de
     main_module.MercadoView = build_market_view()
 
-    # Unassigned players now see the 24-team selector as the first screen.
     bot.tree.remove_command("mercado")
-    bot.tree.command(name="mercado", description="Abre AJAP Transfer Market")(mercado_command)
+    bot.tree.command(
+        name="mercado",
+        description="Abre AJAP Transfer Market",
+    )(mercado_command)
 
-    # Admin correction tools.
     if bot.tree.get_command("asignaciones") is None:
-        bot.tree.command(name="asignaciones", description="Gestiona equipos asignados (solo admin)")(assignments_command)
+        bot.tree.command(
+            name="asignaciones",
+            description="Gestiona equipos asignados (solo admin)",
+        )(assignments_command)
+
     if bot.tree.get_command("desvincular_equipo") is None:
-        bot.tree.command(name="desvincular_equipo", description="Revierte un equipo mal elegido (solo admin)")(unlink_command)
+        bot.tree.command(
+            name="desvincular_equipo",
+            description="Revierte un equipo mal elegido (solo admin)",
+        )(unlink_command)
 
     bot._ajap_fixed_team_patch = True
-    print("Asignación fija AJAP activa: 24 equipos oficiales")
+    print("Modo prueba AJAP activo: solo Olympique de Lyon")
