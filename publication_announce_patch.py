@@ -95,7 +95,16 @@ async def _send_public_announcement(interaction: discord.Interaction, publicatio
     if channel is None or not hasattr(channel, "send"):
         return False
     try:
-        await channel.send(embed=publication_embed(publication))
+        await channel.send(
+            content="@everyone",
+            embed=publication_embed(publication),
+            allowed_mentions=discord.AllowedMentions(
+                everyone=True,
+                users=False,
+                roles=False,
+                replied_user=False,
+            ),
+        )
         return True
     except (discord.Forbidden, discord.HTTPException) as exc:
         print(f"WARNING AJAP: anuncio publicación #{publication['id']} falló: {exc}")
@@ -133,4 +142,4 @@ def apply_publication_announce_patch(runtime):
     runtime.PublicarJugadorModal = lyon.RatedPublicarJugadorModal
 
     runtime._ajap_publication_announce_patch = True
-    print("AJAP anuncios de transferibles activos: club + jugador + precio + mínimo")
+    print("AJAP anuncios de transferibles activos: @everyone + club + jugador + precio + mínimo")
