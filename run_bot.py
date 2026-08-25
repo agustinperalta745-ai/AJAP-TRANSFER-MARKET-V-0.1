@@ -21,6 +21,7 @@ from market_close_report_patch import apply_market_close_report_patch
 from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
 from clausulazo_announce_patch import apply_clausulazo_announce_patch
+from clausulazo_club_protection_patch import apply_clausulazo_club_protection_patch
 from budget_patch import apply_budget_patch
 
 
@@ -70,6 +71,7 @@ apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
 apply_clausulazo_announce_patch(runtime)
+apply_clausulazo_club_protection_patch(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -87,5 +89,6 @@ print(
     + " • reporte de cierre Staff activo"
     + " • clausulazo Staff activo"
     + " • clausulazo DM + anuncio público activo"
+    + " • protección doble jugador + club activa"
 )
 runtime.bot.run(runtime.TOKEN)
