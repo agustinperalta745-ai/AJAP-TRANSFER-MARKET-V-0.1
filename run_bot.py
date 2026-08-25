@@ -25,6 +25,7 @@ from clausulazo_announce_patch import apply_clausulazo_announce_patch
 from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
+from market_persistence_patch import apply_market_persistence_patch
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -78,6 +79,9 @@ apply_clausulazo_announce_patch(runtime)
 apply_navigation_patch(runtime)
 # Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
 apply_admin_finance_patch(runtime)
+# Última capa del panel: el estado del mercado se lee/escribe siempre desde SQLite.
+# Así conserva ABIERTO/CERRADO aunque se cierre Discord o Railway reinicie/redeploye.
+apply_market_persistence_patch(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -98,5 +102,6 @@ print(
     + " • protección doble jugador + club activa"
     + " • navegación interna activa"
     + " • ajustes de dinero admin activos"
+    + " • mercado abrir/cerrar persistente"
 )
 runtime.bot.run(runtime.TOKEN)
