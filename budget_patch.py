@@ -1,12 +1,15 @@
 """Persistent club budget support for AJAP Transfer Market.
 
-For the current Lyon pilot, apply a one-time $100,000,000 balance. The seed is
-recorded in SQLite so normal bot/Railway restarts never reset later changes.
+For the current Lyon pilot, apply the initial $100,000,000 balance once and a
+separate one-time +$100,000,000 test bonus requested afterwards. Both actions
+are recorded in SQLite so normal bot/Railway restarts never repeat them.
 """
 
 LYON = "Olympique de Lyon"
 LYON_TEST_BUDGET = 100_000_000
 SEED_KEY = "lyon_budget_100m_v1"
+LYON_BONUS = 100_000_000
+BONUS_SEED_KEY = "lyon_budget_bonus_100m_v2"
 
 
 def fmt_money(value: int) -> str:
@@ -55,6 +58,32 @@ def seed_lyon_budget_once(app):
         return True
 
 
+def add_lyon_bonus_once(app):
+    """Add +$100M to Lyon once without resetting its current balance."""
+    with app.db() as conn:
+        applied = conn.execute(
+            "SELECT 1 FROM seed_state WHERE key = ?",
+            (BONUS_SEED_KEY,),
+        ).fetchone()
+        if applied:
+            return False
+
+        conn.execute(
+            "INSERT OR IGNORE INTO club_finances (club, balance) VALUES (?, 0)",
+            (LYON,),
+        )
+        conn.execute(
+            """
+            UPDATE club_finances
+            SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP
+            WHERE club = ? COLLATE NOCASE
+            """,
+            (LYON_BONUS, LYON),
+        )
+        conn.execute("INSERT INTO seed_state (key) VALUES (?)", (BONUS_SEED_KEY,))
+        return True
+
+
 def club_balance(app, club: str):
     if not club:
         return None
@@ -71,7 +100,8 @@ def apply_budget_patch(app):
         return False
 
     ensure_budget_schema(app)
-    seeded = seed_lyon_budget_once(app)
+    initial_seeded = seed_lyon_budget_once(app)
+    bonus_seeded = add_lyon_bonus_once(app)
 
     app.club_balance = lambda club: club_balance(app, club)
     app.fmt_budget = fmt_money
@@ -92,4 +122,4 @@ def apply_budget_patch(app):
 
     app.panel_embed = panel_embed_with_budget
     app._ajap_budget_patch = True
-    return seeded
+    return bool(initial_seeded or bonus_seeded)
