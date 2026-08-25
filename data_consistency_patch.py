@@ -1,10 +1,10 @@
 """Data consistency hardening for AJAP Transfer Market.
 
-The bot is heavily UI-driven and every button must reflect the same persistent
-SQLite state. This patch:
+Every menu button must reflect the same persistent SQLite state. This patch:
 - opens every SQLite connection with a generous busy timeout;
-- enables WAL once at startup for safer concurrent reads/writes;
+- enables WAL when the Railway volume supports it;
 - retries the main list reads before showing a false empty result;
+- retries short SQLite lock/contention windows instead of surfacing bad UI;
 - gives Mis ofertas the same guarded read behavior;
 - logs Railway service/deployment + DB counts so duplicate bot services can be
   identified immediately from logs.
@@ -13,6 +13,7 @@ SQLite state. This patch:
 import asyncio
 import os
 import sqlite3
+import time
 
 import discord
 
@@ -36,13 +37,17 @@ def _install_connection(runtime):
     global _ORIGINAL_DB
     _ORIGINAL_DB = runtime.db
 
-    # Configure the persistent DB once. WAL keeps readers from being needlessly
-    # blocked by short writes and is persistent for the database file.
+    # Configure the persistent DB once. WAL prevents short writes from blocking
+    # readers. If the filesystem does not support it, keep the normal journal
+    # mode and continue: consistency protection must never stop the bot booting.
     conn = _connect(runtime)
     try:
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
-        conn.execute("PRAGMA wal_autocheckpoint = 1000")
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA synchronous = NORMAL")
+            conn.execute("PRAGMA wal_autocheckpoint = 1000")
+        except sqlite3.Error as exc:
+            print(f"WARNING AJAP: WAL no disponible, se usa journal SQLite normal: {exc}")
     finally:
         conn.close()
 
@@ -50,15 +55,25 @@ def _install_connection(runtime):
 
 
 def _read_rows(runtime, sql, args=(), attempts=3):
-    """Return the first non-empty result, retrying a genuinely empty snapshot."""
+    """Return a stable result, retrying empty snapshots and short lock windows."""
     best = []
-    for _ in range(max(1, attempts)):
-        with runtime.db() as conn:
-            rows = conn.execute(sql, args).fetchall()
-        if len(rows) > len(best):
-            best = rows
-        if rows:
-            return rows
+    last_error = None
+    for attempt in range(max(1, attempts)):
+        try:
+            with runtime.db() as conn:
+                rows = conn.execute(sql, args).fetchall()
+            if len(rows) > len(best):
+                best = rows
+            if rows:
+                return rows
+            last_error = None
+        except sqlite3.OperationalError as exc:
+            last_error = exc
+        if attempt < attempts - 1:
+            time.sleep(0.05)
+
+    if last_error is not None:
+        raise last_error
     return best
 
 
@@ -107,24 +122,35 @@ def _patch_main_readers(runtime):
 async def _read_user_offers(runtime, user_id):
     best_own = []
     best_pending = []
+    last_error = None
+
     for attempt in range(3):
-        with runtime.db() as conn:
-            own = conn.execute(
-                "SELECT * FROM offers WHERE from_id = ? OR to_id = ? ORDER BY id DESC LIMIT 15",
-                (user_id, user_id),
-            ).fetchall()
-            pending = conn.execute(
-                "SELECT * FROM offers WHERE to_id = ? AND status = 'PENDIENTE' ORDER BY id DESC LIMIT 25",
-                (user_id,),
-            ).fetchall()
-        if len(own) > len(best_own):
-            best_own = own
-        if len(pending) > len(best_pending):
-            best_pending = pending
-        if own or pending:
-            return own, pending
+        try:
+            with runtime.db() as conn:
+                own = conn.execute(
+                    "SELECT * FROM offers WHERE from_id = ? OR to_id = ? ORDER BY id DESC LIMIT 15",
+                    (user_id, user_id),
+                ).fetchall()
+                pending = conn.execute(
+                    "SELECT * FROM offers WHERE to_id = ? AND status = 'PENDIENTE' ORDER BY id DESC LIMIT 25",
+                    (user_id,),
+                ).fetchall()
+
+            if len(own) > len(best_own):
+                best_own = own
+            if len(pending) > len(best_pending):
+                best_pending = pending
+            if own or pending:
+                return own, pending
+            last_error = None
+        except sqlite3.OperationalError as exc:
+            last_error = exc
+
         if attempt < 2:
             await asyncio.sleep(0.06)
+
+    if last_error is not None:
+        raise last_error
     return best_own, best_pending
 
 
