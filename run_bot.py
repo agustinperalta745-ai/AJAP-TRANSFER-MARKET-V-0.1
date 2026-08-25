@@ -1,29 +1,28 @@
 """Arranque explícito y determinista de AJAP Transfer Market en Railway.
 
-Carga bot.py sin iniciar Discord, aplica primero las capas de asignación de club
-y plantilla de Lyon, y recién después conecta el bot. De esta forma la interfaz
-vieja de "Registrar / actualizar club" no puede arrancar antes del parche.
+Carga el núcleo del bot sin iniciar Discord, aplica primero las capas de
+asignación de club y plantilla de Lyon, y recién después conecta el bot.
 """
 
 import sys
 from pathlib import Path
 from types import ModuleType
 
-# Configura DB_PATH sobre el volumen de Railway antes de cargar bot.py.
+# Configura DB_PATH sobre el volumen de Railway antes de cargar el núcleo.
 import sitecustomize  # noqa: F401
 
 from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
 
 
-BOT_PATH = Path(__file__).with_name("bot.py")
+BOT_PATH = Path(__file__).with_name("bot_core.py")
 source = BOT_PATH.read_text(encoding="utf-8")
 
-# bot.py termina iniciando Discord. Lo quitamos temporalmente para poder aplicar
-# la interfaz nueva ANTES de que Discord registre comandos y vistas persistentes.
+# El núcleo termina iniciando Discord. Lo quitamos temporalmente para poder
+# aplicar la interfaz nueva ANTES de que Discord registre comandos y vistas.
 run_line = "\nbot.run(TOKEN)"
 if run_line not in source:
-    raise RuntimeError("No se encontró la línea de arranque bot.run(TOKEN) en bot.py")
+    raise RuntimeError("No se encontró la línea de arranque bot.run(TOKEN) en bot_core.py")
 source = source.rsplit(run_line, 1)[0] + "\n"
 
 runtime = ModuleType("ajap_bot_runtime")
@@ -33,8 +32,7 @@ sys.modules[runtime.__name__] = runtime
 
 exec(compile(source, str(BOT_PATH), "exec"), runtime.__dict__)
 
-# Orden obligatorio: primero reemplazamos el registro manual de club por el
-# selector de equipos; después cargamos la plantilla/OVR/precios de Lyon.
+# Orden obligatorio: selector de equipo primero; plantilla/OVR/precios después.
 apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 
