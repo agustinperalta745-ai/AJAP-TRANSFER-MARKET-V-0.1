@@ -6,6 +6,8 @@ Every menu button must reflect the same persistent SQLite state. This patch:
 - retries the main list reads before showing a false empty result;
 - retries short SQLite lock/contention windows instead of surfacing bad UI;
 - gives Mis ofertas the same guarded read behavior;
+- resolves actionable negotiations by decision_user_id (not only seller/to_id),
+  so counteroffers can be accepted/rejected/countered by either side;
 - logs Railway service/deployment + DB counts so duplicate bot services can be
   identified immediately from logs.
 """
@@ -120,28 +122,43 @@ def _patch_main_readers(runtime):
 
 
 async def _read_user_offers(runtime, user_id):
+    """Read history + negotiations whose response turn belongs to this user.
+
+    Initial offers normally have decision_user_id=to_id. After every
+    counteroffer, negotiation_picker_patch flips decision_user_id to the other
+    participant. Using only to_id here made buyer-side counteroffers visible in
+    history but impossible to act on from Mis ofertas.
+    """
     best_own = []
-    best_pending = []
+    best_actionable = []
     last_error = None
 
     for attempt in range(3):
         try:
             with runtime.db() as conn:
                 own = conn.execute(
-                    "SELECT * FROM offers WHERE from_id = ? OR to_id = ? ORDER BY id DESC LIMIT 15",
+                    "SELECT * FROM offers WHERE from_id = ? OR to_id = ? ORDER BY id DESC LIMIT 25",
                     (user_id, user_id),
                 ).fetchall()
-                pending = conn.execute(
-                    "SELECT * FROM offers WHERE to_id = ? AND status = 'PENDIENTE' ORDER BY id DESC LIMIT 25",
-                    (user_id,),
+                actionable = conn.execute(
+                    """
+                    SELECT * FROM offers
+                    WHERE status = 'PENDIENTE'
+                      AND (
+                        decision_user_id = ?
+                        OR (decision_user_id IS NULL AND to_id = ?)
+                      )
+                    ORDER BY id DESC LIMIT 25
+                    """,
+                    (user_id, user_id),
                 ).fetchall()
 
             if len(own) > len(best_own):
                 best_own = own
-            if len(pending) > len(best_pending):
-                best_pending = pending
-            if own or pending:
-                return own, pending
+            if len(actionable) > len(best_actionable):
+                best_actionable = actionable
+            if own or actionable:
+                return own, actionable
             last_error = None
         except sqlite3.OperationalError as exc:
             last_error = exc
@@ -151,16 +168,23 @@ async def _read_user_offers(runtime, user_id):
 
     if last_error is not None:
         raise last_error
-    return best_own, best_pending
+    return best_own, best_actionable
 
 
-def _offers_embed(offers, user_id):
+def _offers_embed(offers, user_id, actionable=None):
+    actionable = actionable or []
     embed = discord.Embed(title="💰 Mis ofertas")
     if not offers:
         embed.description = "Todavía no tenés ofertas enviadas ni recibidas."
         return embed
 
-    for offer in offers:
+    if actionable:
+        embed.description = (
+            f"🔔 Tenés **{len(actionable)} negociación(es)** esperando tu respuesta."
+        )
+
+    actionable_ids = {int(row["id"]) for row in actionable}
+    for offer in offers[:15]:
         sent = int(offer["from_id"]) == int(user_id)
         direction = "📤 Enviada" if sent else "📥 Recibida"
         icon = {
@@ -170,15 +194,27 @@ def _offers_embed(offers, user_id):
             "CANCELADA": "⚫",
             "CANCELADA_ADMIN": "⛔",
         }.get(offer["status"], "⚪")
+        turn = "\n👉 **TU TURNO DE RESPONDER**" if int(offer["id"]) in actionable_ids else ""
         embed.add_field(
             name=f"{direction} • #{offer['id']} • {offer['player']}",
             value=(
                 f"🔁 {offer['operation_type']} • 💵 **{offer['amount']}**\n"
-                f"{icon} {offer['status']}"
+                f"{icon} {offer['status']}{turn}"
             ),
             inline=False,
         )
     return embed
+
+
+def _history_or_action_view(runtime, own, actionable):
+    """Prefer direct buttons when there is exactly one response to make."""
+    if len(actionable) == 1:
+        return runtime.OfertaDecisionView(int(actionable[0]["id"]))
+
+    # With several pending decisions the negotiation selector lets the manager
+    # choose which one to answer. With none pending it still serves as history.
+    selectable = actionable if actionable else own
+    return runtime.OfertasView(selectable) if selectable else None
 
 
 def _patch_market_view(runtime):
@@ -192,10 +228,10 @@ def _patch_market_view(runtime):
                     item.callback = self._consistent_offers
 
         async def _consistent_offers(self, interaction: discord.Interaction):
-            own, pending = await _read_user_offers(runtime, interaction.user.id)
+            own, actionable = await _read_user_offers(runtime, interaction.user.id)
             await interaction.response.send_message(
-                embed=_offers_embed(own, interaction.user.id),
-                view=runtime.OfertasView(pending),
+                embed=_offers_embed(own, interaction.user.id, actionable),
+                view=_history_or_action_view(runtime, own, actionable),
                 ephemeral=True,
             )
 
