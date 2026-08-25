@@ -68,6 +68,15 @@ def init_db():
                 offer_id INTEGER NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS market_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                is_open INTEGER NOT NULL DEFAULT 0,
+                updated_by INTEGER,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+
+            INSERT OR IGNORE INTO market_state (id, is_open) VALUES (1, 0);
             """
         )
 
@@ -88,6 +97,32 @@ def club_de(user_id: int):
     with db() as conn:
         row = conn.execute("SELECT name FROM clubs WHERE user_id = ?", (user_id,)).fetchone()
     return row["name"] if row else None
+
+
+def mercado_abierto() -> bool:
+    with db() as conn:
+        row = conn.execute("SELECT is_open FROM market_state WHERE id = 1").fetchone()
+    return bool(row and row["is_open"])
+
+
+def cambiar_estado_mercado(abierto: bool, admin_id: int):
+    with db() as conn:
+        conn.execute(
+            """
+            UPDATE market_state
+            SET is_open = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1
+            """,
+            (1 if abierto else 0, admin_id),
+        )
+
+
+def es_admin(interaction: discord.Interaction) -> bool:
+    return bool(
+        interaction.guild
+        and isinstance(interaction.user, discord.Member)
+        and interaction.user.guild_permissions.administrator
+    )
 
 
 def publicaciones_activas(limit=25):
@@ -162,7 +197,10 @@ def publicaciones_embed(publicaciones, titulo="📋 Jugadores transferibles", de
             inline=False,
         )
 
-    embed.set_footer(text="Seleccioná un jugador abajo para enviar una oferta")
+    if mercado_abierto():
+        embed.set_footer(text="Mercado abierto • Seleccioná un jugador abajo para enviar una oferta")
+    else:
+        embed.set_footer(text="Mercado cerrado • Podés consultar jugadores, pero todavía no ofertar")
     return embed
 
 
@@ -255,7 +293,7 @@ class PublicarJugadorModal(discord.ui.Modal, title="Publicar jugador"):
         embed.add_field(name="Club", value=club, inline=True)
         embed.add_field(name="Precio", value=precio, inline=True)
         embed.add_field(name="Detalle", value=detalle, inline=False)
-        embed.set_footer(text=f"Publicación #{pub_id}")
+        embed.set_footer(text=f"Publicación #{pub_id} • Se puede publicar aunque el mercado esté cerrado")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -279,6 +317,13 @@ class OfertaModal(discord.ui.Modal):
         self.add_item(self.mensaje)
 
     async def on_submit(self, interaction: discord.Interaction):
+        if not mercado_abierto():
+            await interaction.response.send_message(
+                "🔒 El mercado está cerrado. Podés consultar y publicar jugadores, pero las ofertas se habilitan cuando un administrador abra el mercado.",
+                ephemeral=True,
+            )
+            return
+
         pub = publicacion_por_id(self.publicacion_id)
         if not pub:
             await interaction.response.send_message(
@@ -345,6 +390,13 @@ class TransferiblesSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
+        if not mercado_abierto():
+            await interaction.response.send_message(
+                "🔒 El mercado todavía está cerrado. Podés ver los transferibles, pero no enviar ofertas hasta que un administrador lo abra.",
+                ephemeral=True,
+            )
+            return
+
         pub = publicacion_por_id(int(self.values[0]))
         if not pub:
             await interaction.response.send_message(
@@ -434,6 +486,13 @@ class OfertaDecisionView(discord.ui.View):
 
     @discord.ui.button(label="Aceptar", emoji="✅", style=discord.ButtonStyle.success)
     async def aceptar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not mercado_abierto():
+            await interaction.response.send_message(
+                "🔒 El mercado está cerrado. Las ofertas pendientes quedan congeladas hasta la próxima apertura.",
+                ephemeral=True,
+            )
+            return
+
         oferta = oferta_por_id(self.oferta_id)
         if not oferta or interaction.user.id != oferta["to_id"]:
             await interaction.response.send_message("No podés gestionar esta oferta.", ephemeral=True)
@@ -480,6 +539,13 @@ class OfertaDecisionView(discord.ui.View):
 
     @discord.ui.button(label="Rechazar", emoji="❌", style=discord.ButtonStyle.danger)
     async def rechazar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not mercado_abierto():
+            await interaction.response.send_message(
+                "🔒 El mercado está cerrado. Las ofertas pendientes quedan congeladas hasta la próxima apertura.",
+                ephemeral=True,
+            )
+            return
+
         oferta = oferta_por_id(self.oferta_id)
         if not oferta or interaction.user.id != oferta["to_id"]:
             await interaction.response.send_message("No podés gestionar esta oferta.", ephemeral=True)
@@ -531,6 +597,14 @@ class OfertasSelect(discord.ui.Select):
         embed.add_field(name="Monto", value=oferta["amount"], inline=True)
         embed.add_field(name="Estado", value=oferta["status"], inline=True)
         embed.add_field(name="Condiciones", value=oferta["message"], inline=False)
+
+        if oferta["status"] == "PENDIENTE" and not mercado_abierto():
+            embed.add_field(
+                name="🔒 Mercado cerrado",
+                value="La oferta queda congelada. Se podrá aceptar o rechazar cuando un administrador vuelva a abrir el mercado.",
+                inline=False,
+            )
+
         await interaction.response.send_message(
             embed=embed,
             view=OfertaDecisionView(oferta["id"]) if oferta["status"] == "PENDIENTE" else None,
@@ -584,9 +658,10 @@ class MercadoView(discord.ui.View):
                 (interaction.user.id,),
             ).fetchall()
 
-        embed = discord.Embed(title="💰 Mis ofertas", description="Ofertas enviadas y recibidas.")
+        estado = "🟢 Mercado abierto" if mercado_abierto() else "🔒 Mercado cerrado"
+        embed = discord.Embed(title="💰 Mis ofertas", description=f"Ofertas enviadas y recibidas.\n{estado}")
         if not propias:
-            embed.description = "Todavía no tenés ofertas enviadas ni recibidas."
+            embed.description = f"Todavía no tenés ofertas enviadas ni recibidas.\n{estado}"
         else:
             for oferta in propias:
                 enviada = oferta["from_id"] == interaction.user.id
@@ -637,21 +712,72 @@ async def club(interaction: discord.Interaction):
 @bot.tree.command(name="mercado", description="Abre AJAP Transfer Market")
 async def mercado(interaction: discord.Interaction):
     club = club_de(interaction.user.id)
+    abierto = mercado_abierto()
     embed = discord.Embed(
         title="⚽ AJAP TRANSFER MARKET v0.1",
         description=(
             "**Centro de operaciones del mercado de fichajes**\n\n"
-            "Desde este panel los clubes pueden publicar jugadores, consultar transferibles "
-            "y enviar ofertas dentro de Discord.\n\n"
+            "Los clubes pueden publicar y consultar jugadores durante toda la temporada. "
+            "Las negociaciones solo se habilitan cuando un administrador abre oficialmente el mercado.\n\n"
             "Seleccioná una opción para continuar."
         ),
     )
-    embed.add_field(name="🟢 Mercado", value="ABIERTO", inline=True)
+    embed.add_field(name="🟢 Mercado" if abierto else "🔒 Mercado", value="ABIERTO" if abierto else "CERRADO", inline=True)
     embed.add_field(name="⚙️ Sistema", value="Beta v0.1", inline=True)
     embed.add_field(name="🏟️ Tu club", value=club or "No registrado", inline=False)
-    embed.add_field(name="🤝 Negociaciones", value="Habilitadas", inline=False)
+    embed.add_field(name="🤝 Negociaciones", value="Habilitadas" if abierto else "Bloqueadas", inline=False)
+    embed.add_field(name="📤 Publicaciones", value="Habilitadas siempre", inline=False)
     embed.set_footer(text="AJAP Transfer Market • PES 6")
     await interaction.response.send_message(embed=embed, view=MercadoView())
+
+
+@bot.tree.command(name="abrir_mercado", description="Abre oficialmente la ventana de transferencias")
+async def abrir_mercado(interaction: discord.Interaction):
+    if not es_admin(interaction):
+        await interaction.response.send_message(
+            "⛔ Solo un administrador del servidor puede abrir el mercado.", ephemeral=True
+        )
+        return
+
+    if mercado_abierto():
+        await interaction.response.send_message("🟢 El mercado ya está abierto.", ephemeral=True)
+        return
+
+    cambiar_estado_mercado(True, interaction.user.id)
+    embed = discord.Embed(
+        title="🟢 MERCADO DE TRANSFERENCIAS ABIERTO",
+        description=(
+            "La administración abrió oficialmente la ventana de transferencias.\n\n"
+            "Desde este momento los clubes pueden **enviar, aceptar y rechazar ofertas** por los jugadores publicados."
+        ),
+    )
+    embed.set_footer(text="AJAP Transfer Market • Ventana de transferencias activa")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="cerrar_mercado", description="Cierra oficialmente la ventana de transferencias")
+async def cerrar_mercado(interaction: discord.Interaction):
+    if not es_admin(interaction):
+        await interaction.response.send_message(
+            "⛔ Solo un administrador del servidor puede cerrar el mercado.", ephemeral=True
+        )
+        return
+
+    if not mercado_abierto():
+        await interaction.response.send_message("🔒 El mercado ya está cerrado.", ephemeral=True)
+        return
+
+    cambiar_estado_mercado(False, interaction.user.id)
+    embed = discord.Embed(
+        title="🔒 MERCADO DE TRANSFERENCIAS CERRADO",
+        description=(
+            "La administración cerró oficialmente la ventana de transferencias.\n\n"
+            "Los clubes pueden seguir **publicando y consultando jugadores**, pero no podrán enviar, aceptar ni rechazar ofertas hasta la próxima apertura.\n"
+            "Las ofertas pendientes quedan congeladas y no se eliminan."
+        ),
+    )
+    embed.set_footer(text="AJAP Transfer Market • Negociaciones pausadas")
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(name="transferencias", description="Muestra las últimas transferencias confirmadas")
