@@ -1,15 +1,20 @@
 """Import the original PES 6 player database into AJAP.
 
-This module is deliberately data-source agnostic: it accepts the historical
-PES/WE spreadsheets as CSV, XLSX or XLS and imports ONLY players that already
-exist in AJAP's roster_players table. Fine-grained PES 6 attributes are never
-inferred from AJAP OVR.
+The importer accepts the historical PES/WE spreadsheets as CSV, XLSX or XLS and
+imports ONLY players that already exist in AJAP's roster_players table. Fine-
+grained PES 6 attributes are never inferred from AJAP OVR.
 
-Preferred data locations:
+Preferred local data locations:
   data/pes6_original_stats.csv
   data/pes6_original_stats.xlsx
   data/pes6_original_stats.xls
 or set PES6_STATS_FILE to a file/directory path.
+
+If no local dataset exists, Railway makes one best-effort download of the
+historical spreadsheet collection shared by Flipper the Priest on Evo-Web:
+Google Drive file id 1BBkDJ_o4QD4ADvPEJVUOHtC-ZToVCX61. The archive is cached
+beside the persistent SQLite database when possible. Any download/import error
+is non-fatal: the Discord bot must still start.
 """
 
 from __future__ import annotations
@@ -18,36 +23,20 @@ import csv
 import os
 import re
 import unicodedata
+import zipfile
 from pathlib import Path
 
 
+GOOGLE_DRIVE_FILE_ID = "1BBkDJ_o4QD4ADvPEJVUOHtC-ZToVCX61"
+AUTO_DOWNLOAD_ENV = "PES6_STATS_AUTO_DOWNLOAD"
+
 STAT_COLUMNS = (
-    "attack",
-    "defence",
-    "body_balance",
-    "stamina",
-    "top_speed",
-    "acceleration",
-    "response",
-    "agility",
-    "dribble_accuracy",
-    "dribble_speed",
-    "short_pass_accuracy",
-    "short_pass_speed",
-    "long_pass_accuracy",
-    "long_pass_speed",
-    "shot_accuracy",
-    "shot_power",
-    "shot_technique",
-    "free_kick_accuracy",
-    "curling",
-    "header",
-    "jump",
-    "technique",
-    "aggression",
-    "mentality",
-    "gk_skills",
-    "teamwork",
+    "attack", "defence", "body_balance", "stamina", "top_speed",
+    "acceleration", "response", "agility", "dribble_accuracy",
+    "dribble_speed", "short_pass_accuracy", "short_pass_speed",
+    "long_pass_accuracy", "long_pass_speed", "shot_accuracy", "shot_power",
+    "shot_technique", "free_kick_accuracy", "curling", "header", "jump",
+    "technique", "aggression", "mentality", "gk_skills", "teamwork",
 )
 
 
@@ -58,10 +47,13 @@ def _key(value) -> str:
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _is_pes6_label(value) -> bool:
+    key = _key(value)
+    return any(marker in key for marker in ("pes6", "proevolutionsoccer6"))
+
+
 HEADER_ALIASES = {
-    "name": (
-        "name", "player", "playername", "player name", "nome", "spieler",
-    ),
+    "name": ("name", "player", "playername", "player name", "nome", "spieler"),
     "attack": ("attack", "att", "offence", "offense"),
     "defence": ("defence", "defense", "def", "df"),
     "body_balance": ("body balance", "bodybalance", "balance", "bal"),
@@ -96,8 +88,6 @@ _ALIAS_LOOKUP = {
     for alias in aliases
 }
 
-# Only use aliases when the original PES/WE spelling is known to differ from the
-# AJAP display name. Dynamic matching below handles most surname-only entries.
 PLAYER_ALIASES = {
     "riquelme": "Juan Román Riquelme",
     "juninho": "Juninho Pernambucano",
@@ -156,9 +146,10 @@ def _read_xlsx(path: Path):
     from openpyxl import load_workbook
 
     workbook = load_workbook(path, read_only=True, data_only=True)
-    result = []
-    for sheet in workbook.worksheets:
-        result.append((sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)]))
+    result = [
+        (sheet.title, [list(row) for row in sheet.iter_rows(values_only=True)])
+        for sheet in workbook.worksheets
+    ]
     workbook.close()
     return result
 
@@ -173,6 +164,77 @@ def _read_xls(path: Path):
     ]
 
 
+def _persistent_cache_dir(base_dir: Path):
+    configured = os.getenv("PES6_STATS_CACHE_DIR", "").strip()
+    if configured:
+        path = Path(configured)
+        return path if path.is_absolute() else base_dir / path
+
+    db_path = os.getenv("DB_PATH", "").strip()
+    if db_path:
+        return Path(db_path).expanduser().resolve().parent / "pes6_stats_source"
+    return base_dir / "data" / "pes6_stats_source"
+
+
+def _spreadsheet_files(folder: Path):
+    if not folder.exists():
+        return []
+    return [
+        p for p in folder.rglob("*")
+        if p.is_file() and p.suffix.casefold() in (".csv", ".xlsx", ".xls")
+    ]
+
+
+def _safe_extract_zip(archive: Path, destination: Path):
+    destination = destination.resolve()
+    with zipfile.ZipFile(archive) as zf:
+        for member in zf.infolist():
+            target = (destination / member.filename).resolve()
+            if destination not in target.parents and target != destination:
+                raise ValueError("ZIP contiene una ruta insegura")
+        zf.extractall(destination)
+
+
+def _auto_download_collection(base_dir: Path):
+    enabled = os.getenv(AUTO_DOWNLOAD_ENV, "1").strip().casefold()
+    if enabled in ("0", "false", "no", "off"):
+        return []
+
+    cache = _persistent_cache_dir(base_dir)
+    extracted = cache / "extracted"
+    existing = _spreadsheet_files(extracted)
+    if existing:
+        return existing
+
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        archive = cache / "pes_we_stats_spreadsheets.zip"
+        if not archive.exists() or archive.stat().st_size == 0:
+            import gdown
+
+            print("AJAP PES6 importer: descargando colección histórica desde Google Drive...")
+            result = gdown.download(
+                id=GOOGLE_DRIVE_FILE_ID,
+                output=str(archive),
+                quiet=True,
+                fuzzy=True,
+            )
+            if not result or not archive.exists() or archive.stat().st_size == 0:
+                raise RuntimeError("Google Drive no entregó el archivo")
+
+        if not zipfile.is_zipfile(archive):
+            raise RuntimeError("El archivo descargado no es un ZIP válido")
+
+        extracted.mkdir(parents=True, exist_ok=True)
+        _safe_extract_zip(archive, extracted)
+        files = _spreadsheet_files(extracted)
+        print(f"AJAP PES6 importer: colección extraída ({len(files)} spreadsheet(s))")
+        return files
+    except Exception as exc:
+        print(f"WARNING AJAP PES6 importer: descarga automática omitida: {exc}")
+        return []
+
+
 def _sources(base_dir: Path):
     configured = os.getenv("PES6_STATS_FILE", "").strip()
     candidates = []
@@ -181,29 +243,21 @@ def _sources(base_dir: Path):
         if not target.is_absolute():
             target = base_dir / target
         if target.is_dir():
-            candidates.extend(
-                p for p in target.rglob("*") if p.suffix.casefold() in (".csv", ".xlsx", ".xls")
-            )
+            candidates.extend(_spreadsheet_files(target))
         elif target.exists():
             candidates.append(target)
 
     data_dir = base_dir / "data"
-    for name in (
-        "pes6_original_stats.csv",
-        "pes6_original_stats.xlsx",
-        "pes6_original_stats.xls",
-    ):
+    for name in ("pes6_original_stats.csv", "pes6_original_stats.xlsx", "pes6_original_stats.xls"):
         path = data_dir / name
         if path.exists():
             candidates.append(path)
 
     collection = data_dir / "pes_we_stats_spreadsheets"
-    if collection.exists():
-        candidates.extend(
-            p for p in collection.rglob("*")
-            if p.suffix.casefold() in (".csv", ".xlsx", ".xls")
-            and "pes6" in _key(p.name)
-        )
+    candidates.extend(_spreadsheet_files(collection))
+
+    if not candidates:
+        candidates.extend(_auto_download_collection(base_dir))
 
     unique = []
     seen = set()
@@ -216,13 +270,7 @@ def _sources(base_dir: Path):
 
 
 def _sheet_is_pes6(file_path: Path, sheet_name: str):
-    # A file explicitly named PES6 is trusted. In a multi-game workbook, only
-    # sheets explicitly labelled PES6 / PES 6 are read.
-    file_key = _key(file_path.stem)
-    sheet_key = _key(sheet_name)
-    if "pes6" in file_key:
-        return True
-    return "pes6" in sheet_key
+    return _is_pes6_label(file_path.stem) or _is_pes6_label(sheet_name)
 
 
 def _build_roster_index(runtime):
@@ -234,16 +282,13 @@ def _build_roster_index(runtime):
     for player in players:
         normalized = _key(player["name"])
         exact.setdefault(normalized, []).append(player)
-
         tokens = [
             _key(token)
             for token in re.split(r"[\s/\-]+", str(player["name"]))
             if len(_key(token)) >= 4
         ]
-        # Surname-only and distinctive-token matching is allowed only if unique.
         for token in set(tokens):
             aliases.setdefault(token, []).append(player)
-
     return players, exact, aliases
 
 
@@ -262,8 +307,6 @@ def _match_player(source_name, exact, aliases):
         if len(direct) == 1:
             return direct[0]
 
-    # Common PES notation: "R. KEANE" / "RIQUELME" / "MALOUDA". Match a
-    # distinctive surname/token only when it identifies exactly one AJAP player.
     source_tokens = [
         _key(token)
         for token in re.split(r"[\s./\-]+", str(source_name))
@@ -286,7 +329,6 @@ def _upsert(runtime, player_id, values, source):
     params = [player_id, *[values[column] for column in columns], source]
     updates = [f"{column} = excluded.{column}" for column in columns]
     updates.extend(["source = excluded.source", "updated_at = CURRENT_TIMESTAMP"])
-
     sql = (
         f"INSERT INTO pes6_player_attributes ({', '.join(insert_columns)}) "
         f"VALUES ({', '.join(placeholders)}) "
@@ -332,7 +374,6 @@ def _import_rows(runtime, path: Path, sheet_name: str, rows, exact, aliases):
         source = f"PES 6 original • {path.name} • {sheet_name}"
         if _upsert(runtime, player["id"], values, source):
             matched += 1
-
     return matched, usable_rows, unmatched
 
 
@@ -340,7 +381,7 @@ def import_pes6_original_stats(runtime):
     base_dir = Path(getattr(runtime, "__file__", __file__)).resolve().parent
     source_files = _sources(base_dir)
     if not source_files:
-        print("AJAP PES6 importer: dataset not bundled yet; keeping verified rows already in DB")
+        print("AJAP PES6 importer: dataset no disponible; se conservan filas verificadas existentes")
         return {"files": 0, "matched": 0, "rows": 0, "unmatched": []}
 
     _players, exact, aliases = _build_roster_index(runtime)
@@ -368,9 +409,7 @@ def import_pes6_original_stats(runtime):
         for sheet_name, rows in books:
             if not _sheet_is_pes6(path, sheet_name):
                 continue
-            matched, usable_rows, missing = _import_rows(
-                runtime, path, sheet_name, rows, exact, aliases
-            )
+            matched, usable_rows, missing = _import_rows(runtime, path, sheet_name, rows, exact, aliases)
             if usable_rows:
                 file_used = True
             total_matched += matched
