@@ -20,6 +20,7 @@ from publish_ovr_patch import apply_publish_ovr_patch
 from market_close_report_patch import apply_market_close_report_patch
 from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
+from clausulazo_announce_patch import apply_clausulazo_announce_patch
 from budget_patch import apply_budget_patch
 
 
@@ -68,6 +69,7 @@ apply_publish_ovr_patch(runtime)
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
+apply_clausulazo_announce_patch(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -84,5 +86,6 @@ print(
     + " • publicar por rangos OVR activo"
     + " • reporte de cierre Staff activo"
     + " • clausulazo Staff activo"
+    + " • clausulazo DM + anuncio público activo"
 )
 runtime.bot.run(runtime.TOKEN)
