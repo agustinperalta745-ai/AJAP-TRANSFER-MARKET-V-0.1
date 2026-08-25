@@ -92,7 +92,14 @@ async def _send_public_notice(interaction, offer):
     if channel is None or not hasattr(channel, "send"):
         return False
     try:
-        await channel.send(embed=_offer_embed(offer, private=False))
+        seller_mention = f"<@{int(offer['to_id'])}>"
+        buyer = offer["from_club"]
+        player = offer["player"]
+        await channel.send(
+            content=f"{seller_mention} 📩 **{buyer} hizo una oferta por tu jugador {player}.**",
+            embed=_offer_embed(offer, private=False),
+            allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
+        )
         return True
     except (discord.Forbidden, discord.HTTPException) as exc:
         print(f"WARNING AJAP: no se pudo publicar oferta #{offer['id']} en el canal: {exc}")
