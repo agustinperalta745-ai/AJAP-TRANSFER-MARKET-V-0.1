@@ -1,9 +1,8 @@
 """Railway runtime defaults and AJAP startup hooks.
 
-The important rule here is simple: never treat an arbitrary /data directory as
-persistent storage just because it exists. Railway may expose the real volume
-through DB_PATH or RAILWAY_VOLUME_MOUNT_PATH, and older AJAP deployments may
-already contain the real database in one of those locations.
+AJAP's Railway service has a persistent Volume mounted at /data. On Railway we
+always store SQLite at /data/ajap_market.db and never silently fall back to the
+container filesystem. Local/non-Railway runs can still use DB_PATH or a local DB.
 """
 
 import os
@@ -61,7 +60,7 @@ def _score(stats, priority):
 
 
 def configure_database_path():
-    """Resolve the real AJAP database and recover old state when possible."""
+    """Resolve the AJAP database and force Railway onto its persistent Volume."""
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
@@ -73,8 +72,6 @@ def configure_database_path():
     mount_raw = (os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "").strip()
     mount_db = Path(mount_raw) / "ajap_market.db" if mount_raw else None
 
-    # Candidate order is intentional. We inspect every existing DB instead of
-    # blindly picking /data, because /data may be ordinary container storage.
     raw_candidates = []
     if mount_db:
         raw_candidates.append(("RAILWAY_VOLUME_MOUNT_PATH", mount_db, 60))
@@ -82,7 +79,7 @@ def configure_database_path():
         raw_candidates.append(("DB_PATH", explicit, 55))
     raw_candidates.extend(
         [
-            ("/data", Path("/data/ajap_market.db"), 40),
+            ("/data", Path("/data/ajap_market.db"), 50),
             ("/app/data", Path("/app/data/ajap_market.db"), 35),
             ("/mnt/data", Path("/mnt/data/ajap_market.db"), 30),
             ("local", Path("ajap_market.db"), 10),
@@ -108,38 +105,49 @@ def configure_database_path():
     existing = [item for item in candidates if item[3] is not None]
     best_existing = max(existing, key=lambda item: _score(item[3], item[2])) if existing else None
 
-    # The persistent destination must come from actual Railway configuration,
-    # not from Path('/data').exists(). An absolute DB_PATH is also accepted as a
-    # deliberate operator configuration.
     preferred_target = None
     preferred_source = None
-    if on_railway and mount_db:
-        preferred_target = mount_db
-        preferred_source = "RAILWAY_VOLUME_MOUNT_PATH"
-    elif on_railway and explicit and explicit.is_absolute():
+
+    if on_railway:
+        # This AJAP project is explicitly configured in Railway with its Volume
+        # mounted at /data. Do not depend on os.path.ismount()/Path.is_mount():
+        # bind mounts are not detected reliably on every Linux/container setup.
+        volume_dir = Path("/data")
+        if not volume_dir.exists():
+            raise RuntimeError(
+                "AJAP: el Volume de Railway esperado en /data no está montado. "
+                "Se detiene el bot para no perder datos en almacenamiento temporal."
+            )
+        preferred_target = volume_dir / "ajap_market.db"
+        preferred_source = "Railway Volume /data"
+    elif explicit:
         preferred_target = explicit
         preferred_source = "DB_PATH"
-    elif on_railway and Path("/data").is_mount():
-        preferred_target = Path("/data/ajap_market.db")
-        preferred_source = "confirmed /data mount"
+    elif mount_db:
+        preferred_target = mount_db
+        preferred_source = "RAILWAY_VOLUME_MOUNT_PATH"
 
-    # If an older DB has the assignments and Railway now points at another real
-    # persistent destination, copy the richer DB once before the bot opens it.
-    if preferred_target and best_existing:
-        _, source_path, source_priority, source_stats = best_existing
-        target_stats = _db_stats(preferred_target)
-        if source_path.resolve(strict=False) != preferred_target.resolve(strict=False):
-            if _score(source_stats, source_priority) > _score(target_stats, 100):
-                try:
-                    preferred_target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source_path, preferred_target)
-                    print(
-                        f"AJAP DB recovery: copied {source_path} -> {preferred_target} "
-                        f"because source had richer persistent state"
-                    )
-                except Exception as exc:
-                    print(f"WARNING AJAP: no se pudo recuperar DB hacia {preferred_target}: {exc}")
+    # If another existing AJAP DB contains richer state, recover it into the
+    # authoritative destination before opening SQLite there.
+    if preferred_target:
+        if best_existing:
+            _, source_path, source_priority, source_stats = best_existing
+            target_stats = _db_stats(preferred_target)
+            if source_path.resolve(strict=False) != preferred_target.resolve(strict=False):
+                if _score(source_stats, source_priority) > _score(target_stats, 100):
+                    try:
+                        preferred_target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source_path, preferred_target)
+                        print(
+                            f"AJAP DB recovery: copied {source_path} -> {preferred_target} "
+                            f"because source had richer persistent state"
+                        )
+                    except Exception as exc:
+                        print(f"WARNING AJAP: no se pudo recuperar DB hacia {preferred_target}: {exc}")
 
+        # Important: select the persistent target even on the very first boot.
+        # The previous logic only selected it when a DB already existed, which
+        # let a fresh /data Volume fall through to ephemeral ajap_market.db.
         preferred_target.parent.mkdir(parents=True, exist_ok=True)
         os.environ["DB_PATH"] = str(preferred_target)
         stats = _db_stats(preferred_target)
@@ -149,39 +157,19 @@ def configure_database_path():
         )
         return preferred_target
 
-    # No authoritative mount variable is available. Reuse the richest existing
-    # AJAP DB so a previous assignment is not discarded merely due to path drift.
+    # Non-Railway recovery fallback only.
     if best_existing:
         label, path, _, stats = best_existing
         os.environ["DB_PATH"] = str(path)
-        persistence = "unknown"
-        if path.is_absolute() and path.parent.is_mount():
-            persistence = "mounted"
         print(
             f"AJAP database selected: {path} | recovered_source={label} | "
-            f"persistence={persistence} | clubs={stats['clubs']} roster={stats['roster']}"
+            f"clubs={stats['clubs']} roster={stats['roster']}"
         )
         return path
 
-    # First boot only. Do not mkdir('/data') here: doing that was the bug that
-    # made temporary storage look like a Railway Volume.
-    if explicit:
-        explicit.parent.mkdir(parents=True, exist_ok=True)
-        os.environ["DB_PATH"] = str(explicit)
-        print(f"AJAP database selected: {explicit} | source=DB_PATH first boot")
-        return explicit
-    if mount_db:
-        mount_db.parent.mkdir(parents=True, exist_ok=True)
-        os.environ["DB_PATH"] = str(mount_db)
-        print(f"AJAP database selected: {mount_db} | source=Railway Volume first boot")
-        return mount_db
-
     fallback = Path("ajap_market.db")
     os.environ["DB_PATH"] = str(fallback)
-    print(
-        "WARNING AJAP: NO persistent Railway database could be identified. "
-        "Using local ajap_market.db only to keep the bot online."
-    )
+    print("AJAP local database selected: ajap_market.db")
     return fallback
 
 
