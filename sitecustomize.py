@@ -10,36 +10,39 @@ from pathlib import Path
 
 
 def configure_database_path():
-    """Pin AJAP to persistent Railway storage whenever the /data volume exists."""
+    """Pin AJAP to the actual Railway Volume mount path."""
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
         or os.getenv("RAILWAY_DEPLOYMENT_ID")
     )
 
-    # AJAP's Railway Volume was created at /data. On Railway this path is the
-    # source of truth and MUST beat an old/misconfigured DB_PATH variable.
-    data_dir = Path("/data")
-    if on_railway and data_dir.exists() and data_dir.is_dir():
-        db_path = data_dir / "ajap_market.db"
-        previous = os.getenv("DB_PATH")
-        os.environ["DB_PATH"] = str(db_path)
-        print(
-            f"AJAP database: {db_path} | source=FORCED_RAILWAY_VOLUME"
-            + (f" | ignored DB_PATH={previous}" if previous and previous != str(db_path) else "")
-        )
-        return db_path
-
-    # Support a Railway volume mounted somewhere other than /data if the
-    # service configuration ever changes in the future.
+    # Railway exposes the REAL attached-volume mount path at runtime.
+    # This must always win over guessed paths such as /data and over stale
+    # DB_PATH values, otherwise a deploy can silently fall back to ephemeral
+    # container storage and lose assignments on the next deployment.
     mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
     if on_railway and mount_path:
         volume_dir = Path(mount_path)
         volume_dir.mkdir(parents=True, exist_ok=True)
         db_path = volume_dir / "ajap_market.db"
+        previous = os.getenv("DB_PATH")
         os.environ["DB_PATH"] = str(db_path)
-        print(f"AJAP database: {db_path} | source=RAILWAY_VOLUME_MOUNT_PATH")
+        print(
+            f"AJAP database: {db_path} | source=RAILWAY_VOLUME_MOUNT_PATH"
+            + (f" | ignored DB_PATH={previous}" if previous and previous != str(db_path) else "")
+        )
         return db_path
+
+    # Never pretend persistence exists on Railway. If no attached Volume is
+    # exposed, stopping here is safer than writing to the temporary container
+    # filesystem and losing clubs/history on a future deploy.
+    if on_railway:
+        raise RuntimeError(
+            "AJAP necesita un Railway Volume adjunto. "
+            "RAILWAY_VOLUME_MOUNT_PATH no está disponible; se cancela el arranque "
+            "para evitar guardar la base en almacenamiento temporal."
+        )
 
     # Outside Railway, an explicit path remains useful for local development.
     explicit = os.getenv("DB_PATH")
@@ -51,13 +54,7 @@ def configure_database_path():
 
     db_path = Path("ajap_market.db")
     os.environ["DB_PATH"] = str(db_path)
-    if on_railway:
-        print(
-            "WARNING AJAP: Railway is running WITHOUT the /data volume; "
-            f"using non-persistent fallback {db_path}"
-        )
-    else:
-        print(f"AJAP database: {db_path} | source=local fallback")
+    print(f"AJAP database: {db_path} | source=local fallback")
     return db_path
 
 
