@@ -9,10 +9,17 @@ import os
 from pathlib import Path
 
 
-volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
-
-if volume_path and not os.getenv("DB_PATH"):
-    persistent_db = Path(volume_path) / "ajap_market.db"
+# Respect an explicit DB_PATH first. Otherwise use Railway's volume mount path.
+# The AJAP Railway service is mounted at /data, so keep a hard fallback there in
+# case RAILWAY_VOLUME_MOUNT_PATH is not exposed during a particular deploy.
+if not os.getenv("DB_PATH"):
+    volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
+    if volume_path:
+        persistent_db = Path(volume_path) / "ajap_market.db"
+    elif Path("/data").is_dir():
+        persistent_db = Path("/data") / "ajap_market.db"
+    else:
+        persistent_db = Path("ajap_market.db")
     os.environ["DB_PATH"] = str(persistent_db)
 
 
