@@ -2,6 +2,7 @@
 
 import admin_visibility_patch
 import clausulazo_patch as clauses
+import data_consistency_patch
 
 
 APP = None
@@ -43,5 +44,9 @@ def apply_loan_integrity_patch(runtime):
 
     # Final UI layer: regular players must not even see admin-only controls.
     admin_visibility_patch.apply_admin_visibility_patch(runtime, runtime.bot)
+
+    # Final data layer: every menu reads the same persistent SQLite state with
+    # WAL/busy-timeout protection and guarded list reads.
+    data_consistency_patch.apply_data_consistency_patch(runtime)
 
     print("AJAP préstamos protegidos: jugadores cedidos excluidos de clausulazos")
