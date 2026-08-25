@@ -3,6 +3,8 @@
 Security checks already protect the callbacks. This patch adds the UX layer:
 regular players never receive Administration/Assignments buttons in their
 personal market menu, while Discord administrators keep both controls.
+The /mercado panel is ephemeral so an admin's private controls are never exposed
+visually to other members in the channel.
 """
 
 import discord
@@ -43,6 +45,7 @@ async def filtered_mercado_command(interaction: discord.Interaction):
     await interaction.response.send_message(
         embed=APP.panel_embed(interaction.user.id),
         view=market_view_for(interaction),
+        ephemeral=True,
     )
 
 
