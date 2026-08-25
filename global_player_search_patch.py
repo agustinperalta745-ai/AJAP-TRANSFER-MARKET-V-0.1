@@ -91,6 +91,20 @@ def jugador_global_embed(player):
     embed.add_field(name="💰 Valor mínimo", value=_fmt_money(minimum), inline=True)
     embed.add_field(name="📋 Estado", value=status, inline=True)
 
+    key_attributes = None
+    formatter = getattr(APP, "pes6_format_key_attributes", None)
+    if formatter:
+        key_attributes = formatter(player)
+
+    embed.add_field(
+        name="⭐ Atributos clave • PES 6",
+        value=(
+            key_attributes
+            or "📊 Los atributos originales de PES 6 de este jugador todavía no están cargados."
+        ),
+        inline=False,
+    )
+
     if publication:
         embed.add_field(name="🔁 Tipo", value=publication["operation_type"], inline=True)
         embed.add_field(name="💵 Precio pedido", value=publication["price"], inline=True)
@@ -304,4 +318,4 @@ def apply_global_player_search_patch(main_module):
     main_module.jugador_global_embed = jugador_global_embed
     main_module._ajap_global_player_search = True
 
-    print("AJAP búsqueda global activa: todos los planteles, publicados o no")
+    print("AJAP búsqueda global activa: todos los planteles + 3 atributos PES6 por posición")
