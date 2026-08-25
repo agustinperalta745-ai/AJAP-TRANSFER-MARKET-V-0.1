@@ -123,16 +123,54 @@ LAZIO_ROSTER = [
     ("Igli Tare", "CF", 76),
 ]
 
+TOTTENHAM = "Tottenham Hotspur"
+TOTTENHAM_ROSTER = [
+    ("Paul Robinson", "GK", 82),
+    ("Radek Černý", "GK", 73),
+    ("Márton Fülöp", "GK", 69),
+    ("Ledley King", "CB", 84),
+    ("Pascal Chimbonda", "RB", 79),
+    ("Lee Young-Pyo", "LB", 78),
+    ("Michael Dawson", "CB", 78),
+    ("Paul Stalteri", "RB/LB", 75),
+    ("Anthony Gardner", "CB", 74),
+    ("Benoît Assou-Ekotto", "LB", 73),
+    ("Calum Davenport", "CB", 72),
+    ("Philip Ifil", "RB", 68),
+    ("Edgar Davids", "CMF/DMF", 82),
+    ("Didier Zokora", "DMF/CMF", 80),
+    ("Jermaine Jenas", "CMF/AMF", 79),
+    ("Aaron Lennon", "RMF/SMF", 79),
+    ("Danny Murphy", "AMF/CMF", 77),
+    ("Teemu Tainio", "CMF/DMF", 76),
+    ("Tom Huddlestone", "CMF/DMF", 75),
+    ("Hossam Ghaly", "CMF/DMF", 75),
+    ("Reto Ziegler", "LMF/LB", 74),
+    ("Wayne Routledge", "RMF/SMF", 73),
+    ("Jamie O'Hara", "CMF/LMF", 67),
+    ("Dimitar Berbatov", "CF", 84),
+    ("Robbie Keane", "SS/CF", 82),
+    ("Jermain Defoe", "CF", 81),
+    ("Mido", "CF", 79),
+    ("Lee Barnard", "CF", 67),
+]
+
 ADDITIONAL_TEAMS = [
     (VILLARREAL, "España"),
     (REAL_BETIS, "España"),
     (SEVILLA, "España"),
     (LAZIO, "Italia"),
+    (TOTTENHAM, "Inglaterra"),
 ]
 
 
 def _flag(country: str) -> str:
-    return {"Francia": "🇫🇷", "España": "🇪🇸", "Italia": "🇮🇹"}.get(country, "⚽")
+    return {
+        "Francia": "🇫🇷",
+        "España": "🇪🇸",
+        "Italia": "🇮🇹",
+        "Inglaterra": "🏴",
+    }.get(country, "⚽")
 
 
 def enable_additional_teams():
@@ -279,6 +317,7 @@ def seed_additional_rosters(app):
         (REAL_BETIS, REAL_BETIS_ROSTER, "real_betis_pes6_v1"),
         (SEVILLA, SEVILLA_ROSTER, "sevilla_pes6_v1"),
         (LAZIO, LAZIO_ROSTER, "lazio_pes6_v1"),
+        (TOTTENHAM, TOTTENHAM_ROSTER, "tottenham_pes6_v1"),
     ]
     newly_seeded = 0
 
