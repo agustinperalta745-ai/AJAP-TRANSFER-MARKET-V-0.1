@@ -1,8 +1,8 @@
-"""Railway runtime defaults for persistent SQLite storage.
+"""Railway runtime defaults and AJAP startup hooks.
 
 Python imports this module automatically at startup (when it is available on
-sys.path). If a Railway Volume is attached, point the bot's existing DB_PATH
-at that persistent mount without changing the rest of bot.py.
+sys.path). It keeps SQLite on the Railway Volume and installs the fixed-team
+assignment layer immediately before the Discord bot starts.
 """
 
 import os
@@ -14,3 +14,29 @@ volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
 if volume_path and not os.getenv("DB_PATH"):
     persistent_db = Path(volume_path) / "ajap_market.db"
     os.environ["DB_PATH"] = str(persistent_db)
+
+
+# bot.py calls Bot.run() only after its database schema, views and slash commands
+# have been defined. Hooking here lets the assignment layer extend that finished
+# bot without changing the stable market workflow in bot.py.
+try:
+    from discord.ext import commands
+
+    _original_bot_run = commands.Bot.run
+
+    def _run_with_ajap_team_assignment(self, token, *args, **kwargs):
+        if not getattr(self, "_ajap_fixed_team_patch", False):
+            try:
+                import __main__
+                from team_assignment import apply_team_assignment_patch
+
+                apply_team_assignment_patch(__main__, self)
+            except Exception as exc:
+                # Keep the bot available even if this optional startup layer fails.
+                print(f"Error cargando asignación fija de equipos: {exc}")
+        return _original_bot_run(self, token, *args, **kwargs)
+
+    commands.Bot.run = _run_with_ajap_team_assignment
+except ImportError:
+    # Lets local tooling inspect the repository even without discord.py installed.
+    pass
