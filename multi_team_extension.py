@@ -38,16 +38,50 @@ VILLARREAL_ROSTER = [
     ("Juan Carlos", "GK", 64),
 ]
 
+REAL_BETIS = "Real Betis"
+REAL_BETIS_ROSTER = [
+    ("Pedro Contreras", "GK", 80),
+    ("Antonio Doblas", "GK", 77),
+    ("Melli", "CB/RB", 76),
+    ("Enrique Romero", "LB", 77),
+    ("Juanito", "CB", 81),
+    ("David Rivas", "CB", 77),
+    ("Alejandro Lembo", "CB", 78),
+    ("Nano", "CB", 74),
+    ("Fernando Vega", "LB", 72),
+    ("Damià", "RMF/RB", 74),
+    ("Arzu", "DMF/CMF", 77),
+    ("Fernando", "AMF/CMF", 78),
+    ("Edu", "AMF/LMF/SS", 82),
+    ("Capi", "AMF", 80),
+    ("Johann Vogel", "DMF/CMF", 82),
+    ("Alberto Rivera", "CMF", 78),
+    ("Marcos Assunção", "DMF/CMF", 84),
+    ("Miguel Ángel", "DMF/CMF", 76),
+    ("Dani", "CF", 76),
+    ("Robert de Pinho", "CF", 79),
+    ("Xisco", "CF/LMF", 75),
+    ("David Odonkor", "RMF/WF", 79),
+    ("Maldonado", "CF/SS", 73),
+    ("Rafael Sóbis", "SS/CF", 81),
+]
+
+ADDITIONAL_TEAMS = [
+    (VILLARREAL, "España"),
+    (REAL_BETIS, "España"),
+]
+
 
 def _flag(country: str) -> str:
     return {"Francia": "🇫🇷", "España": "🇪🇸"}.get(country, "⚽")
 
 
 def enable_additional_teams():
-    """Make Villarreal selectable before the assignment patch is installed."""
-    if not any(name.casefold() == VILLARREAL.casefold() for name, _ in teams.OFFICIAL_TEAMS):
-        teams.OFFICIAL_TEAMS.append((VILLARREAL, "España"))
-    teams.OFFICIAL[VILLARREAL.casefold()] = VILLARREAL
+    """Make all additional fixed teams selectable before assignment is installed."""
+    for club, country in ADDITIONAL_TEAMS:
+        if not any(name.casefold() == club.casefold() for name, _ in teams.OFFICIAL_TEAMS):
+            teams.OFFICIAL_TEAMS.append((club, country))
+        teams.OFFICIAL[club.casefold()] = club
 
     def welcome_embed():
         occupied = {row["name"].casefold() for row in teams.assignments()}
@@ -178,10 +212,15 @@ def enable_additional_teams():
 
 
 def seed_additional_rosters(app):
-    """Seed Villarreal once, using the exact same OVR -> minimum-price curve as Lyon."""
+    """Seed each additional roster once, using the Lyon OVR -> minimum-price curve."""
     from lyon_test_seed import minimum_for_rating
 
-    marker = "villarreal_pes6_v1"
+    roster_seeds = [
+        (VILLARREAL, VILLARREAL_ROSTER, "villarreal_pes6_v1"),
+        (REAL_BETIS, REAL_BETIS_ROSTER, "real_betis_pes6_v1"),
+    ]
+    newly_seeded = 0
+
     with app.db() as conn:
         app.add_column_if_missing(conn, "roster_players", "rating", "INTEGER")
         app.add_column_if_missing(conn, "roster_players", "min_sale_value", "INTEGER")
@@ -193,25 +232,31 @@ def seed_additional_rosters(app):
             )
             """
         )
-        seeded = conn.execute("SELECT 1 FROM seed_state WHERE key = ?", (marker,)).fetchone()
-        if seeded:
-            return 0
 
-        for name, position, rating in VILLARREAL_ROSTER:
-            conn.execute(
-                """
-                INSERT INTO roster_players
-                    (name, position, club, added_by, rating, min_sale_value, updated_at)
-                VALUES (?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(name) DO UPDATE SET
-                    position = excluded.position,
-                    club = excluded.club,
-                    rating = excluded.rating,
-                    min_sale_value = excluded.min_sale_value,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
-                (name, position, VILLARREAL, rating, minimum_for_rating(rating)),
-            )
+        for club, roster, marker in roster_seeds:
+            seeded = conn.execute(
+                "SELECT 1 FROM seed_state WHERE key = ?", (marker,)
+            ).fetchone()
+            if seeded:
+                continue
 
-        conn.execute("INSERT INTO seed_state (key) VALUES (?)", (marker,))
-    return len(VILLARREAL_ROSTER)
+            for name, position, rating in roster:
+                conn.execute(
+                    """
+                    INSERT INTO roster_players
+                        (name, position, club, added_by, rating, min_sale_value, updated_at)
+                    VALUES (?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(name) DO UPDATE SET
+                        position = excluded.position,
+                        club = excluded.club,
+                        rating = excluded.rating,
+                        min_sale_value = excluded.min_sale_value,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (name, position, club, rating, minimum_for_rating(rating)),
+                )
+
+            conn.execute("INSERT INTO seed_state (key) VALUES (?)", (marker,))
+            newly_seeded += len(roster)
+
+    return newly_seeded
