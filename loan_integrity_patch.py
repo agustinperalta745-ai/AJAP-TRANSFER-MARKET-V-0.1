@@ -1,5 +1,6 @@
 """Cross-feature protections for active AJAP loans."""
 
+import admin_visibility_patch
 import clausulazo_patch as clauses
 
 
@@ -39,4 +40,8 @@ def apply_loan_integrity_patch(runtime):
     clauses.search_players = search_players_without_loans
     clauses.create_clause_request = protected_clause_request
     runtime._ajap_loan_integrity_patch = True
+
+    # Final UI layer: regular players must not even see admin-only controls.
+    admin_visibility_patch.apply_admin_visibility_patch(runtime, runtime.bot)
+
     print("AJAP préstamos protegidos: jugadores cedidos excluidos de clausulazos")
