@@ -16,6 +16,7 @@ from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
 from multi_team_extension import enable_additional_teams, seed_additional_rosters
 from publish_ovr_patch import apply_publish_ovr_patch
+from market_close_report_patch import apply_market_close_report_patch
 
 
 BOT_PATH = Path(__file__).with_name("core_bot.py")
@@ -41,10 +42,12 @@ apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 seeded = seed_additional_rosters(runtime)
 apply_publish_ovr_patch(runtime)
+apply_market_close_report_patch(runtime, runtime.bot)
 
 print(
     "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
     + (f" • Villarreal sembrado con {seeded} jugadores" if seeded else "")
     + " • publicar por rangos OVR activo"
+    + " • reporte de cierre Staff activo"
 )
 runtime.bot.run(runtime.TOKEN)
