@@ -9,18 +9,18 @@ import os
 from pathlib import Path
 
 
-# Respect an explicit DB_PATH first. Otherwise use Railway's volume mount path.
-# The AJAP Railway service is mounted at /data, so keep a hard fallback there in
-# case RAILWAY_VOLUME_MOUNT_PATH is not exposed during a particular deploy.
-if not os.getenv("DB_PATH"):
-    volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
-    if volume_path:
-        persistent_db = Path(volume_path) / "ajap_market.db"
-    elif Path("/data").is_dir():
-        persistent_db = Path("/data") / "ajap_market.db"
-    else:
-        persistent_db = Path("ajap_market.db")
+# AJAP's Railway Volume is mounted at /data. Always use that exact path in
+# Railway so club assignments, rosters and market state survive redeploys.
+# Do not allow a stale DB_PATH variable to send SQLite back to ephemeral storage.
+if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID") or Path("/data").exists():
+    persistent_db = Path("/data") / "ajap_market.db"
+    persistent_db.parent.mkdir(parents=True, exist_ok=True)
     os.environ["DB_PATH"] = str(persistent_db)
+else:
+    # Local development fallback only.
+    os.environ.setdefault("DB_PATH", "ajap_market.db")
+
+print(f"AJAP persistent database: {os.environ['DB_PATH']}")
 
 
 # bot.py calls Bot.run() only after its database schema, views and slash commands
