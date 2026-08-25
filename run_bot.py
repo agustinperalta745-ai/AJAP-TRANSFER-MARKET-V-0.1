@@ -19,6 +19,7 @@ from multi_team_extension import enable_additional_teams, seed_additional_roster
 from publish_ovr_patch import apply_publish_ovr_patch
 from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
+from loan_terms_patch import apply_loan_terms_offer_patch, apply_loan_terms_negotiation_patch
 from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
@@ -79,10 +80,12 @@ except Exception as exc:
     print(f"WARNING AJAP: presupuesto Lyon deshabilitado en este arranque: {exc}")
 
 apply_publish_ovr_patch(runtime)
-# Primero se define la negociación flexible. Después se protege el valor mínimo
-# y recién entonces la capa de notificaciones envuelve el modal definitivo.
+# Primero se define la negociación flexible. Después se protege el valor mínimo.
+# Los términos de préstamo se agregan antes de notificaciones para que los avisos
+# ya salgan con duración y opción de compra completas.
 apply_flexible_offer_patch(runtime)
 apply_offer_value_floor_patch(runtime)
+apply_loan_terms_offer_patch(runtime)
 apply_offer_notifications_patch(runtime)
 # Los atributos originales PES6 se cargan antes de la lupa. Nunca se calculan
 # desde el OVR AJAP: solo se muestran valores verificados que existan en la DB.
@@ -95,6 +98,8 @@ pes6_import = import_pes6_original_stats(runtime)
 apply_global_player_search_patch(runtime)
 # Sobre el modal final agregamos selección desde plantel y negociación ida/vuelta.
 apply_negotiation_picker_patch(runtime)
+# Después del selector se vuelven loan-aware las contraofertas y la aceptación.
+apply_loan_terms_negotiation_patch(runtime)
 # Los avisos públicos y DMs de oferta/contraoferta incluyen respuesta directa.
 apply_inline_offer_actions_patch(runtime, runtime.bot)
 # Reporte base de cierre y luego publicación adicional en canal configurado.
@@ -133,6 +138,7 @@ print(
     + " • publicar por rangos OVR activo"
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
+    + " • préstamos con temporadas + opción de compra activos"
     + " • ofertas DM + anuncio público activas"
     + " • selector de jugador desde plantel activo"
     + " • contraofertas con cambio de jugador activas"
