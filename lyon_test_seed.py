@@ -253,9 +253,9 @@ class RatedPublicarJugadorModal(discord.ui.Modal):
 
 
 class RatedPublicarSelect(discord.ui.Select):
-    def __init__(self, jugadores):
+    def __init__(self, jugadores, group_index=0):
         options = []
-        for j in jugadores[:25]:
+        for j in jugadores:
             rating = j["rating"] if "rating" in j.keys() else None
             min_sale = j["min_sale_value"] if "min_sale_value" in j.keys() else None
             details = [APP.player_code(j["id"]), j["position"]]
@@ -271,10 +271,11 @@ class RatedPublicarSelect(discord.ui.Select):
                 )
             )
         super().__init__(
-            placeholder="Elegí un jugador de tu plantel",
+            placeholder=f"Elegí un jugador • grupo {group_index + 1}",
             min_values=1,
             max_values=1,
             options=options,
+            row=group_index,
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -290,7 +291,38 @@ class RatedPublicarSelect(discord.ui.Select):
 class RatedPublicarView(discord.ui.View):
     def __init__(self, jugadores):
         super().__init__(timeout=180)
-        self.add_item(RatedPublicarSelect(jugadores))
+        for group_index, start in enumerate(range(0, len(jugadores), 25)):
+            self.add_item(
+                RatedPublicarSelect(jugadores[start:start + 25], group_index=group_index)
+            )
+
+
+def build_lyon_market_view(base_view):
+    class LyonMarketView(base_view):
+        async def _fixed_publicar(self, interaction):
+            team = APP.club_de(interaction.user.id)
+            if not team:
+                await super()._fixed_publicar(interaction)
+                return
+            jugadores = [
+                j for j in APP.jugadores_de_club(team, 50)
+                if not APP.publicacion_activa_del_jugador(j["name"])
+                and not APP.operacion_abierta_del_jugador(j["name"])
+            ]
+            if not jugadores:
+                await interaction.response.send_message(
+                    "⚠️ No tenés jugadores disponibles para publicar. Puede que la plantilla todavía no esté cargada.",
+                    ephemeral=True,
+                )
+                return
+            await interaction.response.send_message(
+                "📤 Elegí el jugador que querés publicar:",
+                view=RatedPublicarView(jugadores),
+                ephemeral=True,
+            )
+
+    LyonMarketView.__name__ = "MercadoView"
+    return LyonMarketView
 
 
 def apply_lyon_test_patch(main_module):
@@ -303,6 +335,7 @@ def apply_lyon_test_patch(main_module):
     main_module.PublicarJugadorModal = RatedPublicarJugadorModal
     main_module.PublicarSelect = RatedPublicarSelect
     main_module.PublicarView = RatedPublicarView
+    main_module.MercadoView = build_lyon_market_view(main_module.MercadoView)
 
     print(
         f"Lyon PES6 test roster enabled: {len(LYON_ROSTER)} players with fixed ratings/minimum sale values."
