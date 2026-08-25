@@ -24,6 +24,7 @@ from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
 from negotiation_picker_patch import apply_negotiation_picker_patch
+from inline_offer_actions_patch import apply_inline_offer_actions_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
 from clausulazo_patch import apply_clausulazo_patch
@@ -94,6 +95,8 @@ pes6_import = import_pes6_original_stats(runtime)
 apply_global_player_search_patch(runtime)
 # Sobre el modal final agregamos selección desde plantel y negociación ida/vuelta.
 apply_negotiation_picker_patch(runtime)
+# Los avisos públicos y DMs de oferta/contraoferta incluyen respuesta directa.
+apply_inline_offer_actions_patch(runtime, runtime.bot)
 # Reporte base de cierre y luego publicación adicional en canal configurado.
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_market_channel_report_patch(runtime, runtime.bot)
@@ -133,6 +136,7 @@ print(
     + " • ofertas DM + anuncio público activas"
     + " • selector de jugador desde plantel activo"
     + " • contraofertas con cambio de jugador activas"
+    + " • respuesta directa desde avisos activa"
     + " • atributos clave PES6 por posición activos"
     + pes6_status
     + " • búsqueda global de jugadores activa"
