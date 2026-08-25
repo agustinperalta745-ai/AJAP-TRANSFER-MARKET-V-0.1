@@ -18,6 +18,7 @@ from multi_team_extension import enable_additional_teams, seed_additional_roster
 from publish_ovr_patch import apply_publish_ovr_patch
 from market_close_report_patch import apply_market_close_report_patch
 from clausulazo_patch import apply_clausulazo_patch
+from clausulazo_safety_patch import apply_clausulazo_safety_patch
 
 
 BOT_PATH = Path(__file__).with_name("core_bot.py")
@@ -45,6 +46,7 @@ seeded = seed_additional_rosters(runtime)
 apply_publish_ovr_patch(runtime)
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
+apply_clausulazo_safety_patch(runtime)
 
 print(
     "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
