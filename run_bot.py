@@ -21,6 +21,7 @@ from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
+from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
@@ -84,6 +85,9 @@ apply_offer_notifications_patch(runtime)
 # Los atributos originales PES6 se cargan antes de la lupa. Nunca se calculan
 # desde el OVR AJAP: solo se muestran valores verificados que existan en la DB.
 apply_pes6_attributes_patch(runtime)
+# Si el dataset original está incluido en data/ (CSV/XLSX/XLS), se importa de
+# forma automática. Solo vincula jugadores ya existentes en nuestros planteles.
+pes6_import = import_pes6_original_stats(runtime)
 # Buscar usa la base completa de planteles y, cuando corresponde, reutiliza el
 # modal final de ofertas ya protegido por valor mínimo + notificaciones.
 apply_global_player_search_patch(runtime)
@@ -110,6 +114,12 @@ elif budget_seeded is False:
 elif budget_seeded is None:
     budget_status = " • presupuesto Lyon omitido por seguridad"
 
+pes6_status = ""
+if pes6_import.get("files"):
+    pes6_status = f" • {pes6_import['matched']} jugador(es) con stats PES6 originales importados"
+else:
+    pes6_status = " • importador PES6 listo (dataset externo pendiente de incorporar)"
+
 print(
     "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
@@ -119,6 +129,7 @@ print(
     + " • valor mínimo equivalente protegido"
     + " • ofertas DM + anuncio público activas"
     + " • atributos clave PES6 por posición activos"
+    + pes6_status
     + " • búsqueda global de jugadores activa"
     + " • reporte de cierre Staff activo"
     + " • canal automático de movimientos activo"
