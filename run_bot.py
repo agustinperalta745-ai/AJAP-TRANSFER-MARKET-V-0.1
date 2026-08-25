@@ -44,16 +44,32 @@ enable_additional_teams()
 apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 seeded = seed_additional_rosters(runtime)
-budget_seeded = apply_budget_patch(runtime)
+
+# El presupuesto es una extensión, no una dependencia crítica. Si su migración
+# falla por cualquier estado viejo de SQLite, el bot debe seguir arrancando.
+budget_seeded = None
+try:
+    budget_seeded = apply_budget_patch(runtime)
+except Exception as exc:
+    print(f"WARNING AJAP: presupuesto Lyon deshabilitado en este arranque: {exc}")
+
 apply_publish_ovr_patch(runtime)
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
 
+budget_status = ""
+if budget_seeded is True:
+    budget_status = " • Lyon cargado con $100.000.000"
+elif budget_seeded is False:
+    budget_status = " • presupuesto Lyon persistente"
+elif budget_seeded is None:
+    budget_status = " • presupuesto Lyon omitido por seguridad"
+
 print(
     "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
     + (f" • Villarreal sembrado con {seeded} jugadores" if seeded else "")
-    + (" • Lyon cargado con $100.000.000" if budget_seeded else " • presupuesto Lyon persistente")
+    + budget_status
     + " • publicar por rangos OVR activo"
     + " • reporte de cierre Staff activo"
     + " • clausulazo Staff activo"
