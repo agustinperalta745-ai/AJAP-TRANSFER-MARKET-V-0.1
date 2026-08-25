@@ -17,6 +17,7 @@ from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
 from multi_team_extension import enable_additional_teams, seed_additional_rosters
 from publish_ovr_patch import apply_publish_ovr_patch
+from publication_announce_patch import apply_publication_announce_patch
 from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from loan_terms_patch import apply_loan_terms_offer_patch, apply_loan_terms_negotiation_patch
@@ -82,6 +83,8 @@ except Exception as exc:
     print(f"WARNING AJAP: presupuesto Lyon deshabilitado en este arranque: {exc}")
 
 apply_publish_ovr_patch(runtime)
+# Cada publicación confirmada genera un aviso visible en el canal donde se hizo.
+apply_publication_announce_patch(runtime)
 # Primero se define la negociación flexible. Después se protege el valor mínimo.
 # Los términos de préstamo se agregan antes de notificaciones para que los avisos
 # ya salgan con duración y opción de compra completas.
@@ -141,6 +144,7 @@ print(
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
+    + " • anuncios públicos de transferibles activos"
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • préstamos con temporadas + opción de compra activos"
