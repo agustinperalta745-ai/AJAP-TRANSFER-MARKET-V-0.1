@@ -20,6 +20,7 @@ from publish_ovr_patch import apply_publish_ovr_patch
 from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from offer_notifications_patch import apply_offer_notifications_patch
+from pes6_attributes_patch import apply_pes6_attributes_patch
 from global_player_search_patch import apply_global_player_search_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
@@ -80,6 +81,9 @@ apply_publish_ovr_patch(runtime)
 apply_flexible_offer_patch(runtime)
 apply_offer_value_floor_patch(runtime)
 apply_offer_notifications_patch(runtime)
+# Los atributos originales PES6 se cargan antes de la lupa. Nunca se calculan
+# desde el OVR AJAP: solo se muestran valores verificados que existan en la DB.
+apply_pes6_attributes_patch(runtime)
 # Buscar usa la base completa de planteles y, cuando corresponde, reutiliza el
 # modal final de ofertas ya protegido por valor mínimo + notificaciones.
 apply_global_player_search_patch(runtime)
@@ -114,6 +118,7 @@ print(
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • ofertas DM + anuncio público activas"
+    + " • atributos clave PES6 por posición activos"
     + " • búsqueda global de jugadores activa"
     + " • reporte de cierre Staff activo"
     + " • canal automático de movimientos activo"
