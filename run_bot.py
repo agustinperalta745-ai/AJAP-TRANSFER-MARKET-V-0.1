@@ -21,6 +21,7 @@ from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from loan_terms_patch import apply_loan_terms_offer_patch, apply_loan_terms_negotiation_patch
 from loan_lifecycle_patch import apply_loan_lifecycle_patch
+from loan_integrity_patch import apply_loan_integrity_patch
 from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
@@ -119,6 +120,7 @@ apply_market_persistence_patch(runtime)
 # Última capa: contratos de préstamo, vencimientos y opciones de compra deben ver
 # la UI, navegación, presupuesto y persistencia definitivos.
 apply_loan_lifecycle_patch(runtime, runtime.bot)
+apply_loan_integrity_patch(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -143,6 +145,7 @@ print(
     + " • valor mínimo equivalente protegido"
     + " • préstamos con temporadas + opción de compra activos"
     + " • ciclo completo de préstamos activo"
+    + " • cedidos protegidos de publicación/clausulazo"
     + " • ofertas DM + anuncio público activas"
     + " • selector de jugador desde plantel activo"
     + " • contraofertas con cambio de jugador activas"
