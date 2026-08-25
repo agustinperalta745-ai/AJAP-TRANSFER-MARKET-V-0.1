@@ -24,6 +24,7 @@ from clausulazo_club_protection_patch import apply_clausulazo_club_protection_pa
 from clausulazo_announce_patch import apply_clausulazo_announce_patch
 from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
+from admin_finance_patch import apply_admin_finance_patch
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -73,8 +74,10 @@ apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
 apply_clausulazo_club_protection_patch(runtime)
 apply_clausulazo_announce_patch(runtime)
-# Debe ir último: agrega navegación sobre las vistas finales ya parcheadas.
+# Navegación sobre las vistas finales.
 apply_navigation_patch(runtime)
+# Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
+apply_admin_finance_patch(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -94,5 +97,6 @@ print(
     + " • clausulazo DM + anuncio público activo"
     + " • protección doble jugador + club activa"
     + " • navegación interna activa"
+    + " • ajustes de dinero admin activos"
 )
 runtime.bot.run(runtime.TOKEN)
