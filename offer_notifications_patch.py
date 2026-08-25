@@ -11,12 +11,17 @@ import discord
 APP = None
 
 
+def _has(row, key):
+    return row is not None and key in row.keys()
+
+
 def _offer_embed(offer, *, private=False):
     player = offer["player"]
     buyer = offer["from_club"]
     seller = offer["to_club"]
     amount = offer["amount"]
-    operation_type = offer["operation_type"]
+    kind = offer["offer_kind"] if _has(offer, "offer_kind") else offer["operation_type"]
+    offered_player = offer["offered_player"] if _has(offer, "offered_player") else None
     conditions = offer["message"] or "Sin condiciones adicionales"
 
     if private:
@@ -37,14 +42,24 @@ def _offer_embed(offer, *, private=False):
 
     ficha = APP.jugador_por_nombre(player)
     if ficha and "rating" in ficha.keys() and ficha["rating"] is not None:
-        embed.add_field(name="Jugador", value=f"{player} • ⭐ {ficha['rating']}", inline=False)
+        embed.add_field(name="Jugador buscado", value=f"{player} • ⭐ {ficha['rating']}", inline=False)
     else:
-        embed.add_field(name="Jugador", value=player, inline=False)
+        embed.add_field(name="Jugador buscado", value=player, inline=False)
 
     embed.add_field(name="Club ofertante", value=buyer, inline=True)
     embed.add_field(name="Club vendedor", value=seller, inline=True)
-    embed.add_field(name="Tipo", value=operation_type, inline=True)
-    embed.add_field(name="💰 Oferta", value=amount, inline=True)
+    embed.add_field(name="Modalidad", value=kind, inline=True)
+
+    if offered_player:
+        offered = APP.jugador_por_nombre(offered_player)
+        offered_text = offered_player
+        if offered and "rating" in offered.keys() and offered["rating"] is not None:
+            offered_text += f" • ⭐ {offered['rating']}"
+        embed.add_field(name="🔁 Jugador ofrecido", value=offered_text, inline=False)
+
+    if not offered_player or amount != "$0":
+        embed.add_field(name="💰 Dinero ofrecido", value=amount, inline=True)
+
     embed.add_field(name="Estado", value="🟡 PENDIENTE", inline=True)
     embed.add_field(name="Condiciones", value=conditions, inline=False)
 
@@ -123,13 +138,11 @@ def apply_offer_notifications_patch(main_module):
         async def on_submit(self, interaction: discord.Interaction):
             previous_id = _last_offer_id(self.publicacion_id, interaction.user.id)
 
-            # Preserve every validation and database write from the stable market flow.
+            # Preserve every validation and database write from the active market flow.
             await super().on_submit(interaction)
 
             offer = _new_offer(self.publicacion_id, interaction.user.id, previous_id)
             if not offer:
-                # The base modal returned before inserting (closed market, invalid
-                # publication, own player, etc.). There is nothing to notify.
                 return
 
             dm_ok = await _send_seller_dm(offer)
