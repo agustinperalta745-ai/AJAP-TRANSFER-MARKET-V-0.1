@@ -5,6 +5,7 @@ estable desde core_bot.py sin conectarlo todavía, habilitamos los equipos
 permanentes y sus plantillas, y recién después conectamos Discord.
 """
 
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -21,6 +22,16 @@ from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
 from budget_patch import apply_budget_patch
 
+
+# Compatibilidad con nombres de variable usados en hosts/bots anteriores.
+# Nunca imprimimos el valor del token; solo el nombre de la variable encontrada.
+if not os.getenv("DISCORD_TOKEN"):
+    for alias in ("BOT_TOKEN", "DISCORD_BOT_TOKEN", "TOKEN"):
+        value = os.getenv(alias)
+        if value:
+            os.environ["DISCORD_TOKEN"] = value
+            print(f"AJAP Discord token loaded from alias: {alias}")
+            break
 
 BOT_PATH = Path(__file__).with_name("core_bot.py")
 source = BOT_PATH.read_text(encoding="utf-8")
