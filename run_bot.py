@@ -20,6 +20,7 @@ from publish_ovr_patch import apply_publish_ovr_patch
 from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from loan_terms_patch import apply_loan_terms_offer_patch, apply_loan_terms_negotiation_patch
+from loan_lifecycle_patch import apply_loan_lifecycle_patch
 from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
@@ -113,9 +114,11 @@ apply_clausulazo_announce_patch(runtime)
 apply_navigation_patch(runtime)
 # Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
 apply_admin_finance_patch(runtime)
-# Última capa del panel: el estado del mercado se lee/escribe siempre desde SQLite.
-# Así conserva ABIERTO/CERRADO aunque se cierre Discord o Railway reinicie/redeploye.
+# El estado del mercado se lee/escribe siempre desde SQLite.
 apply_market_persistence_patch(runtime)
+# Última capa: contratos de préstamo, vencimientos y opciones de compra deben ver
+# la UI, navegación, presupuesto y persistencia definitivos.
+apply_loan_lifecycle_patch(runtime, runtime.bot)
 
 budget_status = ""
 if budget_seeded is True:
@@ -139,6 +142,7 @@ print(
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • préstamos con temporadas + opción de compra activos"
+    + " • ciclo completo de préstamos activo"
     + " • ofertas DM + anuncio público activas"
     + " • selector de jugador desde plantel activo"
     + " • contraofertas con cambio de jugador activas"
