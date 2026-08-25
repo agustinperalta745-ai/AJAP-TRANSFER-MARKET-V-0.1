@@ -31,8 +31,6 @@ def player_floor(player) -> int:
     if _has(player, "min_sale_value") and player["min_sale_value"] is not None:
         return int(player["min_sale_value"])
 
-    # Safety fallback for older rows that have OVR but were created before the
-    # min_sale_value migration/seed.
     rating = player["rating"] if _has(player, "rating") else None
     if rating is not None:
         try:
@@ -56,7 +54,6 @@ def proposal_values_from_modal(modal):
     if raw_cash:
         cash_value = APP.price_number(raw_cash)
         if cash_value is None:
-            # Base modal will show the normal invalid-number message.
             return None
     else:
         cash_value = 0
@@ -108,8 +105,6 @@ def insufficient_embed(target, offered, cash_value, target_min, offered_min, tot
 
 def validate_equivalent_offer(target, offered, cash_value):
     target_min, offered_min, total, missing = equivalent_value(target, offered, cash_value)
-    # If a legacy player has no floor at all, preserve compatibility instead of
-    # inventing a value. Seeded AJAP players with OVR do have a protected floor.
     if target_min <= 0:
         return True, None
     if missing <= 0:
@@ -135,9 +130,6 @@ def apply_offer_value_floor_patch(main_module):
                 proposal = proposal_values_from_modal(self)
                 if target and proposal is not None:
                     cash_value, offered = proposal
-                    # Only run the floor calculation when the offered-player
-                    # reference is either blank or valid. The base modal owns the
-                    # normal "player not found / not yours" validation.
                     if not self.jugador.value.strip() or offered:
                         ok, error_embed = validate_equivalent_offer(target, offered, cash_value)
                         if not ok:
@@ -151,10 +143,10 @@ def apply_offer_value_floor_patch(main_module):
     ValueProtectedOfertaModal.__name__ = "OfertaModal"
     main_module.OfertaModal = ValueProtectedOfertaModal
 
-    # Also protect acceptance of pending offers created before this rule existed.
     BaseDecisionView = flexible.FlexibleOfertaDecisionView
 
     class ValueProtectedOfertaDecisionView(BaseDecisionView):
+        @discord.ui.button(label="Aceptar", emoji="✅", style=discord.ButtonStyle.success)
         async def aceptar(self, interaction: discord.Interaction, button: discord.ui.Button):
             offer = APP.oferta_por_id(self.oferta_id)
             if offer and offer["status"] == "PENDIENTE":
@@ -172,7 +164,6 @@ def apply_offer_value_floor_patch(main_module):
             await super().aceptar(interaction, button)
 
     ValueProtectedOfertaDecisionView.__name__ = "OfertaDecisionView"
-    # FlexibleOfertasSelect resolves this module global at callback time.
     flexible.FlexibleOfertaDecisionView = ValueProtectedOfertaDecisionView
     main_module.OfertaDecisionView = ValueProtectedOfertaDecisionView
 
