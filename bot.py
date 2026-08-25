@@ -79,6 +79,11 @@ def money(value: str) -> str:
     return value.strip()
 
 
+def price_number(value: str):
+    cleaned = value.strip().replace("$", "").replace(".", "").replace(",", "")
+    return int(cleaned) if cleaned.isdigit() else None
+
+
 def club_de(user_id: int):
     with db() as conn:
         row = conn.execute("SELECT name FROM clubs WHERE user_id = ?", (user_id,)).fetchone()
@@ -93,6 +98,36 @@ def publicaciones_activas(limit=25):
         ).fetchall()
 
 
+def buscar_publicaciones(nombre="", posicion="", club="", precio_max="", limit=25):
+    nombre = nombre.strip().lower()
+    posicion = posicion.strip().lower()
+    club = club.strip().lower()
+    maximo = price_number(precio_max) if precio_max.strip() else None
+
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM publications WHERE active = 1 ORDER BY id DESC LIMIT 200"
+        ).fetchall()
+
+    resultados = []
+    for pub in rows:
+        if nombre and nombre not in pub["player"].lower():
+            continue
+        if posicion and posicion not in pub["position"].lower():
+            continue
+        if club and club not in pub["club"].lower():
+            continue
+        if maximo is not None:
+            precio_pub = price_number(pub["price"])
+            if precio_pub is None or precio_pub > maximo:
+                continue
+        resultados.append(pub)
+        if len(resultados) >= limit:
+            break
+
+    return resultados
+
+
 def publicacion_por_id(pub_id: int):
     with db() as conn:
         return conn.execute(
@@ -105,18 +140,17 @@ def oferta_por_id(oferta_id: int):
         return conn.execute("SELECT * FROM offers WHERE id = ?", (oferta_id,)).fetchone()
 
 
-def transferibles_embed() -> discord.Embed:
-    publicaciones = publicaciones_activas(20)
+def publicaciones_embed(publicaciones, titulo="📋 Jugadores transferibles", descripcion=None):
     embed = discord.Embed(
-        title="📋 Jugadores transferibles",
-        description="Publicaciones activas del AJAP Transfer Market.",
+        title=titulo,
+        description=descripcion or "Publicaciones activas del AJAP Transfer Market.",
     )
 
     if not publicaciones:
-        embed.description = "Todavía no hay jugadores publicados."
+        embed.description = "No encontramos jugadores que coincidan con esos filtros."
         return embed
 
-    for pub in publicaciones:
+    for pub in publicaciones[:20]:
         embed.add_field(
             name=f"#{pub['id']} • {pub['player']} • {pub['position']}",
             value=(
@@ -130,6 +164,15 @@ def transferibles_embed() -> discord.Embed:
 
     embed.set_footer(text="Seleccioná un jugador abajo para enviar una oferta")
     return embed
+
+
+def transferibles_embed() -> discord.Embed:
+    publicaciones = publicaciones_activas(20)
+    if not publicaciones:
+        embed = discord.Embed(title="📋 Jugadores transferibles")
+        embed.description = "Todavía no hay jugadores publicados."
+        return embed
+    return publicaciones_embed(publicaciones)
 
 
 class RegistrarClubModal(discord.ui.Modal, title="Registrar mi club"):
@@ -312,11 +355,76 @@ class TransferiblesSelect(discord.ui.Select):
 
 
 class TransferiblesView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, publicaciones=None):
         super().__init__(timeout=180)
-        publicaciones = publicaciones_activas(25)
+        publicaciones = publicaciones if publicaciones is not None else publicaciones_activas(25)
         if publicaciones:
             self.add_item(TransferiblesSelect(publicaciones))
+
+
+class BuscarJugadoresModal(discord.ui.Modal, title="Buscar jugadores"):
+    nombre = discord.ui.TextInput(
+        label="Nombre",
+        placeholder="Ej: Messi (opcional)",
+        required=False,
+        max_length=60,
+    )
+    posicion = discord.ui.TextInput(
+        label="Posición",
+        placeholder="Ej: ED, DC, MP... (opcional)",
+        required=False,
+        max_length=20,
+    )
+    club = discord.ui.TextInput(
+        label="Club",
+        placeholder="Ej: Barcelona FC (opcional)",
+        required=False,
+        max_length=60,
+    )
+    precio_max = discord.ui.TextInput(
+        label="Precio máximo",
+        placeholder="Ej: 30000000 (opcional)",
+        required=False,
+        max_length=30,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.precio_max.value.strip() and price_number(self.precio_max.value) is None:
+            await interaction.response.send_message(
+                "⚠️ El precio máximo debe ser un número. Ejemplo: `30000000`.",
+                ephemeral=True,
+            )
+            return
+
+        resultados = buscar_publicaciones(
+            nombre=self.nombre.value,
+            posicion=self.posicion.value,
+            club=self.club.value,
+            precio_max=self.precio_max.value,
+            limit=25,
+        )
+
+        filtros = []
+        if self.nombre.value.strip():
+            filtros.append(f"Nombre: **{self.nombre.value.strip()}**")
+        if self.posicion.value.strip():
+            filtros.append(f"Posición: **{self.posicion.value.strip().upper()}**")
+        if self.club.value.strip():
+            filtros.append(f"Club: **{self.club.value.strip()}**")
+        if self.precio_max.value.strip():
+            filtros.append(f"Máximo: **{money(self.precio_max.value)}**")
+
+        descripcion = " • ".join(filtros) if filtros else "Todos los jugadores disponibles."
+        embed = publicaciones_embed(
+            resultados,
+            titulo=f"🔎 Resultados de búsqueda ({len(resultados)})",
+            descripcion=descripcion,
+        )
+        await interaction.response.send_message(
+            embed=embed,
+            view=TransferiblesView(resultados),
+            ephemeral=True,
+        )
 
 
 class OfertaDecisionView(discord.ui.View):
@@ -443,7 +551,7 @@ class MercadoView(discord.ui.View):
 
     @discord.ui.button(label="Buscar jugadores", emoji="🔎", style=discord.ButtonStyle.primary, custom_id="mercado_buscar")
     async def buscar_jugadores(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(embed=transferibles_embed(), view=TransferiblesView(), ephemeral=True)
+        await interaction.response.send_modal(BuscarJugadoresModal())
 
     @discord.ui.button(label="Publicar jugador", emoji="📤", style=discord.ButtonStyle.success, custom_id="mercado_publicar")
     async def publicar_jugador(self, interaction: discord.Interaction, button: discord.ui.Button):
