@@ -1,8 +1,8 @@
 """Railway runtime defaults and AJAP startup hooks.
 
 Python imports this module automatically at startup (when it is available on
-sys.path). AJAP's production SQLite database must live on the Railway Volume so
-deploys/restarts can never reset club assignments, rosters or market history.
+sys.path). AJAP's production SQLite database should live on the Railway Volume
+so deploys/restarts preserve club assignments, rosters and market history.
 """
 
 import os
@@ -10,52 +10,37 @@ from pathlib import Path
 
 
 def configure_database_path():
-    """Pin AJAP to persistent Railway storage without relying on one runtime variable."""
+    """Prefer AJAP's persistent Railway volume without ever crashing startup."""
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
         or os.getenv("RAILWAY_DEPLOYMENT_ID")
     )
 
-    # Preferred source: Railway's injected volume mount path.
-    mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
-    if on_railway and mount_path:
-        volume_dir = Path(mount_path)
-        volume_dir.mkdir(parents=True, exist_ok=True)
-        db_path = volume_dir / "ajap_market.db"
-        previous = os.getenv("DB_PATH")
-        os.environ["DB_PATH"] = str(db_path)
-        print(
-            f"AJAP database: {db_path} | source=RAILWAY_VOLUME_MOUNT_PATH"
-            + (f" | ignored DB_PATH={previous}" if previous and previous != str(db_path) else "")
-        )
-        return db_path
-
-    # Runtime V2 can occasionally expose the mounted directory while omitting
-    # the volume-derived env var. AJAP's configured Railway mount is /data, so
-    # use it only when the directory actually exists. This preserves persistence
-    # and avoids crashing a healthy deployment just because the variable is absent.
+    # This is the mount path already used by the AJAP Railway service and the
+    # last configuration that was confirmed to boot correctly.
     data_dir = Path("/data")
     if on_railway and data_dir.exists() and data_dir.is_dir():
         db_path = data_dir / "ajap_market.db"
         previous = os.getenv("DB_PATH")
         os.environ["DB_PATH"] = str(db_path)
         print(
-            f"AJAP database: {db_path} | source=RAILWAY_VOLUME_/data_FALLBACK"
+            f"AJAP database: {db_path} | source=FORCED_RAILWAY_VOLUME"
             + (f" | ignored DB_PATH={previous}" if previous and previous != str(db_path) else "")
         )
         return db_path
 
-    # Never silently fall back to ephemeral Railway storage. If neither the
-    # injected mount path nor the known /data volume is available, fail loudly.
-    if on_railway:
-        raise RuntimeError(
-            "AJAP necesita el Railway Volume persistente. "
-            "No se recibió RAILWAY_VOLUME_MOUNT_PATH y /data no está montado; "
-            "se cancela el arranque para evitar pérdida de datos."
-        )
+    # Support Railway if it exposes the attached volume through its runtime var.
+    mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
+    if on_railway and mount_path:
+        volume_dir = Path(mount_path)
+        volume_dir.mkdir(parents=True, exist_ok=True)
+        db_path = volume_dir / "ajap_market.db"
+        os.environ["DB_PATH"] = str(db_path)
+        print(f"AJAP database: {db_path} | source=RAILWAY_VOLUME_MOUNT_PATH")
+        return db_path
 
-    # Outside Railway, an explicit path remains useful for local development.
+    # An explicitly configured DB_PATH is still valid.
     explicit = os.getenv("DB_PATH")
     if explicit:
         db_path = Path(explicit)
@@ -63,9 +48,17 @@ def configure_database_path():
         print(f"AJAP database: {db_path} | source=DB_PATH")
         return db_path
 
+    # Never kill the whole Discord bot from sitecustomize. If Railway ever boots
+    # without seeing the volume, stay online and print a loud diagnostic instead.
     db_path = Path("ajap_market.db")
     os.environ["DB_PATH"] = str(db_path)
-    print(f"AJAP database: {db_path} | source=local fallback")
+    if on_railway:
+        print(
+            "WARNING AJAP: Railway volume not detected at startup; "
+            f"using fallback database {db_path}. CHECK VOLUME CONFIGURATION."
+        )
+    else:
+        print(f"AJAP database: {db_path} | source=local fallback")
     return db_path
 
 
