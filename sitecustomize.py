@@ -1,8 +1,8 @@
 """Railway runtime defaults and AJAP startup hooks.
 
 Python imports this module automatically at startup (when it is available on
-sys.path). It keeps SQLite on the real Railway Volume and installs the AJAP
-runtime patches before the Discord bot starts.
+sys.path). It keeps SQLite on the Railway Volume when available and installs
+the AJAP runtime patches before the Discord bot starts.
 """
 
 import os
@@ -10,50 +10,51 @@ from pathlib import Path
 
 
 def configure_database_path():
-    """Point SQLite at the actual Railway Volume, never ephemeral storage."""
+    """Choose a persistent DB path when available without ever crashing startup."""
+    # 1) Explicit DB_PATH always wins. If Railway was already configured with a
+    # persistent path, do not overwrite it.
+    explicit = os.getenv("DB_PATH")
+    if explicit:
+        db_path = Path(explicit)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"AJAP database: {db_path} | source=DB_PATH")
+        return db_path
+
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
         or os.getenv("RAILWAY_DEPLOYMENT_ID")
     )
 
-    if not on_railway:
-        os.environ.setdefault("DB_PATH", "ajap_market.db")
-        return Path(os.environ["DB_PATH"])
-
-    # Railway provides this automatically when a Volume is attached. This is the
-    # authoritative mount path and may be /data, /app/data or another configured
-    # path. Never hard-code /data just because that directory happens to exist.
+    # 2) Prefer Railway's real mounted-volume path when exposed.
     mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
-    if mount_path:
+    if on_railway and mount_path:
         volume_dir = Path(mount_path)
-    elif Path("/data").is_mount():
-        # Compatibility fallback only when /data is confirmed to be a real mount.
-        volume_dir = Path("/data")
-    else:
-        # Failing loudly is safer than starting with an ephemeral SQLite file and
-        # silently losing club assignments on the next deploy.
-        raise RuntimeError(
-            "AJAP necesita un Railway Volume adjunto al servicio. "
-            "RAILWAY_VOLUME_MOUNT_PATH no está disponible."
-        )
+        volume_dir.mkdir(parents=True, exist_ok=True)
+        db_path = volume_dir / "ajap_market.db"
+        os.environ["DB_PATH"] = str(db_path)
+        print(f"AJAP database: {db_path} | source=RAILWAY_VOLUME_MOUNT_PATH")
+        return db_path
 
-    volume_dir.mkdir(parents=True, exist_ok=True)
-    persistent_db = volume_dir / "ajap_market.db"
-    os.environ["DB_PATH"] = str(persistent_db)
+    # 3) Compatibility fallback for the AJAP service, where the Railway volume
+    # has been mounted at /data. Do not require Path.is_mount(); bind mounts may
+    # not be reported as mounts from inside every container runtime.
+    data_dir = Path("/data")
+    if on_railway and data_dir.exists() and data_dir.is_dir():
+        db_path = data_dir / "ajap_market.db"
+        os.environ["DB_PATH"] = str(db_path)
+        print(f"AJAP database: {db_path} | source=/data fallback")
+        return db_path
 
-    # Persistent marker: subsequent deploys must see this same file.
-    marker = volume_dir / ".ajap_volume_ready"
-    first_seen = not marker.exists()
-    if first_seen:
-        marker.write_text("AJAP persistent volume initialized\n", encoding="utf-8")
-
+    # 4) Last-resort fallback. The bot must remain online instead of crashing.
+    # The log makes it obvious that Railway's persistent mount still needs review.
+    db_path = Path("ajap_market.db")
+    os.environ["DB_PATH"] = str(db_path)
     print(
-        "AJAP persistent database: "
-        f"{persistent_db} | volume={os.getenv('RAILWAY_VOLUME_NAME', 'attached')} "
-        f"| existing_volume={'no' if first_seen else 'yes'}"
+        "WARNING AJAP: Railway volume path not detected; "
+        f"using fallback database {db_path}"
     )
-    return persistent_db
+    return db_path
 
 
 configure_database_path()
