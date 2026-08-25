@@ -21,6 +21,7 @@ from flexible_offer_patch import apply_flexible_offer_patch
 from offer_value_floor_patch import apply_offer_value_floor_patch
 from offer_notifications_patch import apply_offer_notifications_patch
 from market_close_report_patch import apply_market_close_report_patch
+from market_channel_report_patch import apply_market_channel_report_patch
 from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
 from clausulazo_club_protection_patch import apply_clausulazo_club_protection_patch
@@ -78,7 +79,9 @@ apply_publish_ovr_patch(runtime)
 apply_flexible_offer_patch(runtime)
 apply_offer_value_floor_patch(runtime)
 apply_offer_notifications_patch(runtime)
+# Reporte base de cierre y luego publicación adicional en canal configurado.
 apply_market_close_report_patch(runtime, runtime.bot)
+apply_market_channel_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
 apply_clausulazo_club_protection_patch(runtime)
@@ -108,6 +111,7 @@ print(
     + " • valor mínimo equivalente protegido"
     + " • ofertas DM + anuncio público activas"
     + " • reporte de cierre Staff activo"
+    + " • canal automático de movimientos activo"
     + " • clausulazo Staff activo"
     + " • clausulazo DM + anuncio público activo"
     + " • protección doble jugador + club activa"
