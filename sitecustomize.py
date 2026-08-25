@@ -38,11 +38,13 @@ try:
                 from team_assignment import apply_team_assignment_patch
                 from lyon_test_seed import apply_lyon_test_patch
                 from multi_team_extension import enable_additional_teams, seed_additional_rosters
+                from publish_ovr_patch import apply_publish_ovr_patch
 
                 enable_additional_teams()
                 apply_team_assignment_patch(__main__, self)
                 apply_lyon_test_patch(__main__)
                 seed_additional_rosters(__main__)
+                apply_publish_ovr_patch(__main__)
             except Exception as exc:
                 # Keep the bot available even if this optional startup layer fails.
                 print(f"Error cargando equipos/plantillas AJAP: {exc}")
