@@ -23,6 +23,7 @@ from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
+from negotiation_picker_patch import apply_negotiation_picker_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
 from clausulazo_patch import apply_clausulazo_patch
@@ -91,6 +92,8 @@ pes6_import = import_pes6_original_stats(runtime)
 # Buscar usa la base completa de planteles y, cuando corresponde, reutiliza el
 # modal final de ofertas ya protegido por valor mínimo + notificaciones.
 apply_global_player_search_patch(runtime)
+# Sobre el modal final agregamos selección desde plantel y negociación ida/vuelta.
+apply_negotiation_picker_patch(runtime)
 # Reporte base de cierre y luego publicación adicional en canal configurado.
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_market_channel_report_patch(runtime, runtime.bot)
@@ -128,6 +131,8 @@ print(
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • ofertas DM + anuncio público activas"
+    + " • selector de jugador desde plantel activo"
+    + " • contraofertas con cambio de jugador activas"
     + " • atributos clave PES6 por posición activos"
     + pes6_status
     + " • búsqueda global de jugadores activa"
