@@ -1,8 +1,8 @@
 """Railway runtime defaults and AJAP startup hooks.
 
-AJAP's Railway service has a persistent Volume mounted at /data. On Railway we
-always store SQLite at /data/ajap_market.db and never silently fall back to the
-container filesystem. Local/non-Railway runs can still use DB_PATH or a local DB.
+AJAP stores SQLite on Railway's persistent Volume. Prefer the mount path
+reported by Railway itself and keep /data only as a compatibility fallback.
+Never silently fall back to the ephemeral container filesystem on Railway.
 """
 
 import os
@@ -47,8 +47,6 @@ def _db_stats(path: Path):
 def _score(stats, priority):
     if not stats:
         return (-1, -1, -1, -1, -1, priority)
-    # Existing user assignments are the strongest signal. Then prefer the DB
-    # carrying the largest amount of real league state.
     return (
         1 if stats["clubs"] > 0 else 0,
         stats["clubs"],
@@ -59,8 +57,22 @@ def _score(stats, priority):
     )
 
 
+def _usable_directory(path: Path):
+    """Return True only for an existing/writable directory suitable for SQLite."""
+    try:
+        if not path.exists() or not path.is_dir():
+            return False
+        probe = path / ".ajap_volume_probe"
+        with probe.open("a", encoding="utf-8"):
+            pass
+        probe.unlink(missing_ok=True)
+        return True
+    except Exception:
+        return False
+
+
 def configure_database_path():
-    """Resolve the AJAP database and force Railway onto its persistent Volume."""
+    """Resolve the AJAP database and force Railway onto persistent storage."""
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
@@ -70,13 +82,14 @@ def configure_database_path():
     explicit_raw = (os.getenv("DB_PATH") or "").strip()
     explicit = Path(explicit_raw) if explicit_raw else None
     mount_raw = (os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "").strip()
-    mount_db = Path(mount_raw) / "ajap_market.db" if mount_raw else None
+    mount_dir = Path(mount_raw) if mount_raw else None
+    mount_db = mount_dir / "ajap_market.db" if mount_dir else None
 
     raw_candidates = []
     if mount_db:
-        raw_candidates.append(("RAILWAY_VOLUME_MOUNT_PATH", mount_db, 60))
+        raw_candidates.append(("RAILWAY_VOLUME_MOUNT_PATH", mount_db, 70))
     if explicit:
-        raw_candidates.append(("DB_PATH", explicit, 55))
+        raw_candidates.append(("DB_PATH", explicit, 60))
     raw_candidates.extend(
         [
             ("/data", Path("/data/ajap_market.db"), 50),
@@ -109,17 +122,42 @@ def configure_database_path():
     preferred_source = None
 
     if on_railway:
-        # This AJAP project is explicitly configured in Railway with its Volume
-        # mounted at /data. Do not depend on os.path.ismount()/Path.is_mount():
-        # bind mounts are not detected reliably on every Linux/container setup.
-        volume_dir = Path("/data")
-        if not volume_dir.exists():
+        # Railway exposes the real Volume mount path in RAILWAY_VOLUME_MOUNT_PATH.
+        # Use it first instead of assuming every service mounts at /data.
+        railway_dirs = []
+        if mount_dir:
+            railway_dirs.append(("RAILWAY_VOLUME_MOUNT_PATH", mount_dir))
+        railway_dirs.extend(
+            [
+                ("Railway Volume /data", Path("/data")),
+                ("Railway Volume /app/data", Path("/app/data")),
+                ("Railway Volume /mnt/data", Path("/mnt/data")),
+            ]
+        )
+
+        seen_dirs = set()
+        selected = None
+        for source, directory in railway_dirs:
+            key = str(directory.resolve(strict=False))
+            if key in seen_dirs:
+                continue
+            seen_dirs.add(key)
+            if _usable_directory(directory):
+                selected = (source, directory)
+                break
+
+        if selected is None:
+            reported = mount_raw or "no informado"
+            explicit_info = explicit_raw or "no informado"
             raise RuntimeError(
-                "AJAP: el Volume de Railway esperado en /data no está montado. "
+                "AJAP: Railway no expone un Volume persistente utilizable. "
+                f"RAILWAY_VOLUME_MOUNT_PATH={reported}; DB_PATH={explicit_info}. "
                 "Se detiene el bot para no perder datos en almacenamiento temporal."
             )
+
+        preferred_source, volume_dir = selected
         preferred_target = volume_dir / "ajap_market.db"
-        preferred_source = "Railway Volume /data"
+        print(f"AJAP Railway volume detected: {volume_dir} | source={preferred_source}")
     elif explicit:
         preferred_target = explicit
         preferred_source = "DB_PATH"
@@ -145,9 +183,6 @@ def configure_database_path():
                     except Exception as exc:
                         print(f"WARNING AJAP: no se pudo recuperar DB hacia {preferred_target}: {exc}")
 
-        # Important: select the persistent target even on the very first boot.
-        # The previous logic only selected it when a DB already existed, which
-        # let a fresh /data Volume fall through to ephemeral ajap_market.db.
         preferred_target.parent.mkdir(parents=True, exist_ok=True)
         os.environ["DB_PATH"] = str(preferred_target)
         stats = _db_stats(preferred_target)
