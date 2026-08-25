@@ -29,11 +29,13 @@ try:
             try:
                 import __main__
                 from team_assignment import apply_team_assignment_patch
+                from lyon_test_seed import apply_lyon_test_patch
 
                 apply_team_assignment_patch(__main__, self)
+                apply_lyon_test_patch(__main__)
             except Exception as exc:
                 # Keep the bot available even if this optional startup layer fails.
-                print(f"Error cargando asignación fija de equipos: {exc}")
+                print(f"Error cargando asignación/equipo de prueba: {exc}")
         return _original_bot_run(self, token, *args, **kwargs)
 
     commands.Bot.run = _run_with_ajap_team_assignment
