@@ -66,9 +66,36 @@ REAL_BETIS_ROSTER = [
     ("Rafael Sóbis", "SS/CF", 81),
 ]
 
+SEVILLA = "Sevilla"
+SEVILLA_ROSTER = [
+    ("Frédéric Kanouté", "CF", 83),
+    ("Christian Poulsen", "DMF", 82),
+    ("Enzo Maresca", "CMF", 82),
+    ("Luís Fabiano", "CF", 82),
+    ("Andrés Palop", "GK", 81),
+    ("Dani Alves", "RB", 81),
+    ("Ernesto Chevantón", "CF", 81),
+    ("Javi Navarro", "CB", 80),
+    ("Renato", "CMF/AMF", 80),
+    ("Fernando Sales", "RMF", 79),
+    ("Andreas Hinkel", "RB", 79),
+    ("Julien Escudé", "CB", 79),
+    ("Ivica Dragutinović", "CB/LB", 79),
+    ("José Luis Martí", "CMF/DMF", 79),
+    ("Duda", "LMF", 79),
+    ("Adriano Correia", "LB/LMF", 78),
+    ("Aitor Ocio", "CB", 78),
+    ("Jesús Navas", "RMF", 78),
+    ("Antonio Puerta", "LMF", 77),
+    ("David Castedo", "LB", 77),
+    ("Kepa Blanco", "CF", 77),
+    ("David Cobeño", "GK", 74),
+]
+
 ADDITIONAL_TEAMS = [
     (VILLARREAL, "España"),
     (REAL_BETIS, "España"),
+    (SEVILLA, "España"),
 ]
 
 
@@ -218,6 +245,7 @@ def seed_additional_rosters(app):
     roster_seeds = [
         (VILLARREAL, VILLARREAL_ROSTER, "villarreal_pes6_v1"),
         (REAL_BETIS, REAL_BETIS_ROSTER, "real_betis_pes6_v1"),
+        (SEVILLA, SEVILLA_ROSTER, "sevilla_pes6_v1"),
     ]
     newly_seeded = 0
 
