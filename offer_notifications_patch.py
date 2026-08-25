@@ -66,7 +66,7 @@ def _offer_embed(offer, *, private=False):
     if private:
         embed.add_field(
             name="¿Qué sigue?",
-            value="Entrá a **/mercado → Mis ofertas** para aceptar o rechazar la propuesta.",
+            value="Entrá a **/mercado → Mis ofertas** para aceptar, contraofertar o rechazar la propuesta.",
             inline=False,
         )
     else:
