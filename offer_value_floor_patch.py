@@ -61,14 +61,6 @@ def proposal_values_from_modal(modal):
     return cash_value, offered
 
 
-def proposal_values_from_offer(offer):
-    cash_value = APP.price_number(offer["amount"] or "") or 0
-    offered = None
-    if _has(offer, "offered_player_id") and offer["offered_player_id"]:
-        offered = APP.jugador_por_id(int(offer["offered_player_id"]))
-    return cash_value, offered
-
-
 def insufficient_embed(target, offered, cash_value, target_min, offered_min, total, missing):
     embed = discord.Embed(
         title="⛔ Oferta por debajo del valor mínimo",
@@ -130,7 +122,20 @@ def apply_offer_value_floor_patch(main_module):
                 proposal = proposal_values_from_modal(self)
                 if target and proposal is not None:
                     cash_value, offered = proposal
-                    if not self.jugador.value.strip() or offered:
+                    player_text = self.jugador.value.strip()
+
+                    # Cash-only offers can be valued immediately. When a player
+                    # is included, let the base modal report ownership/name errors
+                    # first unless that player really belongs to the buyer.
+                    should_value = not player_text
+                    if player_text and offered:
+                        buyer_club = APP.club_de(interaction.user.id)
+                        should_value = bool(
+                            buyer_club
+                            and offered["club"].casefold() == buyer_club.casefold()
+                        )
+
+                    if should_value:
                         ok, error_embed = validate_equivalent_offer(target, offered, cash_value)
                         if not ok:
                             await interaction.response.send_message(
@@ -138,35 +143,11 @@ def apply_offer_value_floor_patch(main_module):
                                 ephemeral=True,
                             )
                             return
+
             await super().on_submit(interaction)
 
     ValueProtectedOfertaModal.__name__ = "OfertaModal"
     main_module.OfertaModal = ValueProtectedOfertaModal
-
-    BaseDecisionView = flexible.FlexibleOfertaDecisionView
-
-    class ValueProtectedOfertaDecisionView(BaseDecisionView):
-        @discord.ui.button(label="Aceptar", emoji="✅", style=discord.ButtonStyle.success)
-        async def aceptar(self, interaction: discord.Interaction, button: discord.ui.Button):
-            offer = APP.oferta_por_id(self.oferta_id)
-            if offer and offer["status"] == "PENDIENTE":
-                target = APP.jugador_por_nombre(offer["player"])
-                if target:
-                    cash_value, offered = proposal_values_from_offer(offer)
-                    ok, error_embed = validate_equivalent_offer(target, offered, cash_value)
-                    if not ok:
-                        error_embed.description += (
-                            "\n\nEsta oferta quedó pendiente de antes de aplicar la nueva regla y "
-                            "**ya no puede aceptarse**. El comprador debe enviar una propuesta nueva."
-                        )
-                        await interaction.response.send_message(embed=error_embed, ephemeral=True)
-                        return
-            await super().aceptar(interaction, button)
-
-    ValueProtectedOfertaDecisionView.__name__ = "OfertaDecisionView"
-    flexible.FlexibleOfertaDecisionView = ValueProtectedOfertaDecisionView
-    main_module.OfertaDecisionView = ValueProtectedOfertaDecisionView
-
     main_module.offer_equivalent_value = equivalent_value
     main_module.player_offer_floor = player_floor
     main_module._ajap_offer_value_floor_patch = True
