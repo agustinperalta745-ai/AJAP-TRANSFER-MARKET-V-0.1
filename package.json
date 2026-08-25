@@ -1,0 +1,17 @@
+{
+  "name": "ajap-transfer-market-v0.1",
+  "version": "0.1.0",
+  "description": "Prototipo de bot de Discord para AJAP Transfer Market",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "discord.js": "^14.22.1",
+    "dotenv": "^16.6.1"
+  }
+}
