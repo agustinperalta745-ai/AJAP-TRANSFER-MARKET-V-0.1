@@ -10,17 +10,14 @@ from pathlib import Path
 
 
 def configure_database_path():
-    """Pin AJAP to the actual Railway Volume mount path."""
+    """Pin AJAP to persistent Railway storage without relying on one runtime variable."""
     on_railway = bool(
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
         or os.getenv("RAILWAY_DEPLOYMENT_ID")
     )
 
-    # Railway exposes the REAL attached-volume mount path at runtime.
-    # This must always win over guessed paths such as /data and over stale
-    # DB_PATH values, otherwise a deploy can silently fall back to ephemeral
-    # container storage and lose assignments on the next deployment.
+    # Preferred source: Railway's injected volume mount path.
     mount_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
     if on_railway and mount_path:
         volume_dir = Path(mount_path)
@@ -34,14 +31,28 @@ def configure_database_path():
         )
         return db_path
 
-    # Never pretend persistence exists on Railway. If no attached Volume is
-    # exposed, stopping here is safer than writing to the temporary container
-    # filesystem and losing clubs/history on a future deploy.
+    # Runtime V2 can occasionally expose the mounted directory while omitting
+    # the volume-derived env var. AJAP's configured Railway mount is /data, so
+    # use it only when the directory actually exists. This preserves persistence
+    # and avoids crashing a healthy deployment just because the variable is absent.
+    data_dir = Path("/data")
+    if on_railway and data_dir.exists() and data_dir.is_dir():
+        db_path = data_dir / "ajap_market.db"
+        previous = os.getenv("DB_PATH")
+        os.environ["DB_PATH"] = str(db_path)
+        print(
+            f"AJAP database: {db_path} | source=RAILWAY_VOLUME_/data_FALLBACK"
+            + (f" | ignored DB_PATH={previous}" if previous and previous != str(db_path) else "")
+        )
+        return db_path
+
+    # Never silently fall back to ephemeral Railway storage. If neither the
+    # injected mount path nor the known /data volume is available, fail loudly.
     if on_railway:
         raise RuntimeError(
-            "AJAP necesita un Railway Volume adjunto. "
-            "RAILWAY_VOLUME_MOUNT_PATH no está disponible; se cancela el arranque "
-            "para evitar guardar la base en almacenamiento temporal."
+            "AJAP necesita el Railway Volume persistente. "
+            "No se recibió RAILWAY_VOLUME_MOUNT_PATH y /data no está montado; "
+            "se cancela el arranque para evitar pérdida de datos."
         )
 
     # Outside Railway, an explicit path remains useful for local development.
