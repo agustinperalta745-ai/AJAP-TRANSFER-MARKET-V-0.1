@@ -42,6 +42,16 @@ LYON_ROSTER = [
     ("Loïc Rémy", "CF", 66),
 ]
 
+# The roster opens on these OVR groups instead of dumping every player at once.
+OVR_RANGES = [
+    ("90–99", 90, 99),
+    ("80–89", 80, 89),
+    ("70–79", 70, 79),
+    ("60–69", 60, 69),
+    ("50–59", 50, 59),
+    ("Menos de 50", 0, 49),
+]
+
 
 def minimum_for_rating(rating: int) -> int:
     """Fixed-price curve with no age/potential component."""
@@ -79,6 +89,182 @@ def minimum_for_rating(rating: int) -> int:
 
 def fmt_money(value: int) -> str:
     return f"${int(value):,}".replace(",", ".")
+
+
+def player_rating(player):
+    if "rating" not in player.keys() or player["rating"] is None:
+        return -1
+    return int(player["rating"])
+
+
+def sorted_roster(club: str):
+    jugadores = list(APP.jugadores_de_club(club, 50))
+    return sorted(
+        jugadores,
+        key=lambda j: (-player_rating(j), str(j["name"]).casefold()),
+    )
+
+
+def players_in_range(club: str, min_ovr: int, max_ovr: int):
+    return [
+        j
+        for j in sorted_roster(club)
+        if min_ovr <= player_rating(j) <= max_ovr
+    ]
+
+
+def plantel_ranges_embed(club: str):
+    jugadores = sorted_roster(club)
+    embed = discord.Embed(
+        title=f"🏟️ Plantilla • {club}",
+        description=(
+            "Elegí el **rango de media (OVR)** que querés ver.\n"
+            "Dentro de cada rango, los jugadores aparecen ordenados de mayor a menor."
+        ),
+    )
+
+    for label, min_ovr, max_ovr in OVR_RANGES:
+        count = sum(min_ovr <= player_rating(j) <= max_ovr for j in jugadores)
+        embed.add_field(
+            name=f"⭐ OVR {label}",
+            value=f"**{count}** jugador{'es' if count != 1 else ''}",
+            inline=True,
+        )
+
+    embed.set_footer(text=f"{len(jugadores)} jugador(es) en la plantilla")
+    return embed
+
+
+def rated_plantel_embed(
+    club: str,
+    min_ovr: int | None = None,
+    max_ovr: int | None = None,
+    range_label: str | None = None,
+):
+    jugadores = sorted_roster(club)
+    if min_ovr is not None and max_ovr is not None:
+        jugadores = [
+            j for j in jugadores if min_ovr <= player_rating(j) <= max_ovr
+        ]
+
+    title = f"🏟️ Plantel oficial • {club}"
+    if range_label:
+        title += f" • OVR {range_label}"
+    embed = discord.Embed(title=title)
+
+    if not jugadores:
+        if range_label:
+            embed.description = f"No tenés jugadores con OVR **{range_label}**."
+        else:
+            embed.description = "No hay jugadores cargados para este club."
+        return embed
+
+    lines = []
+    for j in jugadores[:50]:
+        rating = j["rating"] if "rating" in j.keys() else None
+        min_sale = j["min_sale_value"] if "min_sale_value" in j.keys() else None
+        extra = ""
+        if rating is not None:
+            extra += f" • ⭐ **{rating}**"
+        if min_sale is not None:
+            extra += f" • 💰 mín. **{fmt_money(min_sale)}**"
+        lines.append(
+            f"`{APP.player_code(j['id'])}` • **{j['position']}** • {j['name']}{extra}"
+        )
+
+    embed.description = "\n".join(lines)
+    if range_label:
+        embed.set_footer(
+            text=(
+                f"{len(jugadores)} jugador(es) en OVR {range_label} • "
+                "ordenados de mayor a menor"
+            )
+        )
+    else:
+        embed.set_footer(
+            text=f"{len(jugadores)} jugador(es) • valoración fija • mínimo para venta definitiva"
+        )
+    return embed
+
+
+class OVRRangeButton(discord.ui.Button):
+    def __init__(self, club: str, label: str, min_ovr: int, max_ovr: int, count: int, row: int):
+        super().__init__(
+            label=f"{label} ({count})",
+            emoji="⭐",
+            style=discord.ButtonStyle.primary if count else discord.ButtonStyle.secondary,
+            disabled=count == 0,
+            row=row,
+        )
+        self.club = club
+        self.range_label = label
+        self.min_ovr = min_ovr
+        self.max_ovr = max_ovr
+
+    async def callback(self, interaction: discord.Interaction):
+        current_team = APP.club_de(interaction.user.id)
+        if not current_team or current_team.casefold() != self.club.casefold():
+            await interaction.response.send_message(
+                "⛔ Este plantel ya no está vinculado a tu cuenta.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            embed=rated_plantel_embed(
+                self.club,
+                self.min_ovr,
+                self.max_ovr,
+                self.range_label,
+            ),
+            view=PlantelOVRView(self.club),
+        )
+
+
+class OVRResumenButton(discord.ui.Button):
+    def __init__(self, club: str):
+        super().__init__(
+            label="Ver rangos",
+            emoji="📊",
+            style=discord.ButtonStyle.secondary,
+            row=1,
+        )
+        self.club = club
+
+    async def callback(self, interaction: discord.Interaction):
+        current_team = APP.club_de(interaction.user.id)
+        if not current_team or current_team.casefold() != self.club.casefold():
+            await interaction.response.send_message(
+                "⛔ Este plantel ya no está vinculado a tu cuenta.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.edit_message(
+            embed=plantel_ranges_embed(self.club),
+            view=PlantelOVRView(self.club),
+        )
+
+
+class PlantelOVRView(discord.ui.View):
+    def __init__(self, club: str):
+        super().__init__(timeout=300)
+        jugadores = sorted_roster(club)
+
+        for index, (label, min_ovr, max_ovr) in enumerate(OVR_RANGES):
+            count = sum(min_ovr <= player_rating(j) <= max_ovr for j in jugadores)
+            self.add_item(
+                OVRRangeButton(
+                    club,
+                    label,
+                    min_ovr,
+                    max_ovr,
+                    count,
+                    row=0 if index < 5 else 1,
+                )
+            )
+
+        self.add_item(OVRResumenButton(club))
 
 
 def ensure_schema_and_seed():
@@ -119,33 +305,6 @@ def ensure_schema_and_seed():
         conn.execute(
             "INSERT INTO seed_state (key) VALUES ('lyon_pes6_test_v1')"
         )
-
-
-def rated_plantel_embed(club: str):
-    jugadores = APP.jugadores_de_club(club)
-    embed = discord.Embed(title=f"🏟️ Plantel oficial • {club}")
-    if not jugadores:
-        embed.description = "No hay jugadores cargados para este club."
-        return embed
-
-    lines = []
-    for j in jugadores[:50]:
-        rating = j["rating"] if "rating" in j.keys() else None
-        min_sale = j["min_sale_value"] if "min_sale_value" in j.keys() else None
-        extra = ""
-        if rating is not None:
-            extra += f" • ⭐ **{rating}**"
-        if min_sale is not None:
-            extra += f" • 💰 mín. **{fmt_money(min_sale)}**"
-        lines.append(
-            f"`{APP.player_code(j['id'])}` • **{j['position']}** • {j['name']}{extra}"
-        )
-
-    embed.description = "\n".join(lines)
-    embed.set_footer(
-        text=f"{len(jugadores)} jugador(es) • valoración fija • mínimo para venta definitiva"
-    )
-    return embed
 
 
 class RatedPublicarJugadorModal(discord.ui.Modal):
@@ -299,6 +458,18 @@ class RatedPublicarView(discord.ui.View):
 
 def build_lyon_market_view(base_view):
     class LyonMarketView(base_view):
+        async def _fixed_mi_club(self, interaction):
+            team = APP.club_de(interaction.user.id)
+            if not team:
+                await super()._fixed_mi_club(interaction)
+                return
+
+            await interaction.response.send_message(
+                embed=plantel_ranges_embed(team),
+                view=PlantelOVRView(team),
+                ephemeral=True,
+            )
+
         async def _fixed_publicar(self, interaction):
             team = APP.club_de(interaction.user.id)
             if not team:
@@ -332,6 +503,7 @@ def apply_lyon_test_patch(main_module):
 
     # Runtime UI hooks. Fixed-team assignment calls these through the main module.
     main_module.plantel_embed = rated_plantel_embed
+    main_module.PlantelOVRView = PlantelOVRView
     main_module.PublicarJugadorModal = RatedPublicarJugadorModal
     main_module.PublicarSelect = RatedPublicarSelect
     main_module.PublicarView = RatedPublicarView
