@@ -92,15 +92,47 @@ SEVILLA_ROSTER = [
     ("David Cobeño", "GK", 74),
 ]
 
+LAZIO = "Lazio"
+LAZIO_ROSTER = [
+    ("Angelo Peruzzi", "GK", 87),
+    ("Matteo Sereni", "GK", 81),
+    ("Marco Ballotta", "GK", 74),
+    ("Tommaso Berni", "GK", 72),
+    ("Massimo Oddo", "RB", 82),
+    ("Emilson Cribari", "CB", 81),
+    ("Luciano Zauri", "LB/RB", 80),
+    ("Sebastiano Siviglia", "CB", 78),
+    ("Guglielmo Stendardo", "CB", 78),
+    ("Manuel Belleri", "RB", 75),
+    ("Riccardo Bonetto", "LB/LMF", 73),
+    ("Modibo Diakité", "CB", 69),
+    ("Lorenzo De Silvestri", "RB", 68),
+    ("Cristian Ledesma", "DMF/CMF", 81),
+    ("Stefano Mauri", "AMF/LMF", 79),
+    ("Gaby Mudingayi", "DMF/CMF", 78),
+    ("Massimo Mutarelli", "CMF/DMF", 78),
+    ("Roberto Baronio", "DMF/CMF", 79),
+    ("Valon Behrami", "RMF/DMF", 77),
+    ("Christian Manfredini", "LMF/RMF", 77),
+    ("Fabio Firmani", "CMF/DMF", 74),
+    ("Pasquale Foggia", "AMF/SMF", 77),
+    ("Tommaso Rocchi", "CF/SS", 82),
+    ("Goran Pandev", "SS/CF", 81),
+    ("Stephen Makinwa", "CF", 78),
+    ("Simone Inzaghi", "CF", 77),
+    ("Igli Tare", "CF", 76),
+]
+
 ADDITIONAL_TEAMS = [
     (VILLARREAL, "España"),
     (REAL_BETIS, "España"),
     (SEVILLA, "España"),
+    (LAZIO, "Italia"),
 ]
 
 
 def _flag(country: str) -> str:
-    return {"Francia": "🇫🇷", "España": "🇪🇸"}.get(country, "⚽")
+    return {"Francia": "🇫🇷", "España": "🇪🇸", "Italia": "🇮🇹"}.get(country, "⚽")
 
 
 def enable_additional_teams():
@@ -246,6 +278,7 @@ def seed_additional_rosters(app):
         (VILLARREAL, VILLARREAL_ROSTER, "villarreal_pes6_v1"),
         (REAL_BETIS, REAL_BETIS_ROSTER, "real_betis_pes6_v1"),
         (SEVILLA, SEVILLA_ROSTER, "sevilla_pes6_v1"),
+        (LAZIO, LAZIO_ROSTER, "lazio_pes6_v1"),
     ]
     newly_seeded = 0
 
