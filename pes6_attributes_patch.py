@@ -129,6 +129,33 @@ def ensure_schema():
                 ),
             )
 
+        # Piggyback's official PES6 guide sample lists these exact Riquelme
+        # attributes. They guarantee a real AMF search-card test even if the
+        # external spreadsheet archive cannot be downloaded on a given deploy.
+        riquelme = conn.execute(
+            "SELECT id FROM roster_players WHERE name = ? COLLATE NOCASE",
+            ("Juan Román Riquelme",),
+        ).fetchone()
+        if riquelme:
+            conn.execute(
+                """
+                INSERT INTO pes6_player_attributes
+                    (player_id, dribble_accuracy, short_pass_accuracy,
+                     short_pass_speed, long_pass_accuracy, technique, source)
+                VALUES (?, 91, 98, 94, 91, 93, ?)
+                ON CONFLICT(player_id) DO UPDATE SET
+                    dribble_accuracy = COALESCE(pes6_player_attributes.dribble_accuracy, excluded.dribble_accuracy),
+                    short_pass_accuracy = COALESCE(pes6_player_attributes.short_pass_accuracy, excluded.short_pass_accuracy),
+                    short_pass_speed = COALESCE(pes6_player_attributes.short_pass_speed, excluded.short_pass_speed),
+                    long_pass_accuracy = COALESCE(pes6_player_attributes.long_pass_accuracy, excluded.long_pass_accuracy),
+                    technique = COALESCE(pes6_player_attributes.technique, excluded.technique)
+                """,
+                (
+                    riquelme["id"],
+                    "Piggyback official PES6 guide sample pages",
+                ),
+            )
+
 
 def attributes_for_player(player_id: int):
     with APP.db() as conn:
