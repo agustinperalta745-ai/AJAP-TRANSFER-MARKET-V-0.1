@@ -15,6 +15,7 @@ import sitecustomize  # noqa: F401
 from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
 from multi_team_extension import enable_additional_teams, seed_additional_rosters
+from publish_ovr_patch import apply_publish_ovr_patch
 
 
 BOT_PATH = Path(__file__).with_name("core_bot.py")
@@ -34,14 +35,16 @@ sys.modules[runtime.__name__] = runtime
 
 exec(compile(source, str(BOT_PATH), "exec"), runtime.__dict__)
 
-# Orden obligatorio: ampliar selector, instalar asignación y luego OVR/precios.
+# Orden obligatorio: selector/equipos, plantilla/OVR/precios y por último UI de publicación.
 enable_additional_teams()
 apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 seeded = seed_additional_rosters(runtime)
+apply_publish_ovr_patch(runtime)
 
 print(
     "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
     + (f" • Villarreal sembrado con {seeded} jugadores" if seeded else "")
+    + " • publicar por rangos OVR activo"
 )
 runtime.bot.run(runtime.TOKEN)
