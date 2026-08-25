@@ -17,6 +17,7 @@ from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
 from multi_team_extension import enable_additional_teams, seed_additional_rosters
 from publish_ovr_patch import apply_publish_ovr_patch
+from offer_notifications_patch import apply_offer_notifications_patch
 from market_close_report_patch import apply_market_close_report_patch
 from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
@@ -70,6 +71,7 @@ except Exception as exc:
     print(f"WARNING AJAP: presupuesto Lyon deshabilitado en este arranque: {exc}")
 
 apply_publish_ovr_patch(runtime)
+apply_offer_notifications_patch(runtime)
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
@@ -96,6 +98,7 @@ print(
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
+    + " • ofertas DM + anuncio público activas"
     + " • reporte de cierre Staff activo"
     + " • clausulazo Staff activo"
     + " • clausulazo DM + anuncio público activo"
