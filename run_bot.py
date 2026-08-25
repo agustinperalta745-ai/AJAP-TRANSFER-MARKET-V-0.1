@@ -19,6 +19,7 @@ from publish_ovr_patch import apply_publish_ovr_patch
 from market_close_report_patch import apply_market_close_report_patch
 from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
+from budget_patch import apply_budget_patch
 
 
 BOT_PATH = Path(__file__).with_name("core_bot.py")
@@ -43,6 +44,7 @@ enable_additional_teams()
 apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 seeded = seed_additional_rosters(runtime)
+budget_seeded = apply_budget_patch(runtime)
 apply_publish_ovr_patch(runtime)
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
@@ -51,6 +53,7 @@ apply_clausulazo_safety_patch(runtime)
 print(
     "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
     + (f" • Villarreal sembrado con {seeded} jugadores" if seeded else "")
+    + (" • Lyon cargado con $100.000.000" if budget_seeded else " • presupuesto Lyon persistente")
     + " • publicar por rangos OVR activo"
     + " • reporte de cierre Staff activo"
     + " • clausulazo Staff activo"
