@@ -92,8 +92,8 @@ elif budget_seeded is None:
     budget_status = " • presupuesto Lyon omitido por seguridad"
 
 print(
-    "AJAP startup OK: Lyon + Villarreal habilitados antes de conectar Discord"
-    + (f" • Villarreal sembrado con {seeded} jugadores" if seeded else "")
+    "AJAP startup OK: Lyon + Villarreal + Real Betis habilitados antes de conectar Discord"
+    + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
     + " • reporte de cierre Staff activo"
