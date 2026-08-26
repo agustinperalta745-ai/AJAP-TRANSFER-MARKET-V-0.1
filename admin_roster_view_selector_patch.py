@@ -86,6 +86,14 @@ def _selector_embed():
     return embed
 
 
+def _rosters_embed():
+    return staff.section_embed(
+        "👥 PLANTELES",
+        "Correcciones sobre los planteles oficiales.",
+        ["➕ Agregar jugador", "🔁 Mover jugador", "🗑️ Quitar jugador", "📋 Ver plantel"],
+    )
+
+
 class RosterTeamSelect(discord.ui.Select):
     def __init__(self, rows):
         options = [
@@ -134,11 +142,33 @@ class RosterTeamSelect(discord.ui.Select):
             await interaction.edit_original_response(embed=error, view=None)
 
 
+class BackToRostersButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="VOLVER",
+            emoji="⬅️",
+            style=discord.ButtonStyle.secondary,
+            row=1,
+            custom_id="ajap_admin_roster_view_back",
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if not APP.es_admin(interaction):
+            await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
+            return
+        await interaction.response.edit_message(
+            content=None,
+            embeds=[_rosters_embed()],
+            view=staff.RostersView(),
+        )
+
+
 class RosterTeamView(discord.ui.View):
     def __init__(self, rows):
         super().__init__(timeout=300)
         if rows:
             self.add_item(RosterTeamSelect(rows))
+        self.add_item(BackToRostersButton())
 
 
 class ViewRosterSelectorButton(discord.ui.Button):
