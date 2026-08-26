@@ -4,7 +4,7 @@ Un administrador ejecuta /canal_mercado dentro del canal deseado. Desde ese
 momento, los comandos, botones, selects y modales del bot usados dentro del
 servidor solo funcionan en ese canal. Los DMs siguen funcionando (por ejemplo,
 notificaciones y acciones privadas) y los comandos de configuración de canales
-quedan exceptuados para que Staff pueda configurarlos donde corresponde.
+y acceso quedan exceptuados para que Staff pueda configurarlos donde corresponde.
 """
 
 import asyncio
@@ -12,7 +12,12 @@ import asyncio
 import discord
 
 APP = None
-EXEMPT_COMMANDS = {"canal_mercado", "canal_movimientos"}
+EXEMPT_COMMANDS = {
+    "canal_mercado",
+    "canal_movimientos",
+    "canal_equipos_libres",
+    "rol_dt",
+}
 
 
 def _ensure_schema(conn):
@@ -71,7 +76,8 @@ def _configured_wrong_channel(interaction):
     if not guild or not guild_id:
         return None
 
-    # Estos comandos necesitan ejecutarse en el propio canal que se configura.
+    # Estos comandos necesitan ejecutarse en el propio canal que se configura,
+    # o son configuraciones de acceso que no pertenecen al flujo normal del mercado.
     if _command_name(interaction) in EXEMPT_COMMANDS:
         return None
 
