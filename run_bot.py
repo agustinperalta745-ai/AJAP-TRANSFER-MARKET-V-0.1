@@ -39,6 +39,7 @@ from clausulazo_safety_patch import apply_clausulazo_safety_patch
 from clausulazo_club_protection_patch import apply_clausulazo_club_protection_patch
 from clausulazo_announce_patch import apply_clausulazo_announce_patch
 from clausulazo_report_bridge_patch import apply_clausulazo_report_bridge
+from staff_review_channel_patch import apply_staff_review_channel_patch
 from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
@@ -126,6 +127,9 @@ apply_clausulazo_club_protection_patch(runtime)
 apply_clausulazo_announce_patch(runtime)
 # Clausulazos también generan la tarjeta amarilla al quedar aprobados.
 apply_clausulazo_report_bridge(runtime)
+# El mismo canal recibe pendientes y permite aprobar/rechazar transferencias,
+# préstamos, intercambios y clausulazos sin volver al panel administrativo.
+apply_staff_review_channel_patch(runtime, runtime.bot)
 # Navegación sobre las vistas finales.
 apply_navigation_patch(runtime)
 # Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
@@ -182,6 +186,7 @@ print(
     + " • búsqueda global de jugadores activa"
     + " • reporte de cierre Staff activo"
     + " • checklist Staff/PES rojo-amarillo-verde activo"
+    + " • aprobación Staff directa desde canal activa"
     + " • clausulazo Staff activo"
     + " • clausulazo integrado al checklist PES"
     + " • clausulazo DM + anuncio público activo"
