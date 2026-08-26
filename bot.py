@@ -58,5 +58,8 @@ import admin_team_delete_patch  # noqa: F401,E402
 # Fuente única de verdad para la asignación: si existe en clubs dentro de la DB
 # del servidor, MI CLUB y el resto del bot deben reconocerla aunque falle el apodo.
 import club_assignment_consistency_patch  # noqa: F401,E402
+# Última capa visual de Planteles: misma estética neutral que Administración,
+# dos botones por fila y confirmaciones destructivas separadas.
+import admin_rosters_visual_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
