@@ -25,6 +25,17 @@ APP = None
 BOT = None
 
 
+def _guild_context(interaction: discord.Interaction):
+    """Force the correct per-guild SQLite DB inside component callback tasks."""
+    return guild_isolation._CURRENT_GUILD_ID.set(
+        guild_isolation._interaction_guild_id(interaction)
+    )
+
+
+def _reset_guild_context(token):
+    guild_isolation._CURRENT_GUILD_ID.reset(token)
+
+
 async def _resolve_channel(guild, channel_id):
     if guild is None or not channel_id:
         return None
@@ -167,121 +178,125 @@ class ConfirmResignationView(discord.ui.View):
         style=discord.ButtonStyle.danger,
     )
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        current = APP.club_de(interaction.user.id)
-        if not current or current.casefold() != self.club.casefold():
-            await interaction.response.edit_message(
-                content="⚠️ Ya no estás asignado a ese equipo.",
-                embed=None,
-                view=None,
-            )
-            return
-
-        # Remove market-access role first. If Discord blocks it, do not leave a
-        # manager unassigned while still retaining DT access.
-        ok, role_result, removed_role = await dt_roles._remove_dt(
-            interaction.guild,
-            interaction.user.id,
-            reason=f"AJAP: renuncia voluntaria de {current}",
-            require_config=False,
-        )
-        if not ok:
-            await interaction.response.edit_message(
-                content=str(role_result),
-                embed=None,
-                view=None,
-            )
-            return
-
+        token = _guild_context(interaction)
         try:
-            club = _resign_assignment(interaction.user.id, current)
-        except Exception as exc:
-            if removed_role:
-                try:
-                    await dt_roles._grant_dt(
-                        interaction.guild,
-                        interaction.user.id,
-                        reason="AJAP: rollback de rol DT por error al procesar renuncia",
-                    )
-                except Exception:
-                    pass
-            print(f"ERROR AJAP renuncia: no se pudo liberar {current}: {exc}")
-            await interaction.response.edit_message(
-                content="⚠️ No se pudo completar la renuncia. El club sigue asignado.",
-                embed=None,
-                view=None,
-            )
-            return
-
-        if not club:
-            if removed_role:
-                try:
-                    await dt_roles._grant_dt(
-                        interaction.guild,
-                        interaction.user.id,
-                        reason="AJAP: rollback de rol DT por asignación ya modificada",
-                    )
-                except Exception:
-                    pass
-            await interaction.response.edit_message(
-                content="⚠️ La asignación cambió antes de confirmar. No se procesó la renuncia.",
-                embed=None,
-                view=None,
-            )
-            return
-
-        nickname_ok = True
-        if interaction.guild is not None:
-            try:
-                nickname_ok = await nicknames._restore_member_nickname(
-                    interaction.guild,
-                    interaction.user.id,
+            current = APP.club_de(interaction.user.id)
+            if not current or current.casefold() != self.club.casefold():
+                await interaction.response.edit_message(
+                    content="⚠️ Ya no estás asignado a ese equipo.",
+                    embed=None,
+                    view=None,
                 )
+                return
+
+            # Remove market-access role first. If Discord blocks it, do not leave a
+            # manager unassigned while still retaining DT access.
+            ok, role_result, removed_role = await dt_roles._remove_dt(
+                interaction.guild,
+                interaction.user.id,
+                reason=f"AJAP: renuncia voluntaria de {current}",
+                require_config=False,
+            )
+            if not ok:
+                await interaction.response.edit_message(
+                    content=str(role_result),
+                    embed=None,
+                    view=None,
+                )
+                return
+
+            try:
+                club = _resign_assignment(interaction.user.id, current)
             except Exception as exc:
-                nickname_ok = False
-                print(f"WARNING AJAP renuncia: no se pudo restaurar apodo: {exc}")
-
-        await interaction.response.edit_message(
-            embed=discord.Embed(
-                title="✅ Renuncia confirmada",
-                description=(
-                    f"Renunciaste al cargo de DT de **{club}**.\n\n"
-                    "El equipo quedó libre y su plantilla permanece intacta."
-                ),
-                color=discord.Color.red(),
-            ),
-            view=None,
-        )
-
-        # Reuse exactly the vacancy system already used for admin unlinking.
-        vacancy_ok = False
-        try:
-            vacancy_ok = await vacancies._publish_vacancy(interaction.guild, club)
-        except Exception as exc:
-            print(f"WARNING AJAP renuncia: anuncio de vacante falló: {exc}")
-
-        staff_ok = await _staff_notice(interaction, club)
-        market_ok = await _market_notice(interaction, club)
-
-        failures = []
-        if not staff_ok:
-            failures.append("aviso Staff/PES")
-        if not vacancy_ok:
-            failures.append("anuncio de equipo libre")
-        if not market_ok:
-            failures.append("aviso en mercado")
-        if not nickname_ok:
-            failures.append("restauración del apodo")
-
-        if failures:
-            try:
-                await interaction.followup.send(
-                    "⚠️ La renuncia quedó registrada, pero falló: **"
-                    + ", ".join(failures)
-                    + "**. Revisá la configuración/permisos de Discord.",
-                    ephemeral=True,
+                if removed_role:
+                    try:
+                        await dt_roles._grant_dt(
+                            interaction.guild,
+                            interaction.user.id,
+                            reason="AJAP: rollback de rol DT por error al procesar renuncia",
+                        )
+                    except Exception:
+                        pass
+                print(f"ERROR AJAP renuncia: no se pudo liberar {current}: {exc}")
+                await interaction.response.edit_message(
+                    content="⚠️ No se pudo completar la renuncia. El club sigue asignado.",
+                    embed=None,
+                    view=None,
                 )
-            except discord.HTTPException:
-                pass
+                return
+
+            if not club:
+                if removed_role:
+                    try:
+                        await dt_roles._grant_dt(
+                            interaction.guild,
+                            interaction.user.id,
+                            reason="AJAP: rollback de rol DT por asignación ya modificada",
+                        )
+                    except Exception:
+                        pass
+                await interaction.response.edit_message(
+                    content="⚠️ La asignación cambió antes de confirmar. No se procesó la renuncia.",
+                    embed=None,
+                    view=None,
+                )
+                return
+
+            nickname_ok = True
+            if interaction.guild is not None:
+                try:
+                    nickname_ok = await nicknames._restore_member_nickname(
+                        interaction.guild,
+                        interaction.user.id,
+                    )
+                except Exception as exc:
+                    nickname_ok = False
+                    print(f"WARNING AJAP renuncia: no se pudo restaurar apodo: {exc}")
+
+            await interaction.response.edit_message(
+                embed=discord.Embed(
+                    title="✅ Renuncia confirmada",
+                    description=(
+                        f"Renunciaste al cargo de DT de **{club}**.\n\n"
+                        "El equipo quedó libre y su plantilla permanece intacta."
+                    ),
+                    color=discord.Color.red(),
+                ),
+                view=None,
+            )
+
+            # Reuse exactly the vacancy system already used for admin unlinking.
+            vacancy_ok = False
+            try:
+                vacancy_ok = await vacancies._publish_vacancy(interaction.guild, club)
+            except Exception as exc:
+                print(f"WARNING AJAP renuncia: anuncio de vacante falló: {exc}")
+
+            staff_ok = await _staff_notice(interaction, club)
+            market_ok = await _market_notice(interaction, club)
+
+            failures = []
+            if not staff_ok:
+                failures.append("aviso Staff/PES")
+            if not vacancy_ok:
+                failures.append("anuncio de equipo libre")
+            if not market_ok:
+                failures.append("aviso en mercado")
+            if not nickname_ok:
+                failures.append("restauración del apodo")
+
+            if failures:
+                try:
+                    await interaction.followup.send(
+                        "⚠️ La renuncia quedó registrada, pero falló: **"
+                        + ", ".join(failures)
+                        + "**. Revisá la configuración/permisos de Discord.",
+                        ephemeral=True,
+                    )
+                except discord.HTTPException:
+                    pass
+        finally:
+            _reset_guild_context(token)
 
     @discord.ui.button(
         label="Cancelar",
@@ -304,26 +319,30 @@ class ResignButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        club = APP.club_de(interaction.user.id)
-        if not club:
-            await interaction.response.send_message(
-                "⚠️ No tenés un equipo asignado.", ephemeral=True
-            )
-            return
+        token = _guild_context(interaction)
+        try:
+            club = APP.club_de(interaction.user.id)
+            if not club:
+                await interaction.response.send_message(
+                    "⚠️ No tenés un equipo asignado.", ephemeral=True
+                )
+                return
 
-        await interaction.response.send_message(
-            embed=discord.Embed(
-                title="⚠️ Confirmar renuncia",
-                description=(
-                    f"¿Seguro que querés renunciar como DT de **{club}**?\n\n"
-                    "Esta acción liberará el equipo inmediatamente, quitará tu rol DT "
-                    "y anunciará la vacante. **La plantilla no se borra.**"
+            await interaction.response.send_message(
+                embed=discord.Embed(
+                    title="⚠️ Confirmar renuncia",
+                    description=(
+                        f"¿Seguro que querés renunciar como DT de **{club}**?\n\n"
+                        "Esta acción liberará el equipo inmediatamente, quitará tu rol DT "
+                        "y anunciará la vacante. **La plantilla no se borra.**"
+                    ),
+                    color=discord.Color.red(),
                 ),
-                color=discord.Color.red(),
-            ),
-            view=ConfirmResignationView(club),
-            ephemeral=True,
-        )
+                view=ConfirmResignationView(club),
+                ephemeral=True,
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 def build_resignation_market_view(base_view):
