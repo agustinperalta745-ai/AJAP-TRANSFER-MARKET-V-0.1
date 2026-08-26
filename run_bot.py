@@ -29,6 +29,7 @@ from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
 from negotiation_picker_patch import apply_negotiation_picker_patch
 from publication_management_patch import apply_publication_management_patch
+from split_transferibles_patch import apply_split_transferibles_patch
 from inline_offer_actions_patch import apply_inline_offer_actions_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
@@ -121,6 +122,8 @@ apply_clausulazo_announce_patch(runtime)
 apply_navigation_patch(runtime)
 # Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
 apply_admin_finance_patch(runtime)
+# Última capa visual del mercado: separar publicaciones propias de las ajenas.
+apply_split_transferibles_patch(runtime)
 # El estado del mercado se lee/escribe siempre desde SQLite.
 apply_market_persistence_patch(runtime)
 # Última capa: contratos de préstamo, vencimientos y opciones de compra deben ver
@@ -149,6 +152,7 @@ print(
     + " • publicar por rangos OVR activo"
     + " • anuncios públicos de transferibles activos"
     + " • gestión propia de transferibles activa"
+    + " • transferibles separados otros/míos activos"
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • préstamos con temporadas + opción de compra activos"
