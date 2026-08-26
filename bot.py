@@ -49,5 +49,8 @@ import staff_admin_organized_patch  # noqa: F401,E402
 # Debe ser la última capa visual: los admins siempre eligen primero entre modo
 # usuario (para pruebas) y modo administrador (herramientas Staff).
 import staff_profile_gate_patch  # noqa: F401,E402
+# Alta administrativa de equipos/jugadores: selector de club + posición,
+# 3 stats por puesto y OVR automático. También hace dinámico el catálogo de equipos.
+import admin_roster_builder_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
