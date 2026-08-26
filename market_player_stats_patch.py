@@ -198,7 +198,40 @@ transferibles.SectionTransferiblesSelect.callback = _transfer_select_with_stats
 
 # ---------------------------------------------------------------------------
 # Public listing cards: add a neutral stats button next to Ofertar.
+# The stats screen includes a back button that restores the publication card.
 # ---------------------------------------------------------------------------
+
+class PublicationStatsView(discord.ui.View):
+    def __init__(self, publication_id: int):
+        super().__init__(timeout=300)
+        self.publication_id = int(publication_id)
+
+        back = discord.ui.Button(
+            label="Volver a la publicación",
+            emoji="⬅️",
+            style=discord.ButtonStyle.secondary,
+            row=0,
+        )
+        back.callback = self._back
+        self.add_item(back)
+
+    async def _back(self, interaction: discord.Interaction):
+        publication = publication_announce._active_publication(self.publication_id)
+        if not publication:
+            await interaction.response.edit_message(
+                content="⚠️ Esta publicación ya no está disponible.",
+                embed=None,
+                view=None,
+            )
+            return
+
+        await interaction.response.edit_message(
+            content=None,
+            embed=publication_announce.publication_embed(publication),
+            view=publication_announce.PublicationOfferView(self.publication_id),
+        )
+
+
 _original_publication_view_init = publication_announce.PublicationOfferView.__init__
 
 
@@ -225,7 +258,11 @@ def _publication_view_init_with_stats(self, publication_id: int):
                 "⚠️ No encontré la ficha de ese jugador.", ephemeral=True
             )
             return
-        await interaction.response.send_message(embed=_full_stats_embed(player), ephemeral=True)
+        await interaction.response.send_message(
+            embed=_full_stats_embed(player),
+            view=PublicationStatsView(publication_id),
+            ephemeral=True,
+        )
 
     stats.callback = stats_callback
     self.add_item(stats)
