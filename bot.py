@@ -77,6 +77,9 @@ import roster_player_stats_patch  # noqa: F401,E402
 # Mercado completo: búsqueda, transferibles, publicaciones y ofertas permiten
 # consultar las estadísticas PES6/JSON antes de cerrar cualquier negocio.
 import market_player_stats_patch  # noqa: F401,E402
+# Al ejecutar una opción de compra de un préstamo, avisar automáticamente al
+# canal de movimientos Staff sin crear una falsa tarea pendiente de carga en PES.
+import loan_purchase_staff_notification_patch  # noqa: F401,E402
 # Las DB por servidor pueden ser más viejas que las migraciones de publicaciones;
 # antes de enviar un modal se asegura el schema del guild actual.
 import publication_submit_guild_schema_patch  # noqa: F401,E402
