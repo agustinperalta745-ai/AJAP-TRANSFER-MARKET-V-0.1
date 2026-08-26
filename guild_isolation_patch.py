@@ -179,10 +179,10 @@ def _install_interaction_context(bot) -> None:
 
     original_dispatch_modal = getattr(store, "dispatch_modal", None)
     if original_dispatch_modal is not None:
-        def guild_dispatch_modal(custom_id, interaction, components):
+        def guild_dispatch_modal(custom_id, interaction, components, *extra):
             token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
             try:
-                return original_dispatch_modal(custom_id, interaction, components)
+                return original_dispatch_modal(custom_id, interaction, components, *extra)
             finally:
                 _CURRENT_GUILD_ID.reset(token)
 
