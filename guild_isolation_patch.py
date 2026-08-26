@@ -222,3 +222,9 @@ def apply_guild_isolation_patch(runtime, bot):
     from economy_values_patch import apply_economy_values_patch
 
     apply_economy_values_patch(runtime, bot)
+
+    # Las vacantes deben correr después del aislamiento y de la economía para que
+    # cada servidor publique su propio saldo, plantel y estado de clausulazo.
+    from free_team_vacancy_patch import apply_free_team_vacancy_patch
+
+    apply_free_team_vacancy_patch(runtime, bot)
