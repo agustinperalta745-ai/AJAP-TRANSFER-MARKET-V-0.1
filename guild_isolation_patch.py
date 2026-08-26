@@ -228,3 +228,9 @@ def apply_guild_isolation_patch(runtime, bot):
     from free_team_vacancy_patch import apply_free_team_vacancy_patch
 
     apply_free_team_vacancy_patch(runtime, bot)
+
+    # La revisión administrativa se monta encima del flujo de vacantes: agrega
+    # Aceptar / Rechazar / En espera y conserva quién decidió y cuándo.
+    from free_team_admin_decision_patch import apply_free_team_admin_decision_patch
+
+    apply_free_team_admin_decision_patch(runtime, bot)
