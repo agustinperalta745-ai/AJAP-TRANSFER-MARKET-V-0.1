@@ -52,5 +52,8 @@ import staff_profile_gate_patch  # noqa: F401,E402
 # Alta administrativa de equipos/jugadores: selector de club + posición,
 # 3 stats por puesto y OVR automático. También hace dinámico el catálogo de equipos.
 import admin_roster_builder_patch  # noqa: F401,E402
+# Fuente única de verdad para la asignación: si existe en clubs dentro de la DB
+# del servidor, MI CLUB y el resto del bot deben reconocerla aunque falle el apodo.
+import club_assignment_consistency_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
