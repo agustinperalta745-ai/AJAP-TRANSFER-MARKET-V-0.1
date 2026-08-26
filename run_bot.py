@@ -40,6 +40,7 @@ from clausulazo_club_protection_patch import apply_clausulazo_club_protection_pa
 from clausulazo_announce_patch import apply_clausulazo_announce_patch
 from clausulazo_report_bridge_patch import apply_clausulazo_report_bridge
 from staff_review_channel_patch import apply_staff_review_channel_patch
+from staff_review_runtime_fix_patch import apply_staff_review_runtime_fix
 from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
@@ -145,6 +146,9 @@ apply_loan_integrity_patch(runtime)
 # Registra /canal_mercado y prepara el bloqueo antes de que guild isolation
 # envuelva las interacciones con el contexto de la base correspondiente.
 apply_market_usage_channel_patch(runtime, runtime.bot)
+# Los botones del panel Staff/PES funcionan aunque el canal de reportes sea
+# distinto al canal general configurado con /canal_mercado.
+apply_staff_review_runtime_fix(runtime, runtime.bot)
 # A partir de este punto, cada interacción usa la DB persistente de su servidor.
 # El servidor histórico de pruebas conserva su DB; los servidores nuevos nacen limpios.
 apply_guild_isolation_patch(runtime, runtime.bot)
@@ -187,6 +191,7 @@ print(
     + " • reporte de cierre Staff activo"
     + " • checklist Staff/PES rojo-amarillo-verde activo"
     + " • aprobación Staff directa desde canal activa"
+    + " • botones Staff persistentes fuera del canal de mercado"
     + " • clausulazo Staff activo"
     + " • clausulazo integrado al checklist PES"
     + " • clausulazo DM + anuncio público activo"
