@@ -38,6 +38,7 @@ from clausulazo_patch import apply_clausulazo_patch
 from clausulazo_safety_patch import apply_clausulazo_safety_patch
 from clausulazo_club_protection_patch import apply_clausulazo_club_protection_patch
 from clausulazo_announce_patch import apply_clausulazo_announce_patch
+from clausulazo_report_bridge_patch import apply_clausulazo_report_bridge
 from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
@@ -116,13 +117,15 @@ apply_publication_management_patch(runtime)
 apply_loan_terms_negotiation_patch(runtime)
 # Los avisos públicos y DMs de oferta/contraoferta incluyen respuesta directa.
 apply_inline_offer_actions_patch(runtime, runtime.bot)
-# Reporte base de cierre y luego publicación adicional en canal configurado.
+# Reporte base de cierre y canal Staff/PES por operación.
 apply_market_close_report_patch(runtime, runtime.bot)
 apply_market_channel_report_patch(runtime, runtime.bot)
 apply_clausulazo_patch(runtime, runtime.bot)
 apply_clausulazo_safety_patch(runtime)
 apply_clausulazo_club_protection_patch(runtime)
 apply_clausulazo_announce_patch(runtime)
+# Clausulazos también generan la tarjeta amarilla al quedar aprobados.
+apply_clausulazo_report_bridge(runtime)
 # Navegación sobre las vistas finales.
 apply_navigation_patch(runtime)
 # Debe ir después de navegación para conservar el botón Volver al menú del panel admin.
@@ -178,8 +181,9 @@ print(
     + pes6_status
     + " • búsqueda global de jugadores activa"
     + " • reporte de cierre Staff activo"
-    + " • canal automático de movimientos activo"
+    + " • checklist Staff/PES rojo-amarillo-verde activo"
     + " • clausulazo Staff activo"
+    + " • clausulazo integrado al checklist PES"
     + " • clausulazo DM + anuncio público activo"
     + " • protección doble jugador + club activa"
     + " • navegación interna activa"
