@@ -38,5 +38,7 @@ guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_l
 # Capa visual final: transforma el panel en estilo manager sin reemplazar la
 # lógica de los botones ya instalados (incluye Liga y renuncia de DT).
 import manager_menu_patch  # noqa: F401,E402
+# Tras elegir equipo, mostrar inmediatamente el mismo panel final y filtrado.
+import manager_selector_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
