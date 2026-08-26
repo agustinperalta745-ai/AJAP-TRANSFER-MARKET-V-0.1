@@ -3,7 +3,13 @@
 After a publication is successfully stored, post a visible announcement in the
 same Discord channel where the manager submitted it. Failed validations never
 produce an announcement and notification failures never roll back the listing.
+
+Persistent offer buttons are re-registered on_ready across every guild-isolated
+SQLite database, so old publication messages keep working after Railway deploys.
 """
+
+import sqlite3
+from pathlib import Path
 
 import discord
 
@@ -179,6 +185,65 @@ def _register_persistent_offer_views(runtime):
     return registered
 
 
+async def _register_all_guild_offer_views():
+    """Restore old Ofertar buttons from every guild DB after a restart/deploy."""
+    if APP is None or getattr(APP.bot, "_ajap_all_guild_offer_views_registered", False):
+        return
+
+    # guild_db_path is installed later by guild_isolation_patch, but on_ready
+    # runs only after startup finished, so it is available here.
+    guild_db_path = getattr(APP, "guild_db_path", None)
+    if guild_db_path is None:
+        return
+
+    publication_ids = set()
+    checked = 0
+
+    for guild in list(getattr(APP.bot, "guilds", []) or []):
+        try:
+            path = Path(guild_db_path(guild.id))
+        except Exception as exc:
+            print(f"WARNING AJAP: no se pudo resolver DB guild {getattr(guild, 'id', '?')}: {exc}")
+            continue
+
+        if not path.exists():
+            continue
+
+        try:
+            conn = sqlite3.connect(str(path))
+            conn.row_factory = sqlite3.Row
+            try:
+                table = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='publications' LIMIT 1"
+                ).fetchone()
+                if not table:
+                    continue
+                rows = conn.execute(
+                    "SELECT id FROM publications WHERE active = 1 ORDER BY id ASC"
+                ).fetchall()
+                publication_ids.update(int(row["id"]) for row in rows)
+                checked += 1
+            finally:
+                conn.close()
+        except sqlite3.Error as exc:
+            print(f"WARNING AJAP: no se pudieron leer publicaciones guild {guild.id}: {exc}")
+
+    registered = 0
+    for publication_id in sorted(publication_ids):
+        try:
+            APP.bot.add_view(PublicationOfferView(publication_id))
+            registered += 1
+        except ValueError:
+            # It may already be registered from the legacy DB startup pass.
+            pass
+
+    APP.bot._ajap_all_guild_offer_views_registered = True
+    print(
+        "AJAP botones Ofertar multi-guild persistentes: "
+        f"DBs={checked} | IDs activos={len(publication_ids)} | registrados={registered}"
+    )
+
+
 def apply_publication_announce_patch(runtime):
     global APP
     APP = runtime
@@ -211,8 +276,9 @@ def apply_publication_announce_patch(runtime):
     runtime.PublicationOfferView = PublicationOfferView
 
     persistent_views = _register_persistent_offer_views(runtime)
+    runtime.bot.add_listener(_register_all_guild_offer_views, "on_ready")
     runtime._ajap_publication_announce_patch = True
     print(
         "AJAP anuncios de transferibles activos: @everyone + botón Ofertar + "
-        f"club + jugador + precio + mínimo | vistas persistentes: {persistent_views}"
+        f"club + jugador + precio + mínimo | vistas persistentes iniciales: {persistent_views}"
     )
