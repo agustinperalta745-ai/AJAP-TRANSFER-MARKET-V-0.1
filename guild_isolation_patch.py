@@ -4,6 +4,11 @@ El servidor de pruebas conserva la base histórica. Cada guild adicional obtiene
 su propio archivo SQLite dentro del mismo volumen de Railway. La primera vez se
 clona la estructura/datos estáticos de la base histórica y se limpian todos los
 datos operativos para que el nuevo servidor arranque como una liga nueva.
+
+IMPORTANTE: toda interacción de Discord queda ligada explícitamente a su guild
+durante la ejecución real del slash command, botón/select o modal. Así evitamos
+que un callback tardío caiga por accidente en la DB legacy y muestre/guarde
+clubes de otro servidor.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 import contextvars
 import os
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -21,6 +27,17 @@ LEGACY_GUILD_ID = int(os.getenv("AJAP_LEGACY_GUILD_ID", "1501062815920816360"))
 _CURRENT_GUILD_ID = contextvars.ContextVar(
     "ajap_current_guild_id", default=LEGACY_GUILD_ID
 )
+
+
+@contextmanager
+def guild_context(guild_id: int):
+    """Liga temporalmente cualquier acceso APP.db() a un guild concreto."""
+    token = _CURRENT_GUILD_ID.set(int(guild_id))
+    try:
+        yield
+    finally:
+        _CURRENT_GUILD_ID.reset(token)
+
 
 # Tablas que contienen el catálogo/planteles. Se copian al crear una liga nueva.
 # El resto se considera estado de la liga y se limpia en el clon.
@@ -146,39 +163,87 @@ def _bootstrap_guild_database(base_path: Path, target_path: Path) -> None:
 
 
 def _interaction_guild_id(interaction) -> int:
+    """Nunca manda una interacción real a legacy por falta de guild_id."""
     guild_id = getattr(interaction, "guild_id", None)
-    return int(guild_id) if guild_id else LEGACY_GUILD_ID
+    if guild_id is None:
+        guild = getattr(interaction, "guild", None)
+        guild_id = getattr(guild, "id", None)
+    if guild_id is None:
+        raise RuntimeError(
+            "AJAP: interacción sin guild_id; se bloqueó el acceso para no usar la DB legacy por error"
+        )
+    return int(guild_id)
 
 
 def _install_interaction_context(bot) -> None:
-    """Propaga guild_id a slash commands, botones/selects y modales."""
+    """Propaga guild_id a slash commands, botones/selects y modales.
+
+    Antes dependíamos principalmente de ViewStore.dispatch_* para que ContextVar
+    se copiara a la Task interna de discord.py. Eso es frágil entre versiones.
+    Ahora también envolvemos la Task REAL que ejecuta View/Modal callbacks, que es
+    el punto definitivo donde se hacen lecturas/escrituras de SQLite.
+    """
+    import discord
+
     tree = bot.tree
     original_tree_call = tree._call
+    if not getattr(original_tree_call, "_ajap_guild_context", False):
+        async def guild_tree_call(interaction):
+            token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
+            try:
+                return await original_tree_call(interaction)
+            finally:
+                _CURRENT_GUILD_ID.reset(token)
 
-    async def guild_tree_call(interaction):
-        token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
-        try:
-            return await original_tree_call(interaction)
-        finally:
-            _CURRENT_GUILD_ID.reset(token)
+        guild_tree_call._ajap_guild_context = True
+        tree._call = guild_tree_call
 
-    tree._call = guild_tree_call
+    # Garantía fuerte para botones y selects: el contexto cubre el await del
+    # callback concreto, no solo el dispatch que crea/programa la Task.
+    original_view_task = discord.ui.View._scheduled_task
+    if not getattr(original_view_task, "_ajap_guild_context", False):
+        async def guild_view_task(self, item, interaction):
+            token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
+            try:
+                return await original_view_task(self, item, interaction)
+            finally:
+                _CURRENT_GUILD_ID.reset(token)
 
+        guild_view_task._ajap_guild_context = True
+        discord.ui.View._scheduled_task = guild_view_task
+
+    # Misma garantía para submits de modales (crear equipo, cargar jugador, etc.).
+    original_modal_task = discord.ui.Modal._scheduled_task
+    if not getattr(original_modal_task, "_ajap_guild_context", False):
+        async def guild_modal_task(self, interaction, components):
+            token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
+            try:
+                return await original_modal_task(self, interaction, components)
+            finally:
+                _CURRENT_GUILD_ID.reset(token)
+
+        guild_modal_task._ajap_guild_context = True
+        discord.ui.Modal._scheduled_task = guild_modal_task
+
+    # Conservamos el binding en el ViewStore como primera capa para versiones de
+    # discord.py que creen Tasks directamente desde acá.
     store = bot._connection._view_store
     original_dispatch_view = store.dispatch_view
+    if not getattr(original_dispatch_view, "_ajap_guild_context", False):
+        def guild_dispatch_view(component_type, custom_id, interaction):
+            token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
+            try:
+                return original_dispatch_view(component_type, custom_id, interaction)
+            finally:
+                _CURRENT_GUILD_ID.reset(token)
 
-    def guild_dispatch_view(component_type, custom_id, interaction):
-        token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
-        try:
-            # discord.py crea la Task del callback aquí; ContextVar se copia a esa Task.
-            return original_dispatch_view(component_type, custom_id, interaction)
-        finally:
-            _CURRENT_GUILD_ID.reset(token)
-
-    store.dispatch_view = guild_dispatch_view
+        guild_dispatch_view._ajap_guild_context = True
+        store.dispatch_view = guild_dispatch_view
 
     original_dispatch_modal = getattr(store, "dispatch_modal", None)
-    if original_dispatch_modal is not None:
+    if original_dispatch_modal is not None and not getattr(
+        original_dispatch_modal, "_ajap_guild_context", False
+    ):
         def guild_dispatch_modal(custom_id, interaction, components, *extra):
             token = _CURRENT_GUILD_ID.set(_interaction_guild_id(interaction))
             try:
@@ -186,6 +251,7 @@ def _install_interaction_context(bot) -> None:
             finally:
                 _CURRENT_GUILD_ID.reset(token)
 
+        guild_dispatch_modal._ajap_guild_context = True
         store.dispatch_modal = guild_dispatch_modal
 
 
@@ -195,8 +261,8 @@ def apply_guild_isolation_patch(runtime, bot):
 
     base_path = Path(runtime.DB_PATH).resolve()
 
-    def guild_db():
-        guild_id = int(_CURRENT_GUILD_ID.get())
+    def db_for_guild(guild_id: int):
+        guild_id = int(guild_id)
         path = _guild_db_path(base_path, guild_id)
         if path != base_path and not path.exists():
             _bootstrap_guild_database(base_path, path)
@@ -204,7 +270,12 @@ def apply_guild_isolation_patch(runtime, bot):
         conn.row_factory = sqlite3.Row
         return conn
 
+    def guild_db():
+        return db_for_guild(int(_CURRENT_GUILD_ID.get()))
+
     runtime.db = guild_db
+    runtime.db_for_guild = db_for_guild
+    runtime.guild_context = guild_context
     runtime.current_guild_id = lambda: int(_CURRENT_GUILD_ID.get())
     runtime.guild_db_path = lambda guild_id: str(
         _guild_db_path(base_path, int(guild_id))
@@ -213,8 +284,8 @@ def apply_guild_isolation_patch(runtime, bot):
     _install_interaction_context(bot)
     runtime._ajap_guild_isolation_patch = True
     print(
-        "AJAP guild isolation activo: datos operativos separados por servidor "
-        f"(legacy={LEGACY_GUILD_ID})"
+        "AJAP guild isolation activo: contexto fuerte por slash/botón/select/modal + "
+        f"datos separados por servidor (legacy={LEGACY_GUILD_ID})"
     )
 
     # Última capa del arranque: con el DB por servidor ya instalado, aplicamos la
