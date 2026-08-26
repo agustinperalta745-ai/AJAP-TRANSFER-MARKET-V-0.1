@@ -216,3 +216,9 @@ def apply_guild_isolation_patch(runtime, bot):
         "AJAP guild isolation activo: datos operativos separados por servidor "
         f"(legacy={LEGACY_GUILD_ID})"
     )
+
+    # Última capa del arranque: con el DB por servidor ya instalado, aplicamos la
+    # economía definitiva y migramos cada guild cuando abra su DB por primera vez.
+    from economy_values_patch import apply_economy_values_patch
+
+    apply_economy_values_patch(runtime, bot)
