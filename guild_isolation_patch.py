@@ -234,3 +234,9 @@ def apply_guild_isolation_patch(runtime, bot):
     from free_team_admin_decision_patch import apply_free_team_admin_decision_patch
 
     apply_free_team_admin_decision_patch(runtime, bot)
+
+    # Capa final de acceso: el rol DT acompaña siempre a la asignación del club.
+    # Aceptar una vacante entrega DT; desvincular quita DT antes de liberar el club.
+    from dt_role_patch import apply_dt_role_patch
+
+    apply_dt_role_patch(runtime, bot)
