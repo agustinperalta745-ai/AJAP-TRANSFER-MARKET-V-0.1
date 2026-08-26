@@ -42,5 +42,8 @@ import manager_menu_patch  # noqa: F401,E402
 import manager_selector_patch  # noqa: F401,E402
 # Agrupa plantilla, economía, valor e información dentro de MI CLUB.
 import my_club_menu_patch  # noqa: F401,E402
+# Cuando Staff entra sin club asignado, usa el espacio superior como centro de
+# control con métricas, alertas y el último movimiento de la ventana.
+import staff_dashboard_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
