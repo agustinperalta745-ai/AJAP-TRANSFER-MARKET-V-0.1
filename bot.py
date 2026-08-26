@@ -5,4 +5,6 @@ working, but route startup through run_bot.py so the Lyon selector/roster
 patches are applied before Discord connects.
 """
 
+# Patch the assignment classes before run_bot registers Discord commands/views.
+import member_nickname_patch  # noqa: F401
 import run_bot  # noqa: F401
