@@ -71,5 +71,8 @@ import admin_rosters_visual_patch  # noqa: F401,E402
 # Ver plantel ya no pide escribir el club: muestra un selector y difiere la
 # interacción antes de tocar la DB para evitar expiraciones de Discord.
 import admin_roster_view_selector_patch  # noqa: F401,E402
+# En MI CLUB -> PLANTILLA, cada rango OVR agrega selector de jugador y abre la
+# ficha completa con todas las estadísticas PES6 guardadas desde el JSON/dataset.
+import roster_player_stats_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
