@@ -40,5 +40,7 @@ guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_l
 import manager_menu_patch  # noqa: F401,E402
 # Tras elegir equipo, mostrar inmediatamente el mismo panel final y filtrado.
 import manager_selector_patch  # noqa: F401,E402
+# Agrupa plantilla, economía, valor e información dentro de MI CLUB.
+import my_club_menu_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
