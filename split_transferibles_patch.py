@@ -60,7 +60,7 @@ def _preview(rows, own=False):
         return "_No hay jugadores en esta sección._"
     lines = [_line(pub, own=own) for pub in rows[:PREVIEW_SIZE]]
     if len(rows) > PREVIEW_SIZE:
-        lines.append(f"… y **{len(rows) - PREVIEW_SIZE}** más.")
+        lines.append(f"… y **{len(rows) - PREVIEW_SIZE}** más en esta página.")
     return "\n".join(lines)
 
 
@@ -144,6 +144,8 @@ class SplitTransferiblesView(discord.ui.View):
         own_chunk, self.own_page, self.own_pages = _page(own, self.own_page)
         self.others = others
         self.own = own
+        self.other_chunk = other_chunk
+        self.own_chunk = own_chunk
 
         if other_chunk:
             self.add_item(
@@ -185,12 +187,12 @@ class SplitTransferiblesView(discord.ui.View):
         )
         embed.add_field(
             name=f"🌍 Transferibles de otros equipos ({len(self.others)})",
-            value=_preview(self.others, own=False),
+            value=_preview(self.other_chunk, own=False),
             inline=False,
         )
         embed.add_field(
             name=f"📤 Mis transferibles ({len(self.own)})",
-            value=_preview(self.own, own=True),
+            value=_preview(self.own_chunk, own=True),
             inline=False,
         )
         if self.other_pages > 1:
