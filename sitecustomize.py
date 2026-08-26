@@ -5,6 +5,11 @@ reported by Railway itself and keep /data only as a compatibility fallback.
 Never silently fall back to the ephemeral container filesystem on Railway.
 Once the persistent Volume contains an AJAP database, that database is
 authoritative and is never overwritten by an older copy found elsewhere.
+
+AJAP_DB_FILENAME can select an isolated SQLite file inside the mounted Volume
+(for example ``ajap_production.db``). A custom filename intentionally disables
+cross-file first-boot recovery so a production database can start clean while
+keeping the old test database untouched in the same Volume.
 """
 
 import os
@@ -73,6 +78,22 @@ def _usable_directory(path: Path):
         return False
 
 
+def _database_filename():
+    raw = (os.getenv("AJAP_DB_FILENAME") or "").strip()
+    if not raw:
+        return "ajap_market.db", False
+
+    # Keep the variable intentionally simple: a filename inside the mounted
+    # Volume, never an arbitrary path that could escape persistent storage.
+    if Path(raw).name != raw or raw in {".", ".."}:
+        raise RuntimeError(
+            "AJAP_DB_FILENAME debe ser solo un nombre de archivo, por ejemplo ajap_production.db"
+        )
+    if not raw.casefold().endswith(".db"):
+        raise RuntimeError("AJAP_DB_FILENAME debe terminar en .db")
+    return raw, True
+
+
 def configure_database_path():
     """Resolve the AJAP database and force Railway onto persistent storage."""
     on_railway = bool(
@@ -81,25 +102,30 @@ def configure_database_path():
         or os.getenv("RAILWAY_DEPLOYMENT_ID")
     )
 
+    db_filename, isolated_filename = _database_filename()
     explicit_raw = (os.getenv("DB_PATH") or "").strip()
     explicit = Path(explicit_raw) if explicit_raw else None
     mount_raw = (os.getenv("RAILWAY_VOLUME_MOUNT_PATH") or "").strip()
     mount_dir = Path(mount_raw) if mount_raw else None
-    mount_db = mount_dir / "ajap_market.db" if mount_dir else None
+    mount_db = mount_dir / db_filename if mount_dir else None
 
     raw_candidates = []
     if mount_db:
         raw_candidates.append(("RAILWAY_VOLUME_MOUNT_PATH", mount_db, 70))
     if explicit:
         raw_candidates.append(("DB_PATH", explicit, 60))
-    raw_candidates.extend(
-        [
-            ("/data", Path("/data/ajap_market.db"), 50),
-            ("/app/data", Path("/app/data/ajap_market.db"), 35),
-            ("/mnt/data", Path("/mnt/data/ajap_market.db"), 30),
-            ("local", Path("ajap_market.db"), 10),
-        ]
-    )
+
+    # Legacy recovery candidates are useful for the historical default DB, but
+    # must never be consulted for a deliberately isolated production filename.
+    if not isolated_filename:
+        raw_candidates.extend(
+            [
+                ("/data", Path("/data/ajap_market.db"), 50),
+                ("/app/data", Path("/app/data/ajap_market.db"), 35),
+                ("/mnt/data", Path("/mnt/data/ajap_market.db"), 30),
+                ("local", Path("ajap_market.db"), 10),
+            ]
+        )
 
     candidates = []
     seen = set()
@@ -158,8 +184,13 @@ def configure_database_path():
             )
 
         preferred_source, volume_dir = selected
-        preferred_target = volume_dir / "ajap_market.db"
+        preferred_target = volume_dir / db_filename
         print(f"AJAP Railway volume detected: {volume_dir} | source={preferred_source}")
+        if isolated_filename:
+            print(
+                f"AJAP isolated database selected by AJAP_DB_FILENAME: {db_filename} | "
+                "legacy recovery disabled"
+            )
     elif explicit:
         preferred_target = explicit
         preferred_source = "DB_PATH"
@@ -170,10 +201,10 @@ def configure_database_path():
     if preferred_target:
         target_stats = _db_stats(preferred_target)
 
-        # Recovery is allowed only when the persistent target is genuinely empty.
-        # Once /data/ajap_market.db has been created and contains AJAP tables, it
-        # is the canonical database and must never be replaced by another copy.
-        if target_stats is None and best_existing:
+        # Recovery is allowed only for the historical/default DB. A custom
+        # AJAP_DB_FILENAME is an explicit request for an isolated database and
+        # must start empty if the selected file does not exist yet.
+        if target_stats is None and best_existing and not isolated_filename:
             _, source_path, source_priority, source_stats = best_existing
             if source_path.resolve(strict=False) != preferred_target.resolve(strict=False):
                 try:
@@ -204,9 +235,9 @@ def configure_database_path():
         )
         return path
 
-    fallback = Path("ajap_market.db")
+    fallback = Path(db_filename)
     os.environ["DB_PATH"] = str(fallback)
-    print("AJAP local database selected: ajap_market.db")
+    print(f"AJAP local database selected: {db_filename}")
     return fallback
 
 
