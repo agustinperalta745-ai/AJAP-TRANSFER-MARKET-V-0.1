@@ -41,8 +41,6 @@ def _sync_connection(runtime, conn):
         if seeded:
             continue
 
-        # Keep the official-team catalog current in guild DBs created before
-        # these clubs existed.
         conn.execute(
             """
             INSERT INTO league_teams (name, country, active)
@@ -55,8 +53,8 @@ def _sync_connection(runtime, conn):
         )
 
         for name, position, rating in roster:
-            # Critical safety rule: never write excluded.club on conflict.
-            # If the player has already moved, only metadata is refreshed.
+            # Never restore excluded.club on conflict. If a player has already
+            # moved, keep the current club and refresh only static metadata.
             conn.execute(
                 """
                 INSERT INTO roster_players
@@ -77,7 +75,7 @@ def _sync_connection(runtime, conn):
                 ),
             )
 
-        conn.execute("INSERT INTO seed_state (key) VALUES (?)", (marker,))
+        conn.execute("INSERT OR IGNORE INTO seed_state (key) VALUES (?)", (marker,))
 
 
 def apply_additional_roster_sync(runtime):
@@ -85,12 +83,18 @@ def apply_additional_roster_sync(runtime):
         return
 
     base_db = runtime.db
+    synced_guilds = set()
 
     def synced_db():
         conn = base_db()
+        guild_id = int(runtime.current_guild_id())
+        if guild_id in synced_guilds:
+            return conn
+
         try:
             _sync_connection(runtime, conn)
             conn.commit()
+            synced_guilds.add(guild_id)
         except Exception:
             conn.close()
             raise
