@@ -80,5 +80,9 @@ import market_player_stats_patch  # noqa: F401,E402
 # Las DB por servidor pueden ser más viejas que las migraciones de publicaciones;
 # antes de enviar un modal se asegura el schema del guild actual.
 import publication_submit_guild_schema_patch  # noqa: F401,E402
+# discord.py 2.x reciente agregó un argumento interno al submit de modales. La
+# capa de aislamiento se adapta a ambas firmas para que ningún modal muera antes
+# de llegar a on_submit.
+import discord_modal_guild_context_compat_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
