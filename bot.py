@@ -74,5 +74,8 @@ import admin_roster_view_selector_patch  # noqa: F401,E402
 # En MI CLUB -> PLANTILLA, cada rango OVR agrega selector de jugador y abre la
 # ficha completa con todas las estadísticas PES6 guardadas desde el JSON/dataset.
 import roster_player_stats_patch  # noqa: F401,E402
+# Mercado completo: búsqueda, transferibles, publicaciones y ofertas permiten
+# consultar las estadísticas PES6/JSON antes de cerrar cualquier negocio.
+import market_player_stats_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
