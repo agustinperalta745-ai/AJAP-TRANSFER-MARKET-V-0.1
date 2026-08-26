@@ -8,4 +8,5 @@ patches are applied before Discord connects.
 # Patch nickname flows before run_bot registers Discord commands/views.
 import member_nickname_patch  # noqa: F401
 import vacancy_nickname_patch  # noqa: F401
+import selector_nickname_patch  # noqa: F401
 import run_bot  # noqa: F401
