@@ -12,6 +12,7 @@ from types import ModuleType
 
 # Configura DB_PATH sobre el volumen de Railway antes de cargar el bot.
 import sitecustomize  # noqa: F401
+import member_nickname_patch
 
 from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
@@ -78,6 +79,9 @@ exec(compile(source, str(BOT_PATH), "exec"), runtime.__dict__)
 
 # Orden obligatorio: equipos/plantillas/UI y luego reportes/reglas de mercado.
 enable_additional_teams()
+# MultiTeamSelect reemplaza al selector base; el parche de apodos tiene que
+# aplicarse después para envolver el selector que realmente usa Discord.
+member_nickname_patch.apply_member_nickname_patch()
 apply_team_assignment_patch(runtime, runtime.bot)
 apply_lyon_test_patch(runtime)
 seeded = seed_additional_rosters(runtime)
