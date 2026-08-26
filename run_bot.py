@@ -42,6 +42,7 @@ from budget_patch import apply_budget_patch
 from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
 from market_persistence_patch import apply_market_persistence_patch
+from market_usage_channel_patch import apply_market_usage_channel_patch
 from guild_isolation_patch import apply_guild_isolation_patch
 
 
@@ -134,6 +135,9 @@ apply_market_persistence_patch(runtime)
 # la UI, navegación, presupuesto y persistencia definitivos.
 apply_loan_lifecycle_patch(runtime, runtime.bot)
 apply_loan_integrity_patch(runtime)
+# Registra /canal_mercado y prepara el bloqueo antes de que guild isolation
+# envuelva las interacciones con el contexto de la base correspondiente.
+apply_market_usage_channel_patch(runtime, runtime.bot)
 # A partir de este punto, cada interacción usa la DB persistente de su servidor.
 # El servidor histórico de pruebas conserva su DB; los servidores nuevos nacen limpios.
 apply_guild_isolation_patch(runtime, runtime.bot)
@@ -181,6 +185,7 @@ print(
     + " • navegación interna activa"
     + " • ajustes de dinero admin activos"
     + " • mercado abrir/cerrar persistente"
+    + " • canal único de uso configurable"
     + " • datos separados por servidor"
 )
 runtime.bot.run(runtime.TOKEN)
