@@ -28,6 +28,7 @@ from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
 from negotiation_picker_patch import apply_negotiation_picker_patch
+from publication_management_patch import apply_publication_management_patch
 from inline_offer_actions_patch import apply_inline_offer_actions_patch
 from market_close_report_patch import apply_market_close_report_patch
 from market_channel_report_patch import apply_market_channel_report_patch
@@ -103,6 +104,8 @@ pes6_import = import_pes6_original_stats(runtime)
 apply_global_player_search_patch(runtime)
 # Sobre el modal final agregamos selección desde plantel y negociación ida/vuelta.
 apply_negotiation_picker_patch(runtime)
+# Si el usuario selecciona una publicación propia, puede retirarla sin borrar historial.
+apply_publication_management_patch(runtime)
 # Después del selector se vuelven loan-aware las contraofertas y la aceptación.
 apply_loan_terms_negotiation_patch(runtime)
 # Los avisos públicos y DMs de oferta/contraoferta incluyen respuesta directa.
@@ -145,6 +148,7 @@ print(
     + budget_status
     + " • publicar por rangos OVR activo"
     + " • anuncios públicos de transferibles activos"
+    + " • gestión propia de transferibles activa"
     + " • ofertas flexibles dinero/jugador/mixtas activas"
     + " • valor mínimo equivalente protegido"
     + " • préstamos con temporadas + opción de compra activos"
