@@ -64,5 +64,8 @@ import club_assignment_consistency_patch  # noqa: F401,E402
 # Última capa visual de Planteles: misma estética neutral que Administración,
 # dos botones por fila y confirmaciones destructivas separadas.
 import admin_rosters_visual_patch  # noqa: F401,E402
+# Ver plantel ya no pide escribir el club: muestra un selector y difiere la
+# interacción antes de tocar la DB para evitar expiraciones de Discord.
+import admin_roster_view_selector_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
