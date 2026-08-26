@@ -103,6 +103,17 @@ def manager_panel_embed(user_id: int):
     return embed
 
 
+def _guild_context(interaction: discord.Interaction):
+    """Force the per-server DB context inside the actual component callback task."""
+    return guild_isolation._CURRENT_GUILD_ID.set(
+        guild_isolation._interaction_guild_id(interaction)
+    )
+
+
+def _reset_guild_context(token):
+    guild_isolation._CURRENT_GUILD_ID.reset(token)
+
+
 class CallbackButton(discord.ui.Button):
     def __init__(self, *, label, emoji, callback, style=discord.ButtonStyle.secondary, row=0, custom_id=None):
         super().__init__(
@@ -115,7 +126,11 @@ class CallbackButton(discord.ui.Button):
         self._target = callback
 
     async def callback(self, interaction: discord.Interaction):
-        await self._target(interaction)
+        token = _guild_context(interaction)
+        try:
+            await self._target(interaction)
+        finally:
+            _reset_guild_context(token)
 
 
 class BackMainButton(discord.ui.Button):
@@ -129,11 +144,15 @@ class BackMainButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.edit_message(
-            content=None,
-            embeds=[manager_panel_embed(interaction.user.id)],
-            view=market_view_for(interaction),
-        )
+        token = _guild_context(interaction)
+        try:
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[manager_panel_embed(interaction.user.id)],
+                view=market_view_for(interaction),
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 class BackMainView(discord.ui.View):
@@ -202,15 +221,19 @@ class MarketHubButton(discord.ui.Button):
         self.callbacks = callbacks
 
     async def callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🔁 MERCADO DE PASES",
-            description="Elegí qué querés hacer dentro del mercado.",
-        )
-        await interaction.response.edit_message(
-            content=None,
-            embeds=[embed],
-            view=MarketSectionView(self.callbacks),
-        )
+        token = _guild_context(interaction)
+        try:
+            embed = discord.Embed(
+                title="🔁 MERCADO DE PASES",
+                description="Elegí qué querés hacer dentro del mercado.",
+            )
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[embed],
+                view=MarketSectionView(self.callbacks),
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 class AdminHubButton(discord.ui.Button):
@@ -225,18 +248,22 @@ class AdminHubButton(discord.ui.Button):
         self.callbacks = callbacks
 
     async def callback(self, interaction: discord.Interaction):
-        if not APP.es_admin(interaction):
-            await interaction.response.send_message("⛔ Este menú es solo para administradores.", ephemeral=True)
-            return
-        embed = discord.Embed(
-            title="⚙️ ADMINISTRACIÓN",
-            description="Herramientas de gestión del mercado y asignaciones.",
-        )
-        await interaction.response.edit_message(
-            content=None,
-            embeds=[embed],
-            view=AdminSectionView(self.callbacks),
-        )
+        token = _guild_context(interaction)
+        try:
+            if not APP.es_admin(interaction):
+                await interaction.response.send_message("⛔ Este menú es solo para administradores.", ephemeral=True)
+                return
+            embed = discord.Embed(
+                title="⚙️ ADMINISTRACIÓN",
+                description="Herramientas de gestión del mercado y asignaciones.",
+            )
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[embed],
+                view=AdminSectionView(self.callbacks),
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 class LeagueButton(discord.ui.Button):
@@ -250,19 +277,23 @@ class LeagueButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        if not interaction.guild_id:
-            await interaction.response.send_message("⚠️ La Liga solo está disponible dentro del servidor.", ephemeral=True)
-            return
-        conn = league.db(APP, interaction.guild_id)
+        token = _guild_context(interaction)
         try:
-            embeds = [league.standings_embed(conn), league.scorers_embed(conn)]
+            if not interaction.guild_id:
+                await interaction.response.send_message("⚠️ La Liga solo está disponible dentro del servidor.", ephemeral=True)
+                return
+            conn = league.db(APP, interaction.guild_id)
+            try:
+                embeds = [league.standings_embed(conn), league.scorers_embed(conn)]
+            finally:
+                conn.close()
+            await interaction.response.edit_message(
+                content=None,
+                embeds=embeds,
+                view=BackMainView(),
+            )
         finally:
-            conn.close()
-        await interaction.response.edit_message(
-            content=None,
-            embeds=embeds,
-            view=BackMainView(),
-        )
+            _reset_guild_context(token)
 
 
 class ManagerMenuView(discord.ui.View):
@@ -400,11 +431,15 @@ async def mercado_command(interaction: discord.Interaction):
 
 
 async def _navigation_back(self, interaction: discord.Interaction):
-    await interaction.response.edit_message(
-        content=None,
-        embeds=[manager_panel_embed(interaction.user.id)],
-        view=market_view_for(interaction),
-    )
+    token = _guild_context(interaction)
+    try:
+        await interaction.response.edit_message(
+            content=None,
+            embeds=[manager_panel_embed(interaction.user.id)],
+            view=market_view_for(interaction),
+        )
+    finally:
+        _reset_guild_context(token)
 
 
 def apply_manager_menu_patch(runtime, bot):
