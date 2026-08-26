@@ -1,8 +1,8 @@
 """Discord nickname sync for AJAP club assignments.
 
-Players are shown as ``Nombre | Equipo`` after choosing a club. The original
-server nickname is stored so an admin unlink can restore it. Staff/admins are
-excluded from automatic nickname changes.
+Members are shown as ``Nombre | Equipo`` after choosing a club, including
+admins/staff so the feature can be tested in admin-only test servers. The
+original server nickname is stored so an admin unlink can restore it.
 """
 
 import discord
@@ -12,13 +12,6 @@ import team_assignment as teams
 
 MAX_NICKNAME_LENGTH = 32
 SEPARATOR = " | "
-
-
-def _is_admin(interaction: discord.Interaction) -> bool:
-    try:
-        return bool(teams.APP and teams.APP.es_admin(interaction))
-    except Exception:
-        return False
 
 
 def _ensure_schema():
@@ -53,7 +46,7 @@ def _remember_original_nick(member: discord.Member, team: str):
     _ensure_schema()
     original = member.nick
 
-    # If this feature is being enabled for a player who already has the AJAP
+    # If this feature is being enabled for a member who already has the AJAP
     # suffix, store the clean part instead of saving the generated nickname.
     if original:
         suffix = f"{SEPARATOR}{team}"
@@ -110,11 +103,6 @@ def _nickname_for(member: discord.Member, team: str) -> str:
 
 async def _apply_club_nickname(interaction: discord.Interaction, team: str) -> bool:
     if not interaction.guild or not isinstance(interaction.user, discord.Member):
-        return True
-    if _is_admin(interaction):
-        # Staff never receives the team suffix. If this patch changed the admin
-        # previously, undo it as soon as they interact again.
-        await _restore_member_nickname(interaction.guild, interaction.user.id)
         return True
 
     member = interaction.user
@@ -229,8 +217,6 @@ def _patch_market_command():
         team = teams.club_de(interaction.user.id)
         if team:
             await _apply_club_nickname(interaction, team)
-        elif _is_admin(interaction) and interaction.guild:
-            await _restore_member_nickname(interaction.guild, interaction.user.id)
         await original(interaction)
 
     mercado_command._ajap_nickname_wrapped = True
@@ -242,7 +228,7 @@ def apply_member_nickname_patch():
     _patch_team_select()
     _patch_unlink_view()
     _patch_market_command()
-    print("AJAP: apodos automáticos Nombre | Equipo activos (staff excluido)")
+    print("AJAP: apodos automáticos Nombre | Equipo activos para jugadores y admins")
 
 
 apply_member_nickname_patch()
