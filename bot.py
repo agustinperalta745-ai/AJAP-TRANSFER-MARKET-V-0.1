@@ -45,5 +45,8 @@ import my_club_menu_patch  # noqa: F401,E402
 # Cuando Staff entra sin club asignado, usa el espacio superior como centro de
 # control con métricas, alertas y el último movimiento de la ventana.
 import staff_dashboard_patch  # noqa: F401,E402
+# Ordena el Perfil Administrador en cuatro secciones para evitar una pared de
+# botones y mantener cada herramienta en su categoría.
+import staff_admin_organized_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
