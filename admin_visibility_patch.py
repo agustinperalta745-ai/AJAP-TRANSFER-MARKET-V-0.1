@@ -3,6 +3,7 @@
 Security checks already protect the callbacks. This patch adds the UX layer:
 regular players never receive Administration/Assignments buttons in their
 personal market menu, while Discord administrators keep both controls.
+Administrators do not need a club assignment to open or use the market panel.
 The /mercado panel is ephemeral so an admin's private controls are never exposed
 visually to other members in the channel.
 """
@@ -34,7 +35,9 @@ def market_view_for(interaction: discord.Interaction):
 
 
 async def filtered_mercado_command(interaction: discord.Interaction):
-    if not teams.club_de(interaction.user.id):
+    # Administrators manage the market independently from any club. Only regular
+    # users must choose a team before entering their personal market panel.
+    if not APP.es_admin(interaction) and not teams.club_de(interaction.user.id):
         await interaction.response.send_message(
             embed=teams.welcome_embed(),
             view=teams.TeamChoiceView(),
