@@ -3,8 +3,8 @@
 Un administrador ejecuta /canal_mercado dentro del canal deseado. Desde ese
 momento, los comandos, botones, selects y modales del bot usados dentro del
 servidor solo funcionan en ese canal. Los DMs siguen funcionando (por ejemplo,
-notificaciones y acciones privadas) y los comandos de configuración de canales
-y acceso quedan exceptuados para que Staff pueda configurarlos donde corresponde.
+notificaciones y acciones privadas) y los comandos/componentes de configuración
+o flujos externos al mercado quedan exceptuados donde corresponde.
 """
 
 import asyncio
@@ -18,6 +18,14 @@ EXEMPT_COMMANDS = {
     "canal_equipos_libres",
     "rol_dt",
 }
+
+# Estos componentes viven deliberadamente fuera del canal de mercado.
+# - Solicitar vacante: se usa en #equipos-libres.
+# - Decisiones de vacante: se usan en el canal Staff/PES.
+EXEMPT_COMPONENT_PREFIXES = (
+    "ajap:free-team:apply:",
+    "ajap:free-team-admin:",
+)
 
 
 def _ensure_schema(conn):
@@ -67,6 +75,11 @@ def _command_name(interaction):
         name = data.get("name")
         return str(name) if name else None
     return None
+
+
+def _component_is_exempt(custom_id) -> bool:
+    value = str(custom_id or "")
+    return any(value.startswith(prefix) for prefix in EXEMPT_COMPONENT_PREFIXES)
 
 
 def _configured_wrong_channel(interaction):
@@ -133,6 +146,11 @@ def _install_channel_gate(bot):
     original_dispatch_view = store.dispatch_view
 
     def gated_dispatch_view(component_type, custom_id, interaction):
+        # Vacantes y sus decisiones administrativas viven fuera del mercado y
+        # no deben pasar por la restricción de canal.
+        if _component_is_exempt(custom_id):
+            return original_dispatch_view(component_type, custom_id, interaction)
+
         wrong_channel = _configured_wrong_channel(interaction)
         if wrong_channel:
             _schedule_denial(interaction, wrong_channel)
@@ -144,6 +162,9 @@ def _install_channel_gate(bot):
     original_dispatch_modal = getattr(store, "dispatch_modal", None)
     if original_dispatch_modal is not None:
         def gated_dispatch_modal(custom_id, interaction, components, *extra):
+            if _component_is_exempt(custom_id):
+                return original_dispatch_modal(custom_id, interaction, components, *extra)
+
             wrong_channel = _configured_wrong_channel(interaction)
             if wrong_channel:
                 _schedule_denial(interaction, wrong_channel)
