@@ -42,11 +42,12 @@ import manager_menu_patch  # noqa: F401,E402
 import manager_selector_patch  # noqa: F401,E402
 # Agrupa plantilla, economía, valor e información dentro de MI CLUB.
 import my_club_menu_patch  # noqa: F401,E402
-# Cuando Staff entra sin club asignado, usa el espacio superior como centro de
-# control con métricas, alertas y el último movimiento de la ventana.
+# Dashboard informativo de Staff: se mantiene como pantalla principal.
 import staff_dashboard_patch  # noqa: F401,E402
-# Ordena el Perfil Administrador en cuatro secciones para evitar una pared de
-# botones y mantener cada herramienta en su categoría.
+# Herramientas administrativas agrupadas por Mercado/Planteles/Economía/Gestión.
 import staff_admin_organized_patch  # noqa: F401,E402
+# Debe ser la última capa visual: los admins siempre eligen primero entre modo
+# usuario (para pruebas) y modo administrador (herramientas Staff).
+import staff_profile_gate_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
