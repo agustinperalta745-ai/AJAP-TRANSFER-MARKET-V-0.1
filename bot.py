@@ -12,9 +12,9 @@ import newcastle_extension  # noqa: F401
 import everton_extension  # noqa: F401
 # Existing per-guild DBs need a one-time safe sync for teams added later.
 import additional_roster_sync_patch  # noqa: F401
-# Replace the legacy Real Betis roster/stats with the uploaded Betis.json source
-# in both fresh databases and already-created per-guild databases.
-import betis_replacement_patch  # noqa: F401
+# Betis.json is the source of truth; this overlay also recalculates every Betis
+# OVR with the current 3-stat-by-position AJAP formula and bumps the migration.
+import betis_roster_replace_patch  # noqa: F401
 
 # Patch nickname/vacancy flows before run_bot registers Discord commands/views.
 import member_nickname_patch  # noqa: F401
