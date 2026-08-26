@@ -303,12 +303,46 @@ class EconomyView(discord.ui.View):
         self.add_item(BackAdminHomeButton(row=2))
 
 
+class AssignmentsToolButton(discord.ui.Button):
+    def __init__(self, row=0):
+        super().__init__(
+            label="ASIGNACIONES",
+            emoji="👥",
+            style=discord.ButtonStyle.secondary,
+            row=row,
+            custom_id="ajap_staff_admin_assignments",
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if not APP.es_admin(interaction):
+            await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
+            return
+
+        # El menú manager guarda los callbacks originales dentro del botón
+        # ADMINISTRACIÓN. También contemplamos versiones antiguas que todavía
+        # expongan mercado_asignaciones como botón directo.
+        source = APP.MercadoView()
+        for item in source.children:
+            if getattr(item, "custom_id", None) == "mercado_asignaciones":
+                await item.callback(interaction)
+                return
+            callbacks = getattr(item, "callbacks", None)
+            if callbacks and callbacks.get("mercado_asignaciones"):
+                await callbacks["mercado_asignaciones"](interaction)
+                return
+
+        await interaction.response.send_message(
+            "⚠️ No encontré la herramienta de asignaciones en esta versión.",
+            ephemeral=True,
+        )
+
+
 class ManagementView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=300)
         buttons = _source_buttons()
 
-        self.add_item(staff.AssignmentsButton(row=0))
+        self.add_item(AssignmentsToolButton(row=0))
 
         season = _find_button(buttons, "cambiar temporada")
         if season:
@@ -411,7 +445,7 @@ def apply_staff_admin_organized_patch(runtime, bot):
         return
 
     # StaffHomeView and every back button resolve these globals at click time,
-    # so replacing them here reorganizes the UI without touching the dashboard.
+    # so replacing them here reorganiza la UI sin tocar el dashboard.
     staff._admin_profile_embed = organized_admin_embed
     staff._admin_profile_view = lambda: OrganizedAdminHomeView()
 
