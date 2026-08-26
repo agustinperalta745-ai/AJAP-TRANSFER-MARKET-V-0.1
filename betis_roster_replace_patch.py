@@ -1,9 +1,12 @@
-"""Apply AJAP's current 3-stat OVR formula to the uploaded Betis.json roster.
+"""Apply AJPA's current 3-stat OVR formula to the uploaded Betis.json roster.
 
 The base Betis replacement remains responsible for canonical names, full PES6
 attributes, special abilities and per-guild migration safety. This overlay updates
 the static OVRs from the same JSON source, bumps the migration marker and guarantees
 that Real Betis is registered as an active selectable team in every guild database.
+
+It also repairs a stale guild database where the migration marker exists but the
+24 Betis players were never actually copied into roster_players.
 """
 
 from __future__ import annotations
@@ -11,7 +14,7 @@ from __future__ import annotations
 import betis_replacement_patch as base
 
 
-MIGRATION_MARKER = "real_betis_json_v3_ovr3_20260826"
+MIGRATION_MARKER = "real_betis_json_v4_ovr3_selector_repair_20260826"
 
 
 def _aerial(stats):
@@ -56,7 +59,6 @@ def _rebuild_roster():
 
 
 def _ensure_betis_team(runtime, conn):
-    """Register Betis in league_teams even when an older seed marker already exists."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS league_teams (
@@ -80,20 +82,37 @@ def _ensure_betis_team(runtime, conn):
     )
 
 
+def _canonical_players_present(conn) -> int:
+    names = [name for name, _position, _rating_value in base.BETIS_ROSTER]
+    if not names:
+        return 0
+    marks = ",".join("?" for _ in names)
+    row = conn.execute(
+        f"SELECT COUNT(*) AS n FROM roster_players WHERE name COLLATE NOCASE IN ({marks})",
+        tuple(names),
+    ).fetchone()
+    return int(row["n"] if row else 0)
+
+
 base.BETIS_ROSTER = _rebuild_roster()
 base.ROSTER_META = {name: (position, rating) for name, position, rating in base.BETIS_ROSTER}
 base.MARKER = MIGRATION_MARKER
-base.SOURCE = "Betis.json • OVR AJAP promedio de 3 stats • 2026-08-26"
+base.SOURCE = "Betis.json • OVR AJPA promedio de 3 stats • 2026-08-26"
 base.multi.REAL_BETIS_ROSTER = list(base.BETIS_ROSTER)
 
-# The original migration can legitimately return early when the guild already has
-# the Betis seed marker. That used to skip league_teams if the table was created
-# later by the dynamic admin/team patch, leaving a loaded roster but no selectable
-# club. Keep the roster migration intact and always repair the catalog entry.
 _original_sync_connection = base._sync_connection
 
 
 def _sync_connection_with_team_catalog(runtime, conn):
+    # Some already-created guild DBs inherited a seed marker before the actual
+    # Betis roster/catalog existed there. A new marker plus this presence check
+    # makes the repair one-time and safe; transferred players still count because
+    # we verify player existence by name, not their current club.
+    base._ensure_schema(runtime, conn)
+    present = _canonical_players_present(conn)
+    if present < len(base.BETIS_ROSTER):
+        conn.execute("DELETE FROM seed_state WHERE key = ?", (base.MARKER,))
+
     changed = _original_sync_connection(runtime, conn)
     _ensure_betis_team(runtime, conn)
     return changed
@@ -105,6 +124,6 @@ BETIS_ROSTER = base.BETIS_ROSTER
 OVR_BY_PLAYER = {name: rating for name, _position, rating in BETIS_ROSTER}
 
 print(
-    "AJAP Betis OVR actualizado: promedio simple de 3 stats por posición • "
-    f"{len(BETIS_ROSTER)} jugadores • selector asegurado"
+    "AJPA Betis OVR actualizado: promedio simple de 3 stats por posición • "
+    f"{len(BETIS_ROSTER)} jugadores • selector/seed reparados"
 )
