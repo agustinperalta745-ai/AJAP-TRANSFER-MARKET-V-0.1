@@ -156,7 +156,7 @@ def _sync_connection(runtime, conn):
                 "INSERT INTO roster_players "
                 "(name, position, club, added_by, rating, min_sale_value, updated_at) "
                 "VALUES (?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP)",
-                (db_name, ASTON_VILLA, rating, minimum_for_rating(rating)),
+                (db_name, position, ASTON_VILLA, rating, minimum_for_rating(rating)),
             )
             player_id = int(cursor.lastrowid)
 
