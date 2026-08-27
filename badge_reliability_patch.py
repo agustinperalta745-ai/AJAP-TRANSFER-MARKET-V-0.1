@@ -37,3 +37,8 @@ if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
     discord.Embed.to_dict = _reliable_to_dict
     discord.Embed._ajap_badge_reliability_patch = True
     print("AJAP badge reliability activo: emoji manual exacto + PNG fallback")
+
+# Final Staff bridge: when Perfil Usuario builds the team list, pass the concrete
+# interaction.guild into both the embed and select so :mancity: can never come
+# from another server/context.
+import manual_city_exact_guild_patch  # noqa: F401,E402
