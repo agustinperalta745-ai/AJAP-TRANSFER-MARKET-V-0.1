@@ -5,6 +5,10 @@ seeded only once on the persistent SQLite database, so later transfers and
 restarts do not restore players to Newcastle.
 """
 
+# This module is imported before run_bot loads core_bot.py. Enable the
+# privileged Message Content intent before commands.Bot is constructed so
+# Discord includes normal guild-message attachments in on_message events.
+import discord_message_intent_patch  # noqa: F401
 import multi_team_extension as multi
 
 NEWCASTLE = "Newcastle United"
