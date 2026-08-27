@@ -9,10 +9,13 @@ Esta capa es deliberadamente defensiva: primero usa el canal configurado en la
 DB del guild y, si por cualquier motivo esa configuracion no puede resolverse,
 busca un canal llamado #resumen-mercado en el mismo servidor. Si Discord permite
 mensajes pero no embeds, publica una version de texto para que el movimiento no
-quede invisible.
+quede invisible. Al reconectar el bot tambien recupera ofertas pendientes que
+hayan quedado sin rumor por una version anterior.
 """
 
 from __future__ import annotations
+
+from types import SimpleNamespace
 
 import discord
 
@@ -73,7 +76,6 @@ def _normalized_channel_name(name: str) -> str:
 
 
 async def _resolve_summary_channel(guild):
-    """Resolve configured channel first; fall back to the canonical channel name."""
     if guild is None:
         return None, "NO_GUILD"
 
@@ -85,11 +87,7 @@ async def _resolve_summary_channel(guild):
         except Exception as exc:
             print(f"WARNING AJAP: no pude resolver canal publico configurado: {exc}")
 
-    accepted = {
-        "resumenmercado",
-        "resumendemercado",
-        "mercadoresumen",
-    }
+    accepted = {"resumenmercado", "resumendemercado", "mercadoresumen"}
     me = getattr(guild, "me", None)
     for channel in getattr(guild, "text_channels", []):
         if _normalized_channel_name(getattr(channel, "name", "")) not in accepted:
@@ -107,7 +105,6 @@ async def _resolve_summary_channel(guild):
 
 
 async def _send_rumor_message(channel, offer):
-    """Prefer embed; if the channel blocks embeds, still publish plain text."""
     try:
         msg = await channel.send(
             embed=_rumor_embed(offer),
@@ -188,6 +185,55 @@ async def publish_offer_rumor(interaction, offer):
         f"AJAP rumor oferta #{offer_id}: SENT guild={guild.id} "
         f"channel={channel.id} source={source} mode={mode}"
     )
+    return True
+
+
+async def _backfill_pending_rumors():
+    """On every ready/reconnect, publish pending offers missing from the public feed."""
+    app = public_summary.APP
+    if app is None or getattr(app, "bot", None) is None:
+        print("WARNING AJAP: backfill rumores omitido; runtime publico aun no listo")
+        return
+
+    total = 0
+    for guild in list(getattr(app.bot, "guilds", [])):
+        conn = None
+        try:
+            conn = public_summary._conn_for_guild(guild.id)
+            rows = conn.execute(
+                "SELECT * FROM offers WHERE status = 'PENDIENTE' ORDER BY id"
+            ).fetchall()
+        except Exception as exc:
+            print(f"WARNING AJAP: backfill rumores guild={guild.id} fallo lectura: {exc}")
+            rows = []
+        finally:
+            if conn is not None:
+                conn.close()
+
+        interaction = SimpleNamespace(guild=guild)
+        for offer in rows:
+            try:
+                already = public_summary._was_announced(
+                    guild.id, "OFFER_RUMOR", int(offer["id"])
+                )
+                if already:
+                    continue
+                if await publish_offer_rumor(interaction, offer):
+                    total += 1
+            except Exception as exc:
+                print(
+                    f"WARNING AJAP: backfill rumor oferta #{offer['id']} "
+                    f"guild={guild.id} fallo: {exc}"
+                )
+
+    print(f"AJAP backfill rumores: {total} oferta(s) pendiente(s) recuperadas")
+
+
+def install_pending_offer_backfill(bot):
+    if getattr(bot, "_ajap_market_rumor_backfill", False):
+        return False
+    bot.add_listener(_backfill_pending_rumors, "on_ready")
+    bot._ajap_market_rumor_backfill = True
     return True
 
 
