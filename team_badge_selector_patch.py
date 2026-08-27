@@ -34,7 +34,7 @@ SELECTOR_ASSETS = {
     "Manchester City": "manchester_city_emoji.png",
 }
 SELECTOR_EMOJI_VERSIONS = {
-    "Manchester City": 2,
+    "Manchester City": 3,
 }
 
 
@@ -79,12 +79,13 @@ def _find_badge_emoji(guild, club: str):
         return None
     name = _emoji_name(club)
     cached = _EMOJI_CACHE.get((int(guild.id), name))
-    if cached is not None:
+    if cached is not None and getattr(cached, "available", True):
         return cached
     emoji = discord.utils.get(guild.emojis, name=name)
-    if emoji is not None:
+    if emoji is not None and getattr(emoji, "available", True):
         _EMOJI_CACHE[(int(guild.id), name)] = emoji
-    return emoji
+        return emoji
+    return None
 
 
 def _selector_emoji(club: str, country: str):
@@ -169,7 +170,7 @@ async def _ensure_guild_badges(guild):
 
         name = _emoji_name(club)
         existing = discord.utils.get(guild.emojis, name=name)
-        if existing is not None:
+        if existing is not None and getattr(existing, "available", True):
             _EMOJI_CACHE[(int(guild.id), name)] = existing
             continue
 
