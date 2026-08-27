@@ -68,6 +68,9 @@ import league_result_evidence_patch  # noqa: F401,E402
 # Corrige el puente entre /canal_movimientos y listeners en background: siempre
 # consulta la DB del guild explícito y evita duplicar una misma revisión.
 import guild_report_channel_bridge_patch  # noqa: F401,E402
+# Si OpenAI rechaza el análisis, la revisión Staff muestra solo el HTTP/categoría
+# segura (sin exponer la clave) para distinguir billing, permisos o formato.
+import league_api_error_diagnostic_patch  # noqa: F401,E402
 # Evita que una captura parezca ignorada: avisa canal mal configurado, muestra
 # procesamiento inmediato y deja estado visible para parcial/revisión/pendiente.
 import league_result_feedback_patch  # noqa: F401,E402
