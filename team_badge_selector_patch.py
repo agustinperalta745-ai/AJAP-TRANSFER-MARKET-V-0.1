@@ -34,7 +34,7 @@ SELECTOR_ASSETS = {
     "Manchester City": "manchester_city_emoji.png",
 }
 SELECTOR_EMOJI_VERSIONS = {
-    "Manchester City": 3,
+    "Manchester City": 4,
 }
 
 
