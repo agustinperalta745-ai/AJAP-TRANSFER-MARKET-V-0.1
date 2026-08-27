@@ -100,4 +100,9 @@ async def _send_admin_review_once(message, reason: str, hashes=None):
 
 strict._send_admin_review = _send_admin_review_once
 
+# Import side effect: monta el resumen público encima del aislamiento por guild.
+# Este módulo se carga desde bot.py antes de run_bot, por lo que el wrapper queda
+# instalado antes de que Discord conecte.
+import public_market_summary_patch  # noqa: F401,E402
+
 print("AJAP bridge Staff/PES activo: canal por guild explícito + revisión sin duplicados")
