@@ -1,7 +1,7 @@
 """Formas explícitas de vincular el canal público del mercado sin tocar Staff.
 
-- /canal_publico_mercado permite elegir un canal desde un parámetro.
-- /vincular_resumen_mercado vincula directamente el canal donde se ejecuta.
+- /canal_publico_mercado vincula directamente el canal donde se ejecuta.
+- /vincular_resumen_mercado queda como alias por compatibilidad.
 
 Ambos guardan el destino en la misma configuración usada por rumores,
 transferencias, préstamos, intercambios, clausulazos y opciones de compra.
@@ -55,21 +55,34 @@ async def _save_channel(runtime, interaction: discord.Interaction, canal: discor
     )
 
 
+async def _bind_current_channel(runtime, interaction: discord.Interaction):
+    if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
+        await interaction.response.send_message(
+            "⚠️ Usá este comando dentro del canal de texto que querés vincular.",
+            ephemeral=True,
+        )
+        return
+    await _save_channel(runtime, interaction, interaction.channel)
+
+
 def _register_explicit_channel_commands(runtime, bot):
     registered = []
 
-    if bot.tree.get_command("canal_publico_mercado") is None:
-        @bot.tree.command(
-            name="canal_publico_mercado",
-            description="Elegí el canal público donde se anunciará el mercado",
-        )
-        async def canal_publico_mercado(
-            interaction: discord.Interaction,
-            canal: discord.TextChannel,
-        ):
-            await _save_channel(runtime, interaction, canal)
+    # Si una versión anterior dejó el comando local con parámetro obligatorio,
+    # lo quitamos del árbol local y registramos la variante simple. El próximo
+    # bot.tree.sync() reemplaza la definición global en Discord.
+    existing = bot.tree.get_command("canal_publico_mercado")
+    if existing is not None:
+        bot.tree.remove_command("canal_publico_mercado")
 
-        registered.append("/canal_publico_mercado")
+    @bot.tree.command(
+        name="canal_publico_mercado",
+        description="Vincula este canal como resumen público del mercado",
+    )
+    async def canal_publico_mercado(interaction: discord.Interaction):
+        await _bind_current_channel(runtime, interaction)
+
+    registered.append("/canal_publico_mercado")
 
     if bot.tree.get_command("vincular_resumen_mercado") is None:
         @bot.tree.command(
@@ -77,13 +90,7 @@ def _register_explicit_channel_commands(runtime, bot):
             description="Vincula este canal como resumen público del mercado",
         )
         async def vincular_resumen_mercado(interaction: discord.Interaction):
-            if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
-                await interaction.response.send_message(
-                    "⚠️ Usá este comando dentro del canal de texto que querés vincular.",
-                    ephemeral=True,
-                )
-                return
-            await _save_channel(runtime, interaction, interaction.channel)
+            await _bind_current_channel(runtime, interaction)
 
         registered.append("/vincular_resumen_mercado")
 
