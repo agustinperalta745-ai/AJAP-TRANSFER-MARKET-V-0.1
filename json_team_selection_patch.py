@@ -115,7 +115,9 @@ def _country_emoji(country: str) -> str:
     if "ital" in raw:
         return "🇮🇹"
     if "inglat" in raw or "england" in raw:
-        return "🏴"
+        # England subdivision flag: U+1F3F4 + tag "gbeng" + cancel tag.
+        # Written explicitly so it cannot be reduced to the plain black flag.
+        return "\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F"
     if "portugal" in raw:
         return "🇵🇹"
     if "países bajos" in raw or "paises bajos" in raw or "holanda" in raw:
