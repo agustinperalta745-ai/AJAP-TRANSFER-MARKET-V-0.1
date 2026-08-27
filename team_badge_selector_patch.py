@@ -21,6 +21,7 @@ MANUAL_EMOJI_NAMES = {
     "Manchester City": "mancity",
     "Everton": "Everton",
     "Tottenham Hotspur": "TOT",
+    "Villarreal": "villa",
 }
 
 
@@ -172,7 +173,7 @@ def apply_team_badge_selector_patch(runtime, bot):
     _install_badge_selector()
     bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton: + Tottenham=:TOT:")
+    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton: + Tottenham=:TOT: + Villarreal=:villa:")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
