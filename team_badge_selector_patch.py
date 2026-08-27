@@ -20,6 +20,7 @@ BOT = None
 MANUAL_EMOJI_NAMES = {
     "Manchester City": "mancity",
     "Everton": "Everton",
+    "Tottenham Hotspur": "TOT",
 }
 
 
@@ -41,8 +42,7 @@ def _manual_badge_emoji(guild, club: str):
     if not manual_name:
         return None
 
-    # Discord emoji names are normally exact-case, but matching case-insensitively
-    # makes Staff uploads less fragile (:Everton: / :everton: both work).
+    # Match case-insensitively so Staff uploads are less fragile.
     wanted = manual_name.casefold()
     emoji = next(
         (
@@ -172,7 +172,7 @@ def apply_team_badge_selector_patch(runtime, bot):
     _install_badge_selector()
     bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton:")
+    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton: + Tottenham=:TOT:")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
