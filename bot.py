@@ -33,6 +33,9 @@ import lazio_roster_patch  # noqa: F401
 # Fulham.json adds Fulham as a selectable English club with the uploaded
 # 29-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
 import fulham_roster_patch  # noqa: F401
+# Bolton Wanderers.json adds Bolton Wanderers as a selectable English club with the uploaded
+# 21-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
+import bolton_wanderers_roster_patch  # noqa: F401
 # Middle.json adds Middlesbrough as a selectable English club with the uploaded
 # 32-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
 import middlesbrough_roster_patch  # noqa: F401
