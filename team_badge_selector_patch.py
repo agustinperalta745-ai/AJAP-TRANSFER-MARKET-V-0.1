@@ -1,11 +1,15 @@
-"""Use Staff-uploaded club emojis safely in the team selector.
+"""Use Staff-uploaded club emojis safely across AJAP team UI.
 
 Configured clubs use their manual server emoji from the exact Discord guild that
-opened the selector. AJAP does not create, version, delete, or reuse these emojis
-across servers. Clubs without a configured/manual emoji keep the country flag.
+opened the selector or generated the vacancy card. AJAP does not create,
+version, delete, or reuse these emojis across servers. Clubs without a
+configured/manual emoji keep the country flag in selectors and the normal title
+in vacancy announcements.
 """
 
 from __future__ import annotations
+
+from contextvars import ContextVar
 
 import discord
 
@@ -16,6 +20,7 @@ import team_assignment as teams
 
 APP = None
 BOT = None
+_VACANCY_GUILD = ContextVar("ajap_vacancy_badge_guild", default=None)
 
 MANUAL_EMOJI_NAMES = {
     "Manchester City": "mancity",
@@ -224,6 +229,48 @@ def _install_manager_panel_badge():
         APP.panel_embed = _decorate_panel_with_badge(APP.panel_embed)
 
 
+def _install_vacancy_badge():
+    """Show the corresponding club emoji in #equipos-libres vacancy cards."""
+    try:
+        import free_team_vacancy_patch as vacancies
+    except Exception as exc:
+        print(f"WARNING AJAP escudo vacantes: no se pudo cargar free_team_vacancy_patch: {exc}")
+        return
+
+    base_embed = getattr(vacancies, "vacancy_embed", None)
+    base_publish = getattr(vacancies, "_publish_vacancy", None)
+    if not callable(base_embed) or not callable(base_publish):
+        return
+    if getattr(base_embed, "_ajap_club_badge_title", False):
+        return
+
+    def vacancy_embed_with_badge(club: str):
+        embed = base_embed(club)
+        target_guild = _VACANCY_GUILD.get() or _current_guild()
+        badge = _manual_badge_emoji(target_guild, club)
+        if badge is not None and embed is not None:
+            embed.title = f"📣 {badge} {club} está buscando DT!"
+        return embed
+
+    async def publish_vacancy_with_badge(guild, club: str):
+        token = _VACANCY_GUILD.set(guild)
+        try:
+            return await base_publish(guild, club)
+        finally:
+            _VACANCY_GUILD.reset(token)
+
+    vacancy_embed_with_badge._ajap_club_badge_title = True
+    vacancy_embed_with_badge._ajap_club_badge_base = base_embed
+    publish_vacancy_with_badge._ajap_club_badge_publish = True
+    publish_vacancy_with_badge._ajap_club_badge_base = base_publish
+
+    vacancies.vacancy_embed = vacancy_embed_with_badge
+    vacancies._publish_vacancy = publish_vacancy_with_badge
+
+    if APP is not None:
+        APP.free_team_vacancy_embed = vacancy_embed_with_badge
+
+
 async def _ensure_guild_badges(guild):
     for club, expected_name in MANUAL_EMOJI_NAMES.items():
         emoji = _manual_badge_emoji(guild, club)
@@ -256,9 +303,10 @@ def apply_team_badge_selector_patch(runtime, bot):
 
     _install_badge_selector()
     _install_manager_panel_badge()
+    _install_vacancy_badge()
     bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton: + Tottenham=:TOT: + Villarreal=:villa: + Real Betis=:betis: + Aston Villa=:aston: + Fulham=:FUL: + Sevilla=:SEV: + Celta de Vigo=:vigo: + PSG=:PSG: + Lyon=:lyon: + Marsella=:marcella: + Atletico=:atletico: + Middlesbrough=:middle: + Bolton=:bolton: + Ajax=:ajax: + Torino=:tor: + West Ham=:weh: + Newcastle=:newc: + Fiorentina=:fiore: + Lazio=:lazio: + Porto=:porto: + Benfica=:ben: + Zaragoza=:zara:")
+    print("AJAP escudos manual-only activos en selector + panel + vacantes: City=:mancity: + Everton=:Everton: + Tottenham=:TOT: + Villarreal=:villa: + Real Betis=:betis: + Aston Villa=:aston: + Fulham=:FUL: + Sevilla=:SEV: + Celta de Vigo=:vigo: + PSG=:PSG: + Lyon=:lyon: + Marsella=:marcella: + Atletico=:atletico: + Middlesbrough=:middle: + Bolton=:bolton: + Ajax=:ajax: + Torino=:tor: + West Ham=:weh: + Newcastle=:newc: + Fiorentina=:fiore: + Lazio=:lazio: + Porto=:porto: + Benfica=:ben: + Zaragoza=:zara:")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
