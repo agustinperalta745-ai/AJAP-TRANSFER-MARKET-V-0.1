@@ -41,8 +41,7 @@ guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_l
 # Capa visual final: transforma el panel en estilo manager sin reemplazar la
 # lógica de los botones ya instalados (incluye Liga y renuncia de DT).
 import manager_menu_patch  # noqa: F401,E402
-# Dentro de LIGA, Staff elige únicamente el canal de resultados; tabla y
-# goleadores se renderizan en vivo dentro del menú, sin canal de tablas.
+# Dentro de LIGA se renderizan tabla y goleadores en vivo, sin canal de tablas.
 import league_channel_panel_patch  # noqa: F401,E402
 # El ✅ sobre una captura aparece solamente después de comprobar que el resultado
 # quedó persistido y ya participa del cálculo que usa el menú LIGA.
@@ -58,6 +57,9 @@ import my_club_menu_patch  # noqa: F401,E402
 import staff_dashboard_patch  # noqa: F401,E402
 # Herramientas administrativas agrupadas por Mercado/Planteles/Economía/Gestión.
 import staff_admin_organized_patch  # noqa: F401,E402
+# Configurar el canal de resultados pertenece a Administración -> Gestión;
+# el menú LIGA de los jugadores queda exclusivamente para consulta.
+import league_admin_config_location_patch  # noqa: F401,E402
 # Debe ser la última capa visual: los admins siempre eligen primero entre modo
 # usuario (para pruebas) y modo administrador (herramientas Staff).
 import staff_profile_gate_patch  # noqa: F401,E402
