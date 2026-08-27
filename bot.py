@@ -94,6 +94,9 @@ import loan_purchase_staff_notification_patch  # noqa: F401,E402
 # Las DB por servidor pueden ser más viejas que las migraciones de publicaciones;
 # antes de enviar un modal se asegura el schema del guild actual.
 import publication_submit_guild_schema_patch  # noqa: F401,E402
+# Guardia FINAL del modal de préstamo: la capa per-guild anterior reemplaza
+# on_submit, así que acá volvemos a imponer el tope real del 10% antes del INSERT.
+import loan_publication_cap_guard_patch  # noqa: F401,E402
 # discord.py 2.x reciente agregó un argumento interno al submit de modales. La
 # capa de aislamiento se adapta a ambas firmas para que ningún modal muera antes
 # de llegar a on_submit.
