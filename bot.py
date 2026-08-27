@@ -18,6 +18,9 @@ import betis_roster_replace_patch  # noqa: F401
 # Sevilla.json replaces the legacy 22-player Sevilla seed with the canonical
 # 24-player roster, full PES6 attributes/abilities and the same AJAP OVR formula.
 import sevilla_roster_replace_patch  # noqa: F401
+# Villareal.json replaces Villarreal's legacy seed with the uploaded 24-player
+# roster, full PES6 attributes/abilities and the same AJAP OVR formula.
+import villarreal_roster_replace_patch  # noqa: F401
 
 # Patch nickname/vacancy flows before run_bot registers Discord commands/views.
 import member_nickname_patch  # noqa: F401
