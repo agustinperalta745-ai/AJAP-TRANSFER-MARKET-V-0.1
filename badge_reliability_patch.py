@@ -13,6 +13,10 @@ import discord
 import team_badges_patch as badges
 import team_badge_selector_patch as selector
 
+# Canonical club name used by the JSON roster/database.
+selector.MANUAL_EMOJI_NAMES.pop("Zaragoza", None)
+selector.MANUAL_EMOJI_NAMES["Real Zaragoza"] = "zara"
+
 
 if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
     _previous_to_dict = discord.Embed.to_dict
