@@ -65,6 +65,23 @@ async def _send_seller_dm(offer):
         return False
 
 
+async def _publish_rumor_best_effort(interaction, offer):
+    """Publish the summary rumor from the final sender, independent of hook order."""
+    try:
+        import market_rumor_patch as market_rumor
+
+        ok = await market_rumor.publish_offer_rumor(interaction, offer)
+        print(
+            f"AJAP offer #{offer['id']} public summary rumor: "
+            f"{'OK' if ok else 'SKIPPED/FAILED'}"
+        )
+        return ok
+    except Exception as exc:
+        # The operational offer must remain valid even if the public feed fails.
+        print(f"WARNING AJAP: rumor público directo de oferta #{offer['id']} falló: {exc}")
+        return False
+
+
 async def _send_public_notice(interaction, offer):
     channel = interaction.channel
     if channel is None or not hasattr(channel, "send"):
@@ -86,6 +103,10 @@ async def _send_public_notice(interaction, offer):
             view=_make_action_view(offer["id"]),
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
         )
+        # Do not depend only on a monkey-patched wrapper here. This is the final
+        # sender used by Discord, so every successful offer also attempts its
+        # rumor in the configured #RESUMEN-MERCADO directly.
+        await _publish_rumor_best_effort(interaction, offer)
         return True
     except (discord.Forbidden, discord.HTTPException) as exc:
         print(f"WARNING AJAP: no se pudo publicar oferta #{offer['id']} en el canal: {exc}")
@@ -182,10 +203,9 @@ def apply_inline_offer_actions_patch(main_module, bot):
     offer_notifications._send_public_notice = _send_public_notice
     negotiation._notify_counteroffer = _notify_counteroffer
 
-    # market_rumor_patch is imported before this patch during startup. Its wrapper
-    # was therefore being overwritten by the inline-action sender above, which
-    # made valid offers appear in #MERCADO-DE-PASES but not in #RESUMEN-MERCADO.
-    # Reinstall the wrapper now, around the final public notice function.
+    # Keep the wrapper too for compatibility with older paths. The public summary
+    # table deduplicates OFFER_RUMOR by offer id, so the direct call above and this
+    # wrapper cannot create duplicate cards.
     try:
         import market_rumor_patch as market_rumor
 
