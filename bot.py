@@ -77,9 +77,11 @@ import roster_player_stats_patch  # noqa: F401,E402
 # Mercado completo: búsqueda, transferibles, publicaciones y ofertas permiten
 # consultar las estadísticas PES6/JSON antes de cerrar cualquier negocio.
 import market_player_stats_patch  # noqa: F401,E402
-# Canon económico obligatorio de los préstamos: 10% del valor de mercado por
-# temporada, visible antes de aceptar y cobrado al comenzar cada temporada.
+# Base económica de préstamos: calcula el 10% del valor de mercado por temporada.
 import loan_canon_patch  # noqa: F401,E402
+# Regla final: ese 10% es el TOPE; el dueño puede pedir menos y se cobra por
+# temporada el monto realmente acordado en la negociación.
+import loan_canon_cap_patch  # noqa: F401,E402
 # Conecta la auditoría económica al menú MI CLUB: saldo, ingresos, egresos,
 # cánones, opciones de compra, clausulazos y ajustes de administración.
 import treasury_menu_patch  # noqa: F401,E402
