@@ -41,9 +41,12 @@ guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_l
 # Capa visual final: transforma el panel en estilo manager sin reemplazar la
 # lógica de los botones ya instalados (incluye Liga y renuncia de DT).
 import manager_menu_patch  # noqa: F401,E402
-# Dentro de LIGA, Staff puede elegir visualmente el canal de resultados y el
-# canal donde el bot mantiene tabla de posiciones + goleadores.
+# Dentro de LIGA, Staff elige únicamente el canal de resultados; tabla y
+# goleadores se renderizan en vivo dentro del menú, sin canal de tablas.
 import league_channel_panel_patch  # noqa: F401,E402
+# El ✅ sobre una captura aparece solamente después de comprobar que el resultado
+# quedó persistido y ya participa del cálculo que usa el menú LIGA.
+import league_result_confirmation_patch  # noqa: F401,E402
 # Tras elegir equipo, mostrar inmediatamente el mismo panel final y filtrado.
 import manager_selector_patch  # noqa: F401,E402
 # Agrupa plantilla, economía, valor e información dentro de MI CLUB.
