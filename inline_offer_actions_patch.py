@@ -182,6 +182,17 @@ def apply_inline_offer_actions_patch(main_module, bot):
     offer_notifications._send_public_notice = _send_public_notice
     negotiation._notify_counteroffer = _notify_counteroffer
 
+    # market_rumor_patch is imported before this patch during startup. Its wrapper
+    # was therefore being overwritten by the inline-action sender above, which
+    # made valid offers appear in #MERCADO-DE-PASES but not in #RESUMEN-MERCADO.
+    # Reinstall the wrapper now, around the final public notice function.
+    try:
+        import market_rumor_patch as market_rumor
+
+        market_rumor._install_offer_rumor_hook()
+    except Exception as exc:
+        print(f"WARNING AJAP: no se pudo reactivar rumor público de oferta: {exc}")
+
     # Re-attach persistent callbacks for pending messages after Railway restarts.
     bot.add_listener(_register_pending_views, "on_ready")
 
