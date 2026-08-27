@@ -111,3 +111,7 @@ import psg_roster_patch  # noqa: F401,E402
 # Marsella.json usa el mismo mecanismo: el loader debe quedar en la cadena final
 # para sembrar la plantilla y registrar al Olympique de Marsella como club activo.
 import marsella_roster_patch  # noqa: F401,E402
+
+# Lyon.json reemplaza el viejo plantel de prueba por la fuente JSON canónica,
+# preserva movimientos existentes y deja al Olympique de Lyon activo/seleccionable.
+import lyon_roster_patch  # noqa: F401,E402
