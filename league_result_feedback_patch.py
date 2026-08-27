@@ -167,7 +167,6 @@ async def _feedback_handle(runtime, bot, message):
         return
 
     if state["match"]:
-        # The evidence layer already adds ✅ after persistence.
         return
 
     if state["review"]:
@@ -198,6 +197,38 @@ def _is_admin(runtime, interaction) -> bool:
         )
 
 
+def _staff_channel_id_for_guild(runtime, guild_id: int):
+    """Read Staff/PES channel from the explicit guild DB, never the legacy context."""
+    conn = None
+    try:
+        if hasattr(runtime, "db_for_guild"):
+            conn = runtime.db_for_guild(int(guild_id))
+        else:
+            with runtime.guild_context(int(guild_id)) if hasattr(runtime, "guild_context") else _nullcontext():
+                conn = runtime.db()
+        row = conn.execute(
+            "SELECT channel_id FROM market_report_channels WHERE guild_id = ? LIMIT 1",
+            (int(guild_id),),
+        ).fetchone()
+        return int(row["channel_id"]) if row and row["channel_id"] else None
+    except Exception:
+        return None
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+class _nullcontext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
 def _install_diagnostic_command(runtime, bot):
     if bot.tree.get_command("liga_diagnostico") is not None:
         return
@@ -220,9 +251,20 @@ def _install_diagnostic_command(runtime, bot):
         handler_name = getattr(league.handle, "__name__", type(league.handle).__name__)
         msg_intent = bool(getattr(bot.intents, "message_content", False))
         guild_msg_intent = bool(getattr(bot.intents, "guild_messages", False))
-        api_ok = bool(os.getenv("OPENAI_API_KEY"))
+        api_value = os.getenv("OPENAI_API_KEY") or ""
+        api_ok = bool(api_value)
+        openai_env_names = sorted(name for name in os.environ if name.upper().startswith("OPENAI"))
+        deployment_id = os.getenv("RAILWAY_DEPLOYMENT_ID") or "—"
+        service_name = os.getenv("RAILWAY_SERVICE_NAME") or "—"
+        commit_sha = (
+            os.getenv("RAILWAY_GIT_COMMIT_SHA")
+            or os.getenv("RAILWAY_GIT_COMMIT")
+            or "—"
+        )
+        staff_id = _staff_channel_id_for_guild(runtime, interaction.guild_id)
 
         target = interaction.guild.get_channel(intake_id) if intake_id else None
+        staff_target = interaction.guild.get_channel(staff_id) if staff_id else None
         me = interaction.guild.me
         perms = target.permissions_for(me) if target is not None and me is not None else None
 
@@ -230,6 +272,7 @@ def _install_diagnostic_command(runtime, bot):
             return "✅" if value else "❌"
 
         channel_text = target.mention if target is not None else (f"<#{intake_id}> (no accesible)" if intake_id else "Sin configurar")
+        staff_text = staff_target.mention if staff_target is not None else (f"<#{staff_id}> (no accesible)" if staff_id else "Sin configurar")
         perm_text = "No se pudo comprobar"
         if perms is not None:
             perm_text = (
@@ -242,17 +285,23 @@ def _install_diagnostic_command(runtime, bot):
         healthy_handler = handler_name == "_feedback_handle"
         embed = discord.Embed(
             title="🧪 Diagnóstico Liga AJAP",
-            description="Estado real de la instancia que está conectada ahora mismo a Discord.",
+            description="Estado real del proceso que respondió este comando.",
             color=discord.Color.green() if (msg_intent and guild_msg_intent and listener_count > 0 and healthy_handler and intake_id and api_ok) else discord.Color.gold(),
         )
         embed.add_field(name="Message Content", value=f"{ok(msg_intent)} `{msg_intent}`", inline=True)
         embed.add_field(name="Guild Messages", value=f"{ok(guild_msg_intent)} `{guild_msg_intent}`", inline=True)
-        embed.add_field(name="OPENAI_API_KEY", value=f"{ok(api_ok)} {'configurada' if api_ok else 'faltante'}", inline=True)
+        embed.add_field(name="OPENAI_API_KEY", value=f"{ok(api_ok)} {'configurada' if api_ok else 'faltante'} • largo `{len(api_value)}`", inline=True)
+        embed.add_field(name="Variables OPENAI recibidas", value="`, `".join(openai_env_names) if openai_env_names else "**ninguna**", inline=False)
         embed.add_field(name="Listeners on_message", value=f"{ok(listener_count > 0)} **{listener_count}**", inline=True)
         embed.add_field(name="Handler Liga", value=f"{ok(healthy_handler)} `{handler_name}`", inline=True)
-        embed.add_field(name="Canal configurado", value=channel_text, inline=True)
+        embed.add_field(name="PID proceso", value=f"`{os.getpid()}`", inline=True)
+        embed.add_field(name="Canal Resultados", value=channel_text, inline=True)
+        embed.add_field(name="Canal Staff/PES", value=staff_text, inline=True)
+        embed.add_field(name="Servicio Railway", value=f"`{service_name}`", inline=True)
+        embed.add_field(name="Deployment", value=f"`{deployment_id[-12:] if deployment_id != '—' else deployment_id}`", inline=True)
+        embed.add_field(name="Commit", value=f"`{commit_sha[:10] if commit_sha != '—' else commit_sha}`", inline=True)
         embed.add_field(name="Permisos en Resultados", value=perm_text, inline=False)
-        embed.set_footer(text="AJAP Liga diagnóstico v2 • commit con diagnóstico activo")
+        embed.set_footer(text="AJAP Liga diagnóstico v3 • no muestra valores secretos")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
@@ -261,16 +310,14 @@ def apply_league_result_feedback_patch(runtime, bot):
     APP, BOT = runtime, bot
     _install_diagnostic_command(runtime, bot)
     if getattr(runtime, "_ajap_league_result_feedback_patch", False):
-        # Another late patch must never be allowed to hide the feedback handler.
         if _ORIGINAL_HANDLE is not None:
             league.handle = _feedback_handle
         return
 
-    # At this point the evidence patch has already replaced league.handle.
     _ORIGINAL_HANDLE = league.handle
     league.handle = _feedback_handle
     runtime._ajap_league_result_feedback_patch = True
-    print("AJAP Liga feedback visible activo: canal + procesamiento + estados + diagnostico")
+    print("AJAP Liga feedback visible activo: canal + procesamiento + estados + diagnostico v3")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
@@ -290,10 +337,6 @@ if not getattr(
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_result_feedback
 
 
-# Final deterministic guard. bot.py imports this module before run_bot creates the
-# dynamic runtime. When Bot.run is finally called, that runtime already exists,
-# so we can verify the complete Liga listener chain one last time. This removes
-# any dependency on monkey-patch import ordering.
 _original_bot_run = commands.Bot.run
 
 
@@ -301,14 +344,11 @@ def _run_with_league_listener_guard(self, token, *args, **kwargs):
     runtime = sys.modules.get("ajap_bot_runtime")
     if runtime is not None:
         try:
-            # 1) Ensure the actual on_message listener exists.
             league.apply_league_automation_patch(runtime, self)
 
-            # 2) Ensure the safe final/partial evidence handler owns league.handle.
             import league_result_evidence_patch as evidence
             evidence._install(runtime, self)
 
-            # 3) Put visible feedback on top of the final evidence handler.
             apply_league_result_feedback_patch(runtime, self)
             league.handle = _feedback_handle
 
