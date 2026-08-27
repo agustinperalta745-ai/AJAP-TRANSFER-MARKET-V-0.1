@@ -13,7 +13,9 @@ import discord
 RAW_BASE = "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/assets/teams"
 
 TEAM_BADGES = {
-    "Manchester City": f"{RAW_BASE}/manchester_city.png",
+    # Query versioned on purpose: Discord aggressively caches failed/old thumbnail
+    # fetches. Bumping this forces a fresh request without changing the asset path.
+    "Manchester City": f"{RAW_BASE}/manchester_city.png?v=8",
     "Tottenham Hotspur": f"{RAW_BASE}/tottenham_hotspur.png",
     "Fulham": f"{RAW_BASE}/fulham.png",
     "Everton": f"{RAW_BASE}/everton.png",
