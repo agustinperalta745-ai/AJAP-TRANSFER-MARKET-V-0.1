@@ -14,6 +14,7 @@ from pathlib import Path
 import discord
 
 import guild_isolation_patch as guild_isolation
+import assignment_history_authority_patch  # noqa: F401
 import team_assignment as teams
 
 
