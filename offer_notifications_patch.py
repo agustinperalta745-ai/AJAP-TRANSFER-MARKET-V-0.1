@@ -154,12 +154,29 @@ def apply_offer_notifications_patch(main_module):
 
             dm_ok = await _send_seller_dm(offer)
             public_ok = await _send_public_notice(interaction, offer)
+
+            # Critical path: publish the public-market rumor directly from the
+            # successful INSERT path. This intentionally does not depend on the
+            # monkey-patch order of the channel notification sender. If another
+            # wrapper already published it, market_rumor_patch deduplicates it.
+            rumor_ok = False
+            try:
+                import market_rumor_patch as market_rumor
+
+                rumor_ok = await market_rumor.publish_offer_rumor(interaction, offer)
+            except Exception as exc:
+                print(
+                    f"WARNING AJAP: publicacion directa de rumor oferta #{offer['id']} fallo: {exc}"
+                )
+
             print(
                 f"AJAP offer #{offer['id']} notifications: "
-                f"DM={'OK' if dm_ok else 'FAILED'} • PUBLIC={'OK' if public_ok else 'FAILED'}"
+                f"DM={'OK' if dm_ok else 'FAILED'} • "
+                f"PUBLIC={'OK' if public_ok else 'FAILED'} • "
+                f"RUMOR={'OK' if rumor_ok else 'FAILED'}"
             )
 
     NotifyingOfertaModal.__name__ = "OfertaModal"
     main_module.OfertaModal = NotifyingOfertaModal
     main_module._ajap_offer_notifications_patch = True
-    print("Notificaciones de ofertas activas: DM al vendedor + aviso público en el canal")
+    print("Notificaciones de ofertas activas: DM + aviso mercado + rumor resumen")
