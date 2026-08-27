@@ -10,9 +10,11 @@ feedback around image uploads without changing the evidence rules:
 
 from __future__ import annotations
 
+import sys
 import unicodedata
 
 import discord
+from discord.ext import commands
 
 import guild_isolation_patch as guild_isolation
 import league_automation_patch as league
@@ -172,6 +174,9 @@ def apply_league_result_feedback_patch(runtime, bot):
     global APP, BOT, _ORIGINAL_HANDLE
     APP, BOT = runtime, bot
     if getattr(runtime, "_ajap_league_result_feedback_patch", False):
+        # Another late patch must never be allowed to hide the feedback handler.
+        if _ORIGINAL_HANDLE is not None:
+            league.handle = _feedback_handle
         return
 
     # At this point the evidence patch has already replaced league.handle.
@@ -196,3 +201,36 @@ if not getattr(
 ):
     _apply_guild_isolation_then_result_feedback._ajap_league_result_feedback_wrapped = True
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_result_feedback
+
+
+# Final deterministic guard. bot.py imports this module before run_bot creates the
+# dynamic runtime. When Bot.run is finally called, that runtime already exists,
+# so we can verify the complete Liga listener chain one last time. This removes
+# any dependency on monkey-patch import ordering.
+_original_bot_run = commands.Bot.run
+
+
+def _run_with_league_listener_guard(self, token, *args, **kwargs):
+    runtime = sys.modules.get("ajap_bot_runtime")
+    if runtime is not None:
+        try:
+            # 1) Ensure the actual on_message listener exists.
+            league.apply_league_automation_patch(runtime, self)
+
+            # 2) Ensure the safe final/partial evidence handler owns league.handle.
+            import league_result_evidence_patch as evidence
+            evidence._install(runtime, self)
+
+            # 3) Put visible feedback on top of the final evidence handler.
+            apply_league_result_feedback_patch(runtime, self)
+            league.handle = _feedback_handle
+
+            print("AJAP Liga listener verificado justo antes de conectar Discord")
+        except Exception as exc:
+            print(f"ERROR AJAP Liga listener guard: {exc}")
+    return _original_bot_run(self, token, *args, **kwargs)
+
+
+if not getattr(commands.Bot.run, "_ajap_league_listener_guard", False):
+    _run_with_league_listener_guard._ajap_league_listener_guard = True
+    commands.Bot.run = _run_with_league_listener_guard
