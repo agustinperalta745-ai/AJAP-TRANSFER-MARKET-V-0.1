@@ -115,5 +115,8 @@ import loan_publication_cap_guard_patch  # noqa: F401,E402
 # capa de aislamiento se adapta a ambas firmas para que ningún modal muera antes
 # de llegar a on_submit.
 import discord_modal_guild_context_compat_patch  # noqa: F401,E402
+# Guardia final de renuncia: evita paneles efímeros viejos y responde al clic
+# antes de tocar roles/apodos para que Discord no venza la interacción.
+import resignation_consistency_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
