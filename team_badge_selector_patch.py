@@ -1,10 +1,8 @@
 """Show club badges in the initial team selector using guild custom emojis.
 
-Discord select menus do not accept arbitrary image URLs. To display the real club
-crest beside each option we provision a small custom emoji in every guild from the
-PNG already stored in assets/teams, then reuse that emoji in the JSON-only selector.
-If the bot lacks emoji-management permission, the selector safely falls back to the
-country flag instead of breaking.
+Discord select menus do not accept arbitrary image URLs. For clubs with a manual
+server emoji configured, AJAP reuses that emoji directly. Other clubs may still be
+provisioned automatically from assets/teams and safely fall back to country flags.
 """
 
 from __future__ import annotations
@@ -27,9 +25,14 @@ ASSET_DIR = Path(__file__).resolve().parent / "assets" / "teams"
 _EMOJI_CACHE = {}
 _WARNED_GUILDS = set()
 
-# Selector-specific assets can be tighter than the embed version so they remain
-# readable at Discord emoji size. Versioning forces Discord to provision a fresh
-# custom emoji when an asset is replaced instead of reusing the old cached one.
+# Manual server emojis are the simplest/most reliable path. The bot resolves them
+# by name from guild.emojis, so no hard-coded Discord ID is required.
+MANUAL_EMOJI_NAMES = {
+    "Manchester City": "mancity",
+}
+
+# Selector-specific assets remain available as automatic fallback for clubs that
+# do not have a manual server emoji.
 SELECTOR_ASSETS = {
     "Manchester City": "manchester_city_emoji.png",
 }
@@ -74,9 +77,34 @@ def _current_guild():
     return BOT.get_guild(guild_id)
 
 
+def _manual_badge_emoji(guild, club: str):
+    if guild is None:
+        return None
+    manual_name = MANUAL_EMOJI_NAMES.get(club)
+    if not manual_name:
+        return None
+
+    cache_key = (int(guild.id), f"manual:{manual_name}")
+    cached = _EMOJI_CACHE.get(cache_key)
+    if cached is not None and getattr(cached, "available", True):
+        return cached
+
+    emoji = discord.utils.get(guild.emojis, name=manual_name)
+    if emoji is not None and getattr(emoji, "available", True):
+        _EMOJI_CACHE[cache_key] = emoji
+        return emoji
+    return None
+
+
 def _find_badge_emoji(guild, club: str):
     if guild is None:
         return None
+
+    # Manual emoji always wins. For Manchester City this means :mancity:.
+    manual = _manual_badge_emoji(guild, club)
+    if manual is not None:
+        return manual
+
     name = _emoji_name(club)
     cached = _EMOJI_CACHE.get((int(guild.id), name))
     if cached is not None and getattr(cached, "available", True):
@@ -164,6 +192,16 @@ def _install_badge_selector():
 async def _ensure_guild_badges(guild):
     created = 0
     for club in badges.TEAM_BADGES:
+        # If Staff uploaded the emoji manually, use it and never create/delete a
+        # competing AJAP revision for that club.
+        manual = _manual_badge_emoji(guild, club)
+        if manual is not None:
+            print(
+                f"AJAP escudo manual OK: guild={guild.id} club={club} "
+                f"emoji=:{manual.name}: id={manual.id}"
+            )
+            continue
+
         path = _asset_path(club)
         if path is None:
             continue
@@ -216,7 +254,7 @@ def apply_team_badge_selector_patch(runtime, bot):
     _install_badge_selector()
     bot.add_listener(_provision_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector con escudos activo: PNG -> emoji de club; bandera como fallback")
+    print("AJAP selector con escudos activo: emoji manual preferido; PNG->emoji como fallback")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
