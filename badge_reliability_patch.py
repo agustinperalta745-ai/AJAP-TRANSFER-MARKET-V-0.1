@@ -113,3 +113,7 @@ if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
     print(
         "AJAP badge reliability activo: Discord CDN preferido + PNG directo de fallback"
     )
+
+# Final layer: application-owned emoji is the stable component-safe path. It
+# wraps the selector installer before guild isolation actually applies it.
+import application_badge_patch  # noqa: F401,E402
