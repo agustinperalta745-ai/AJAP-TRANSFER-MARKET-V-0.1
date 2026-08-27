@@ -337,8 +337,14 @@ def _charge(loan_id, season_id):
     with canon.loans.APP.db() as conn:
         loan = conn.execute("SELECT * FROM loans WHERE id = ?", (int(loan_id),)).fetchone()
         amount = int(loan["canon_per_season"] or 0) if loan else 0
-        if not loan or amount > 0:
-            return _original_charge(loan_id, season_id)
+
+    if not loan or amount > 0:
+        return _original_charge(loan_id, season_id)
+
+    with canon.loans.APP.db() as conn:
+        loan = conn.execute("SELECT * FROM loans WHERE id = ?", (int(loan_id),)).fetchone()
+        if not loan:
+            return False, "Préstamo no encontrado."
         paid = conn.execute(
             "SELECT 1 FROM loan_canon_payments WHERE loan_id = ? AND season_id = ?",
             (int(loan_id), int(season_id)),
