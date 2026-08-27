@@ -168,6 +168,9 @@ import json_team_selection_patch  # noqa: F401,E402
 # Discord no admite PNG directos dentro de SelectOption, por eso se crean emojis
 # del servidor automáticamente desde assets/teams (con bandera como fallback).
 import team_badge_selector_patch  # noqa: F401,E402
+# Capa de fiabilidad: limpia revisiones rotas del City, crea un emoji fresco y
+# usa la URL CDN de Discord para los thumbnails en lugar del raw de GitHub.
+import badge_reliability_patch  # noqa: F401,E402
 # Última defensa para formularios: ejecuta el submit con firma flexible y contexto
 # correcto incluso si discord.py cambia nuevamente sus argumentos privados.
 import modal_submit_hardening_patch  # noqa: F401,E402
