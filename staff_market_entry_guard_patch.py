@@ -107,3 +107,7 @@ if not getattr(
 # después del guard Staff, para que su wrapper quede en la cadena final antes
 # de que run_bot capture y ejecute apply_guild_isolation_patch.
 import psg_roster_patch  # noqa: F401,E402
+
+# Marsella.json usa el mismo mecanismo: el loader debe quedar en la cadena final
+# para sembrar la plantilla y registrar al Olympique de Marsella como club activo.
+import marsella_roster_patch  # noqa: F401,E402
