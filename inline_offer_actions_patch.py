@@ -205,11 +205,13 @@ def apply_inline_offer_actions_patch(main_module, bot):
 
     # Keep the wrapper too for compatibility with older paths. The public summary
     # table deduplicates OFFER_RUMOR by offer id, so the direct call above and this
-    # wrapper cannot create duplicate cards.
+    # wrapper cannot create duplicate cards. Also backfill any pending offers that
+    # were missed before the current version was deployed.
     try:
         import market_rumor_patch as market_rumor
 
         market_rumor._install_offer_rumor_hook()
+        market_rumor.install_pending_offer_backfill(bot)
     except Exception as exc:
         print(f"WARNING AJAP: no se pudo reactivar rumor público de oferta: {exc}")
 
