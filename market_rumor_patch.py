@@ -7,8 +7,9 @@ ofrecidos.
 
 Esta capa es deliberadamente defensiva: primero usa el canal configurado en la
 DB del guild y, si por cualquier motivo esa configuracion no puede resolverse,
-busca un canal llamado #resumen-mercado en el mismo servidor. Asi un fallo de
-orden de parches o de configuracion nunca vuelve invisible una oferta valida.
+busca un canal llamado #resumen-mercado en el mismo servidor. Si Discord permite
+mensajes pero no embeds, publica una version de texto para que el movimiento no
+quede invisible.
 """
 
 from __future__ import annotations
@@ -53,6 +54,20 @@ def _rumor_embed(offer):
     return embed
 
 
+def _rumor_text(offer):
+    buyer = str(offer["from_club"] or "Club interesado")
+    player = str(offer["player"] or "Jugador")
+    seller = str(offer["to_club"] or "").strip()
+    current = f"\n🏟️ Club actual: **{seller}**" if seller else ""
+    return (
+        "🗞️ **RUMOR DE MERCADO**\n"
+        f"👀 **{buyer}** esta detras de **{player}**.\n"
+        "Fuentes del mercado indican que el club ya habria realizado movimientos "
+        f"para intentar incorporarlo.{current}\n"
+        f"🔎 Club interesado: **{buyer}**"
+    )
+
+
 def _normalized_channel_name(name: str) -> str:
     return "".join(ch for ch in str(name or "").casefold() if ch.isalnum())
 
@@ -91,6 +106,33 @@ async def _resolve_summary_channel(guild):
     return None, "NOT_FOUND"
 
 
+async def _send_rumor_message(channel, offer):
+    """Prefer embed; if the channel blocks embeds, still publish plain text."""
+    try:
+        msg = await channel.send(
+            embed=_rumor_embed(offer),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        return msg, "EMBED"
+    except (discord.Forbidden, discord.HTTPException) as embed_exc:
+        print(
+            f"WARNING AJAP: embed rumor oferta #{offer['id']} fallo en "
+            f"channel={getattr(channel, 'id', None)}: {embed_exc}; intento texto"
+        )
+        try:
+            msg = await channel.send(
+                content=_rumor_text(offer),
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            return msg, "TEXT_FALLBACK"
+        except (discord.Forbidden, discord.HTTPException) as text_exc:
+            print(
+                f"WARNING AJAP: texto rumor oferta #{offer['id']} tambien fallo en "
+                f"channel={getattr(channel, 'id', None)}: {text_exc}"
+            )
+            return None, "SEND_FAILED"
+
+
 async def publish_offer_rumor(interaction, offer):
     guild = getattr(interaction, "guild", None)
     if guild is None:
@@ -99,14 +141,12 @@ async def publish_offer_rumor(interaction, offer):
 
     offer_id = int(offer["id"])
 
-    # Dedupe only when the public-summary runtime is already initialized.
     if public_summary.APP is not None:
         try:
             if public_summary._was_announced(guild.id, "OFFER_RUMOR", offer_id):
                 print(f"AJAP rumor oferta #{offer_id}: YA_PUBLICADO")
                 return True
         except Exception as exc:
-            # Do not block the actual Discord send because the audit table failed.
             print(f"WARNING AJAP: dedupe rumor oferta #{offer_id} fallo: {exc}")
 
     channel, source = await _resolve_summary_channel(guild)
@@ -126,37 +166,29 @@ async def publish_offer_rumor(interaction, offer):
         )
         return False
 
-    try:
-        msg = await channel.send(
-            embed=_rumor_embed(offer),
-            allowed_mentions=discord.AllowedMentions.none(),
-        )
-
-        if public_summary.APP is not None:
-            try:
-                public_summary._remember_announcement(
-                    guild.id,
-                    "OFFER_RUMOR",
-                    offer_id,
-                    channel.id,
-                    msg.id,
-                )
-            except Exception as exc:
-                print(
-                    f"WARNING AJAP: rumor oferta #{offer_id} enviado pero no auditado: {exc}"
-                )
-
-        print(
-            f"AJAP rumor oferta #{offer_id}: SENT guild={guild.id} "
-            f"channel={channel.id} source={source}"
-        )
-        return True
-    except (discord.Forbidden, discord.HTTPException) as exc:
-        print(
-            f"WARNING AJAP: rumor oferta #{offer_id} SEND_FAILED "
-            f"channel={getattr(channel, 'id', None)} source={source}: {exc}"
-        )
+    msg, mode = await _send_rumor_message(channel, offer)
+    if msg is None:
         return False
+
+    if public_summary.APP is not None:
+        try:
+            public_summary._remember_announcement(
+                guild.id,
+                "OFFER_RUMOR",
+                offer_id,
+                channel.id,
+                msg.id,
+            )
+        except Exception as exc:
+            print(
+                f"WARNING AJAP: rumor oferta #{offer_id} enviado pero no auditado: {exc}"
+            )
+
+    print(
+        f"AJAP rumor oferta #{offer_id}: SENT guild={guild.id} "
+        f"channel={channel.id} source={source} mode={mode}"
+    )
+    return True
 
 
 def _install_offer_rumor_hook():
@@ -173,7 +205,6 @@ def _install_offer_rumor_hook():
                 f"{'OK' if rumor_ok else 'FAILED'}"
             )
         except Exception as exc:
-            # Un fallo del feed publico nunca debe invalidar una oferta real.
             print(f"WARNING AJAP: rumor de oferta #{offer['id']} fallo: {exc}")
         return result
 
