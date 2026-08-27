@@ -17,6 +17,17 @@ APP = None
 BOT = None
 
 
+def _guild_context(interaction: discord.Interaction):
+    """Mantiene la DB del servidor correcto dentro del task real del botón."""
+    return guild_isolation._CURRENT_GUILD_ID.set(
+        guild_isolation._interaction_guild_id(interaction)
+    )
+
+
+def _reset_guild_context(token):
+    guild_isolation._CURRENT_GUILD_ID.reset(token)
+
+
 def _club_players(club):
     if not club:
         return []
@@ -144,22 +155,26 @@ class MyClubSectionButton(discord.ui.Button):
         self.roster_callback = roster_callback
 
     async def callback(self, interaction: discord.Interaction):
-        if self.action == "plantilla":
-            await self.roster_callback(interaction)
-            return
+        token = _guild_context(interaction)
+        try:
+            if self.action == "plantilla":
+                await self.roster_callback(interaction)
+                return
 
-        if self.action == "economia":
-            embed = economy_embed(interaction.user.id)
-        elif self.action == "valor":
-            embed = club_value_embed(interaction.user.id)
-        else:
-            embed = club_info_embed(interaction)
+            if self.action == "economia":
+                embed = economy_embed(interaction.user.id)
+            elif self.action == "valor":
+                embed = club_value_embed(interaction.user.id)
+            else:
+                embed = club_info_embed(interaction)
 
-        await interaction.response.edit_message(
-            content=None,
-            embeds=[embed],
-            view=MyClubSectionView(self.roster_callback),
-        )
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[embed],
+                view=MyClubSectionView(self.roster_callback),
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 class MyClubSectionView(discord.ui.View):
@@ -216,18 +231,22 @@ class MyClubHubButton(discord.ui.Button):
         self.roster_callback = roster_callback
 
     async def callback(self, interaction: discord.Interaction):
-        if not APP.club_de(interaction.user.id):
-            await interaction.response.send_message(
-                "⚠️ No tenés un club asignado en este servidor.",
-                ephemeral=True,
-            )
-            return
+        token = _guild_context(interaction)
+        try:
+            if not APP.club_de(interaction.user.id):
+                await interaction.response.send_message(
+                    "⚠️ No tenés un club asignado en este servidor.",
+                    ephemeral=True,
+                )
+                return
 
-        await interaction.response.edit_message(
-            content=None,
-            embeds=[my_club_embed(interaction.user.id)],
-            view=MyClubSectionView(self.roster_callback),
-        )
+            await interaction.response.edit_message(
+                content=None,
+                embeds=[my_club_embed(interaction.user.id)],
+                view=MyClubSectionView(self.roster_callback),
+            )
+        finally:
+            _reset_guild_context(token)
 
 
 def build_my_club_market_view(base_view):
