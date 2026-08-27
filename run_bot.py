@@ -48,6 +48,7 @@ from admin_finance_patch import apply_admin_finance_patch
 from market_persistence_patch import apply_market_persistence_patch
 from market_usage_channel_patch import apply_market_usage_channel_patch
 from guild_isolation_patch import apply_guild_isolation_patch
+from aston_villa_roster_patch import apply_aston_villa_json
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -156,6 +157,8 @@ apply_staff_review_runtime_fix(runtime, runtime.bot)
 # A partir de este punto, cada interacción usa la DB persistente de su servidor.
 # El servidor histórico de pruebas conserva su DB; los servidores nuevos nacen limpios.
 apply_guild_isolation_patch(runtime, runtime.bot)
+# Aston Villa se sincroniza después del aislamiento para sembrar cada servidor por separado.
+apply_aston_villa_json(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -172,7 +175,7 @@ else:
     pes6_status = " • importador PES6 listo (dataset externo pendiente de incorporar)"
 
 print(
-    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur habilitados antes de conectar Discord"
+    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
