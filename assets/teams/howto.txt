@@ -1,0 +1,1 @@
+Team badges are referenced by team_badges_patch.py.
