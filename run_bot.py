@@ -51,6 +51,7 @@ from guild_isolation_patch import apply_guild_isolation_patch
 from aston_villa_roster_patch_v2 import apply_aston_villa_json
 from benfica_roster_patch import apply_benfica_json
 from porto_roster_patch import apply_porto_json
+from ajax_roster_patch import apply_ajax_json
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -165,6 +166,8 @@ apply_aston_villa_json(runtime)
 apply_benfica_json(runtime)
 # Porto usa el mismo esquema y conserva las transferencias ya realizadas.
 apply_porto_json(runtime)
+# Ajax usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
+apply_ajax_json(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -181,7 +184,7 @@ else:
     pes6_status = " • importador PES6 listo (dataset externo pendiente de incorporar)"
 
 print(
-    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto habilitados antes de conectar Discord"
+    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
