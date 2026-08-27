@@ -27,16 +27,35 @@ ASSET_DIR = Path(__file__).resolve().parent / "assets" / "teams"
 _EMOJI_CACHE = {}
 _WARNED_GUILDS = set()
 
+# Selector-specific assets can be tighter than the embed version so they remain
+# readable at Discord emoji size. Versioning forces Discord to provision a fresh
+# custom emoji when an asset is replaced instead of reusing the old cached one.
+SELECTOR_ASSETS = {
+    "Manchester City": "manchester_city_emoji.png",
+}
+SELECTOR_EMOJI_VERSIONS = {
+    "Manchester City": 2,
+}
+
 
 def _emoji_name(club: str) -> str:
     normalized = unicodedata.normalize("NFKD", str(club or ""))
     ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_name).strip("_").lower()
     name = f"ajap_{slug}" if slug else "ajap_club"
+    version = int(SELECTOR_EMOJI_VERSIONS.get(club, 1))
+    if version > 1:
+        name = f"{name}_v{version}"
     return name[:32].rstrip("_")
 
 
 def _asset_path(club: str):
+    selector_filename = SELECTOR_ASSETS.get(club)
+    if selector_filename:
+        selector_path = ASSET_DIR / selector_filename
+        if selector_path.is_file():
+            return selector_path
+
     url = badges.TEAM_BADGES.get(club)
     if not url:
         return None
