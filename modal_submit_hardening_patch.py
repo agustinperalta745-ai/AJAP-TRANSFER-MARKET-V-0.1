@@ -134,3 +134,8 @@ if not getattr(
 ):
     _apply_guild_isolation_then_harden_modals._ajap_final_modal_hardening_wrapper = True
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_harden_modals
+
+# Última regla de entrada al mercado: una invocación NUEVA de /mercado hecha
+# por Staff siempre vuelve al dashboard Staff aunque el admin haya quedado
+# afiliado a un club durante una prueba de Perfil Usuario.
+import staff_market_entry_guard_patch  # noqa: F401,E402
