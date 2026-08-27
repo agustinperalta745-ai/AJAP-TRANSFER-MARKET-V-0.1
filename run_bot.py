@@ -52,6 +52,7 @@ from aston_villa_roster_patch_v2 import apply_aston_villa_json
 from benfica_roster_patch import apply_benfica_json
 from porto_roster_patch import apply_porto_json
 from ajax_roster_patch import apply_ajax_json
+from celta_roster_patch import apply_celta_json
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -111,7 +112,7 @@ apply_offer_value_floor_patch(runtime)
 apply_loan_terms_offer_patch(runtime)
 apply_offer_notifications_patch(runtime)
 # Los atributos originales PES6 se cargan antes de la lupa. Nunca se calculan
-# desde el OVR AJAP: solo se muestran valores verificados que existan en la DB.
+# desde el OVR AJPA: solo se muestran valores verificados que existan en la DB.
 apply_pes6_attributes_patch(runtime)
 # Si el dataset original está incluido en data/ (CSV/XLSX/XLS), se importa de
 # forma automática. Solo vincula jugadores ya existentes en nuestros planteles.
@@ -168,6 +169,8 @@ apply_benfica_json(runtime)
 apply_porto_json(runtime)
 # Ajax usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
 apply_ajax_json(runtime)
+# Celta de Vigo usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
+apply_celta_json(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -184,7 +187,7 @@ else:
     pes6_status = " • importador PES6 listo (dataset externo pendiente de incorporar)"
 
 print(
-    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax habilitados antes de conectar Discord"
+    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax + Celta de Vigo habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
