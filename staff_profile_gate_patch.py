@@ -85,6 +85,27 @@ async def _defer_component(interaction: discord.Interaction):
         await interaction.response.defer()
 
 
+async def _followup_screen(
+    interaction: discord.Interaction,
+    *,
+    embed=None,
+    embeds=None,
+    view=None,
+):
+    """Open the next profile screen as a fresh ephemeral followup.
+
+    Editing an ephemeral component response has proven unreliable in the live
+    Railway/discord.py stack. A deferred click + ephemeral followup uses the
+    webhook token directly and avoids that failing edit path.
+    """
+    kwargs = {"ephemeral": True, "view": view}
+    if embeds is not None:
+        kwargs["embeds"] = embeds
+    elif embed is not None:
+        kwargs["embed"] = embed
+    await interaction.followup.send(**kwargs)
+
+
 class BackToStaffButton(discord.ui.Button):
     def __init__(self, row=4):
         super().__init__(
@@ -101,9 +122,9 @@ class BackToStaffButton(discord.ui.Button):
             return
         await _defer_component(interaction)
         _set_mode(interaction, "staff")
-        await interaction.edit_original_response(
-            content=None,
-            embeds=[staff_dashboard.staff_dashboard_embed()],
+        await _followup_screen(
+            interaction,
+            embed=staff_dashboard.staff_dashboard_embed(),
             view=StaffProfileChoiceView(),
         )
 
@@ -147,8 +168,7 @@ def _patch_admin_home_back_button():
 
 class StaffProfileChoiceView(discord.ui.View):
     def __init__(self):
-        # None allows one persistent fallback instance to survive Railway restarts.
-        # Discord applies its own timeout to the concrete ephemeral message instance.
+        # Persistent fallback lets custom_ids survive Railway redeploys.
         super().__init__(timeout=None)
 
     async def on_error(
@@ -157,22 +177,21 @@ class StaffProfileChoiceView(discord.ui.View):
         error: Exception,
         item: discord.ui.Item,
     ):
+        detail = f"{type(error).__name__}: {error}"[:900]
         print(
             "ERROR AJAP perfil /mercado: "
-            f"item={getattr(item, 'custom_id', None)} "
-            f"{type(error).__name__}: {error}"
+            f"item={getattr(item, 'custom_id', None)} {detail}"
         )
         try:
+            message = (
+                "⚠️ No pude abrir ese perfil.\n"
+                f"`{detail}`\n"
+                "Ejecutá /mercado de nuevo si necesitás reintentar."
+            )
             if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    "⚠️ No pude abrir ese perfil. Volvé a tocar el botón o ejecutá /mercado de nuevo.",
-                    ephemeral=True,
-                )
+                await interaction.response.send_message(message, ephemeral=True)
             else:
-                await interaction.followup.send(
-                    "⚠️ No pude abrir ese perfil. Volvé a tocar el botón o ejecutá /mercado de nuevo.",
-                    ephemeral=True,
-                )
+                await interaction.followup.send(message, ephemeral=True)
         except Exception:
             pass
 
@@ -188,23 +207,21 @@ class StaffProfileChoiceView(discord.ui.View):
             await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
 
-        # ACK primero: club_de(), armado de vistas y serialización de embeds pueden
-        # tocar SQLite/Discord y nunca deben consumir los ~3 s de la interacción.
         await _defer_component(interaction)
         _set_mode(interaction, "user")
         club = APP.club_de(interaction.user.id)
         if not club:
             import team_assignment as teams
-            await interaction.edit_original_response(
-                content=None,
-                embeds=[teams.welcome_embed()],
+            await _followup_screen(
+                interaction,
+                embed=teams.welcome_embed(),
                 view=_team_choice_view(),
             )
             return
 
-        await interaction.edit_original_response(
-            content=None,
-            embeds=[_normal_user_embed(interaction.user.id)],
+        await _followup_screen(
+            interaction,
+            embed=_normal_user_embed(interaction.user.id),
             view=_user_market_view(interaction),
         )
 
@@ -222,9 +239,9 @@ class StaffProfileChoiceView(discord.ui.View):
 
         await _defer_component(interaction)
         _set_mode(interaction, "admin")
-        await interaction.edit_original_response(
-            content=None,
-            embeds=[admin_tools.admin_home_embed()],
+        await _followup_screen(
+            interaction,
+            embed=admin_tools.admin_home_embed(),
             view=admin_tools.OrganizedAdminHomeView(),
         )
 
@@ -277,9 +294,6 @@ def apply_staff_profile_gate_patch(runtime, bot):
             ephemeral=True,
         )
 
-    # BackMainButton y manager_selector_patch resuelven estas funciones en tiempo
-    # de clic; por eso el modo usuario sigue siendo coherente incluso después de
-    # elegir club o navegar por una pantalla secundaria.
     manager.manager_panel_embed = mode_aware_panel
     manager.market_view_for = mode_aware_market_view
     runtime.panel_embed = mode_aware_panel
@@ -287,9 +301,6 @@ def apply_staff_profile_gate_patch(runtime, bot):
     runtime.market_view_for = mode_aware_market_view
     runtime.StaffProfileChoiceView = StaffProfileChoiceView
 
-    # Fallback global por custom_id. Así los dos botones principales siguen
-    # despachando después de un redeploy de Railway aunque el panel visible haya
-    # sido creado por el proceso anterior.
     try:
         bot.add_view(StaffProfileChoiceView())
     except Exception as exc:
