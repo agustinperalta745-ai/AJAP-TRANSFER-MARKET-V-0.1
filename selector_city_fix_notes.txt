@@ -1,0 +1,1 @@
+Manchester City selector asset uses a dedicated transparent PNG and a versioned guild emoji so Discord does not keep the old cached badge.
