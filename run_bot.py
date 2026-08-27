@@ -48,7 +48,7 @@ from admin_finance_patch import apply_admin_finance_patch
 from market_persistence_patch import apply_market_persistence_patch
 from market_usage_channel_patch import apply_market_usage_channel_patch
 from guild_isolation_patch import apply_guild_isolation_patch
-from aston_villa_roster_patch import apply_aston_villa_json
+from aston_villa_roster_patch_v2 import apply_aston_villa_json
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
