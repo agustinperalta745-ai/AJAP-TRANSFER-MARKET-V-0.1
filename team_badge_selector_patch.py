@@ -159,6 +159,44 @@ def _install_badge_selector():
     teams.welcome_embed = _badge_welcome_embed
 
 
+def _install_manager_panel_badge():
+    """Replace the generic stadium icon in /mercado with the assigned club emoji."""
+    try:
+        import manager_menu_patch as manager_menu
+    except Exception as exc:
+        print(f"WARNING AJAP escudo panel manager: no se pudo cargar manager_menu_patch: {exc}")
+        return
+
+    original = manager_menu.manager_panel_embed
+    if getattr(original, "_ajap_club_badge_title", False):
+        return
+
+    def manager_panel_embed_with_badge(user_id: int):
+        embed = original(user_id)
+        runtime = getattr(manager_menu, "APP", None) or APP
+        if runtime is None:
+            return embed
+
+        try:
+            club = runtime.club_de(user_id)
+        except Exception:
+            club = None
+        if not club:
+            return embed
+
+        badge = _manual_badge_emoji(_current_guild(), club)
+        if badge is not None:
+            embed.title = f"{badge} {str(club).upper()}"
+        return embed
+
+    manager_panel_embed_with_badge._ajap_club_badge_title = True
+    manager_menu.manager_panel_embed = manager_panel_embed_with_badge
+
+    # If the manager layer was already applied, keep runtime.panel_embed aligned.
+    if APP is not None and getattr(APP, "panel_embed", None) is original:
+        APP.panel_embed = manager_panel_embed_with_badge
+
+
 async def _ensure_guild_badges(guild):
     # Manual-only policy: just verify configured emojis; never create/delete them.
     for club, expected_name in MANUAL_EMOJI_NAMES.items():
@@ -191,6 +229,7 @@ def apply_team_badge_selector_patch(runtime, bot):
         return
 
     _install_badge_selector()
+    _install_manager_panel_badge()
     bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
     print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton: + Tottenham=:TOT: + Villarreal=:villa: + Real Betis=:betis: + Aston Villa=:aston: + Fulham=:FUL: + Sevilla=:SEV: + Celta de Vigo=:vigo: + PSG=:PSG: + Lyon=:lyon: + Marsella=:marcella: + Atletico=:atletico: + Middlesbrough=:middle: + Bolton=:bolton: + Ajax=:ajax: + Torino=:tor: + West Ham=:weh: + Newcastle=:newc: + Fiorentina=:fiore: + Lazio=:lazio: + Porto=:porto: + Benfica=:ben: + Zaragoza=:zara:")
