@@ -21,6 +21,9 @@ import sevilla_roster_replace_patch  # noqa: F401
 # Villareal.json replaces Villarreal's legacy seed with the uploaded 24-player
 # roster, full PES6 attributes/abilities and the same AJAP OVR formula.
 import villarreal_roster_replace_patch  # noqa: F401
+# Torino.json adds Torino as a selectable Italian club with the uploaded
+# 27-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
+import torino_roster_patch  # noqa: F401
 
 # Patch nickname/vacancy flows before run_bot registers Discord commands/views.
 import member_nickname_patch  # noqa: F401
