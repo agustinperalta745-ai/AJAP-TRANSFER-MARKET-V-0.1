@@ -164,6 +164,10 @@ import resignation_consistency_patch  # noqa: F401,E402
 # Filtro visual FINAL: al elegir club, solo se muestran equipos respaldados por
 # un JSON real en data/. Los equipos viejos quedan en DB para no romper historial.
 import json_team_selection_patch  # noqa: F401,E402
+# Escudos oficiales: miniatura en embeds + emoji del club en el selector inicial.
+# Discord no admite PNG directos dentro de SelectOption, por eso se crean emojis
+# del servidor automáticamente desde assets/teams (con bandera como fallback).
+import team_badge_selector_patch  # noqa: F401,E402
 # Última defensa para formularios: ejecuta el submit con firma flexible y contexto
 # correcto incluso si discord.py cambia nuevamente sus argumentos privados.
 import modal_submit_hardening_patch  # noqa: F401,E402
