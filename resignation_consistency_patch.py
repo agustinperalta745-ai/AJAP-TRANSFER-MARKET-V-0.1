@@ -96,7 +96,7 @@ def _processing_embed(club: str):
 
 
 async def _edit_after_ack(interaction: discord.Interaction, *, content=None, embed=None, view=None):
-    """Edit the component's message after it has already been acknowledged."""
+    """Edit the component message after it has already been acknowledged."""
     await interaction.edit_original_response(content=content, embed=embed, view=view)
 
 
@@ -283,12 +283,34 @@ async def cancel_resignation(self, interaction: discord.Interaction, button: dis
         resign._reset_guild_context(token)
 
 
-# Monkey-patch the final classes. Manager-menu construction resolves the bound
-# resignation callback from ResignButton instances after imports, so this is
-# picked up by the final manager UI without rebuilding older patch layers.
+class ConsistentConfirmResignationView(discord.ui.View):
+    def __init__(self, club: str):
+        super().__init__(timeout=90)
+        self.club = club
+
+    @discord.ui.button(
+        label="Sí, renunciar",
+        emoji="🚪",
+        style=discord.ButtonStyle.danger,
+    )
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await confirm_resignation(self, interaction, button)
+
+    @discord.ui.button(
+        label="Cancelar",
+        emoji="✖️",
+        style=discord.ButtonStyle.secondary,
+    )
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await cancel_resignation(self, interaction, button)
+
+
+# Replace the confirmation class itself (discord.py caches @button callbacks at
+# class creation) and patch the explicit ResignButton callback. apply_dt_resignation_patch
+# resolves the module global at startup, so runtime.ConfirmResignationView also receives
+# this hardened class.
+resign.ConfirmResignationView = ConsistentConfirmResignationView
 resign.ResignButton.callback = resign_button_callback
-resign.ConfirmResignationView.confirm = confirm_resignation
-resign.ConfirmResignationView.cancel = cancel_resignation
 
 print(
     "AJAP renuncia consistente activa: un solo mensaje + ACK inmediato + "
