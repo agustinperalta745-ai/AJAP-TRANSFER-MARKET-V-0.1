@@ -63,7 +63,6 @@ def _manual_badge_emoji(guild, club: str):
     if not manual_name:
         return None
 
-    # Match case-insensitively so Staff uploads are less fragile.
     wanted = manual_name.casefold()
     emoji = next(
         (
@@ -159,22 +158,15 @@ def _install_badge_selector():
     teams.welcome_embed = _badge_welcome_embed
 
 
-def _install_manager_panel_badge():
-    """Replace the generic stadium icon in /mercado with the assigned club emoji."""
-    try:
-        import manager_menu_patch as manager_menu
-    except Exception as exc:
-        print(f"WARNING AJAP escudo panel manager: no se pudo cargar manager_menu_patch: {exc}")
-        return
+def _decorate_panel_with_badge(base):
+    """Decorate one cached manager-panel function without changing its routing logic."""
+    if not callable(base) or getattr(base, "_ajap_club_badge_title", False):
+        return base
 
-    original = manager_menu.manager_panel_embed
-    if getattr(original, "_ajap_club_badge_title", False):
-        return
-
-    def manager_panel_embed_with_badge(user_id: int):
-        embed = original(user_id)
-        runtime = getattr(manager_menu, "APP", None) or APP
-        if runtime is None:
+    def panel_with_badge(user_id: int, *args, **kwargs):
+        embed = base(user_id, *args, **kwargs)
+        runtime = APP
+        if runtime is None or embed is None:
             return embed
 
         try:
@@ -189,16 +181,50 @@ def _install_manager_panel_badge():
             embed.title = f"{badge} {str(club).upper()}"
         return embed
 
-    manager_panel_embed_with_badge._ajap_club_badge_title = True
-    manager_menu.manager_panel_embed = manager_panel_embed_with_badge
+    panel_with_badge._ajap_club_badge_title = True
+    panel_with_badge._ajap_club_badge_base = base
+    return panel_with_badge
 
-    # If the manager layer was already applied, keep runtime.panel_embed aligned.
-    if APP is not None and getattr(APP, "panel_embed", None) is original:
-        APP.panel_embed = manager_panel_embed_with_badge
+
+def _install_manager_panel_badge():
+    """Replace 🏟️ in every /mercado user-panel path, including Staff test mode."""
+    try:
+        import manager_menu_patch as manager_menu
+    except Exception as exc:
+        print(f"WARNING AJAP escudo panel manager: no se pudo cargar manager_menu_patch: {exc}")
+        return
+
+    manager_menu.manager_panel_embed = _decorate_panel_with_badge(
+        manager_menu.manager_panel_embed
+    )
+
+    # Staff dashboard stores the original user panel in a private cache. The
+    # PERFIL USUARIO button reads this cache directly, so it must be decorated too.
+    try:
+        import staff_dashboard_patch as staff_dashboard
+
+        cached = getattr(staff_dashboard, "_ORIGINAL_MANAGER_PANEL_EMBED", None)
+        if callable(cached):
+            staff_dashboard._ORIGINAL_MANAGER_PANEL_EMBED = _decorate_panel_with_badge(cached)
+    except Exception as exc:
+        print(f"WARNING AJAP escudo panel Staff: {exc}")
+
+    # Staff profile gate also stores a prior panel reference for normal users.
+    try:
+        import staff_profile_gate_patch as staff_profiles
+
+        cached = getattr(staff_profiles, "_PRIOR_MANAGER_PANEL", None)
+        if callable(cached):
+            staff_profiles._PRIOR_MANAGER_PANEL = _decorate_panel_with_badge(cached)
+    except Exception as exc:
+        print(f"WARNING AJAP escudo perfil usuario: {exc}")
+
+    # Keep any runtime alias aligned as a final fallback.
+    if APP is not None and callable(getattr(APP, "panel_embed", None)):
+        APP.panel_embed = _decorate_panel_with_badge(APP.panel_embed)
 
 
 async def _ensure_guild_badges(guild):
-    # Manual-only policy: just verify configured emojis; never create/delete them.
     for club, expected_name in MANUAL_EMOJI_NAMES.items():
         emoji = _manual_badge_emoji(guild, club)
         if emoji is not None:
