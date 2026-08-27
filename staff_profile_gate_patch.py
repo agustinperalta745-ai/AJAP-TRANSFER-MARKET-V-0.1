@@ -79,6 +79,12 @@ def _strip_admin_controls(view):
     return view
 
 
+async def _defer_component(interaction: discord.Interaction):
+    """Acknowledge component clicks before any DB/embed work can hit Discord's deadline."""
+    if not interaction.response.is_done():
+        await interaction.response.defer()
+
+
 class BackToStaffButton(discord.ui.Button):
     def __init__(self, row=4):
         super().__init__(
@@ -93,8 +99,9 @@ class BackToStaffButton(discord.ui.Button):
         if not APP.es_admin(interaction):
             await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
+        await _defer_component(interaction)
         _set_mode(interaction, "staff")
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=None,
             embeds=[staff_dashboard.staff_dashboard_embed()],
             view=StaffProfileChoiceView(),
@@ -140,7 +147,34 @@ def _patch_admin_home_back_button():
 
 class StaffProfileChoiceView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=300)
+        # None allows one persistent fallback instance to survive Railway restarts.
+        # Discord applies its own timeout to the concrete ephemeral message instance.
+        super().__init__(timeout=None)
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item,
+    ):
+        print(
+            "ERROR AJAP perfil /mercado: "
+            f"item={getattr(item, 'custom_id', None)} "
+            f"{type(error).__name__}: {error}"
+        )
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "⚠️ No pude abrir ese perfil. Volvé a tocar el botón o ejecutá /mercado de nuevo.",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.followup.send(
+                    "⚠️ No pude abrir ese perfil. Volvé a tocar el botón o ejecutá /mercado de nuevo.",
+                    ephemeral=True,
+                )
+        except Exception:
+            pass
 
     @discord.ui.button(
         label="PERFIL USUARIO",
@@ -154,18 +188,21 @@ class StaffProfileChoiceView(discord.ui.View):
             await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
 
+        # ACK primero: club_de(), armado de vistas y serialización de embeds pueden
+        # tocar SQLite/Discord y nunca deben consumir los ~3 s de la interacción.
+        await _defer_component(interaction)
         _set_mode(interaction, "user")
         club = APP.club_de(interaction.user.id)
         if not club:
             import team_assignment as teams
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=None,
                 embeds=[teams.welcome_embed()],
                 view=_team_choice_view(),
             )
             return
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=None,
             embeds=[_normal_user_embed(interaction.user.id)],
             view=_user_market_view(interaction),
@@ -183,8 +220,9 @@ class StaffProfileChoiceView(discord.ui.View):
             await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
 
+        await _defer_component(interaction)
         _set_mode(interaction, "admin")
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=None,
             embeds=[admin_tools.admin_home_embed()],
             view=admin_tools.OrganizedAdminHomeView(),
@@ -248,6 +286,14 @@ def apply_staff_profile_gate_patch(runtime, bot):
     runtime.manager_market_view_for = mode_aware_market_view
     runtime.market_view_for = mode_aware_market_view
     runtime.StaffProfileChoiceView = StaffProfileChoiceView
+
+    # Fallback global por custom_id. Así los dos botones principales siguen
+    # despachando después de un redeploy de Railway aunque el panel visible haya
+    # sido creado por el proceso anterior.
+    try:
+        bot.add_view(StaffProfileChoiceView())
+    except Exception as exc:
+        print(f"WARNING AJAP perfil persistente: {type(exc).__name__}: {exc}")
 
     bot.tree.remove_command("mercado")
     bot.tree.command(
