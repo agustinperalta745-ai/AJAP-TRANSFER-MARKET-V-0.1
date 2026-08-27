@@ -1,9 +1,8 @@
 """Use Staff-uploaded club emojis safely in the team selector.
 
-Manchester City uses the manual :mancity: emoji from the exact Discord guild
-that opened the selector. We do not create, version, delete, or reuse club emojis
-across servers. Every other club keeps its Unicode country flag until Staff adds
-its manual emoji later.
+Configured clubs use their manual server emoji from the exact Discord guild that
+opened the selector. AJAP does not create, version, delete, or reuse these emojis
+across servers. Clubs without a configured/manual emoji keep the country flag.
 """
 
 from __future__ import annotations
@@ -20,6 +19,7 @@ BOT = None
 
 MANUAL_EMOJI_NAMES = {
     "Manchester City": "mancity",
+    "Everton": "Everton",
 }
 
 
@@ -40,7 +40,18 @@ def _manual_badge_emoji(guild, club: str):
     manual_name = MANUAL_EMOJI_NAMES.get(str(club))
     if not manual_name:
         return None
-    emoji = discord.utils.get(guild.emojis, name=manual_name)
+
+    # Discord emoji names are normally exact-case, but matching case-insensitively
+    # makes Staff uploads less fragile (:Everton: / :everton: both work).
+    wanted = manual_name.casefold()
+    emoji = next(
+        (
+            item
+            for item in guild.emojis
+            if str(getattr(item, "name", "")).casefold() == wanted
+        ),
+        None,
+    )
     if emoji is None or not getattr(emoji, "available", True):
         return None
     return emoji
@@ -51,9 +62,6 @@ def _find_badge_emoji(guild, club: str):
 
 
 def _selector_emoji(club: str, country: str, guild=None):
-    # Custom emoji only for clubs explicitly configured by Staff. Because the
-    # actual interaction guild is passed into the view, Discord receives an ID
-    # belonging to this same server instead of a stale/cross-server ID.
     target_guild = guild or _current_guild()
     badge = _manual_badge_emoji(target_guild, club)
     if badge is not None:
@@ -131,16 +139,19 @@ def _install_badge_selector():
 
 
 async def _ensure_guild_badges(guild):
-    # Manual-only policy: never create/delete emojis from the bot.
-    city = _manual_badge_emoji(guild, "Manchester City")
-    if city is not None:
-        print(
-            f"AJAP escudo manual City OK: guild={guild.id} emoji=:{city.name}: id={city.id}"
-        )
-    else:
-        print(
-            f"WARNING AJAP escudo City: guild={guild.id} no tiene :mancity:; se usa bandera"
-        )
+    # Manual-only policy: just verify configured emojis; never create/delete them.
+    for club, expected_name in MANUAL_EMOJI_NAMES.items():
+        emoji = _manual_badge_emoji(guild, club)
+        if emoji is not None:
+            print(
+                f"AJAP escudo manual OK: guild={guild.id} club={club} "
+                f"emoji=:{emoji.name}: id={emoji.id}"
+            )
+        else:
+            print(
+                f"WARNING AJAP escudo manual: guild={guild.id} club={club} "
+                f"no tiene :{expected_name}:; se usa bandera"
+            )
     return 0
 
 
@@ -161,7 +172,7 @@ def apply_team_badge_selector_patch(runtime, bot):
     _install_badge_selector()
     bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector escudos manual-only activo: City=:mancity: del guild exacto")
+    print("AJAP selector escudos manual-only activo: City=:mancity: + Everton=:Everton:")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
