@@ -1,10 +1,11 @@
-"""Formas explícitas de vincular el canal público del mercado sin tocar Staff.
+"""Formas explícitas de vincular y diagnosticar el canal público del mercado.
 
 - /canal_publico_mercado vincula directamente el canal donde se ejecuta.
 - /vincular_resumen_mercado queda como alias por compatibilidad.
+- /probar_resumen_mercado verifica permisos, publica una prueba real y fuerza el
+  backfill de rumores pendientes que hayan quedado sin anunciar.
 
-Ambos guardan el destino en la misma configuración usada por rumores,
-transferencias, préstamos, intercambios, clausulazos y opciones de compra.
+La configuración es independiente del canal Staff/PES.
 """
 
 from __future__ import annotations
@@ -15,14 +16,14 @@ import market_usage_channel_patch as market_usage
 import public_market_summary_patch as public_summary
 
 
-# Estos comandos son de CONFIGURACIÓN y justamente deben poder ejecutarse fuera
-# del canal único de uso del mercado. Sin esta excepción, /canal_mercado los
-# bloquea antes de que puedan vincular #RESUMEN-MERCADO.
+# Estos comandos son de CONFIGURACIÓN/DIAGNÓSTICO y justamente deben poder
+# ejecutarse fuera del canal único de uso del mercado.
 market_usage.EXEMPT_COMMANDS.update(
     {
         "canal_publico_mercado",
         "vincular_resumen_mercado",
         "canal_resumen_mercado",
+        "probar_resumen_mercado",
     }
 )
 
@@ -77,6 +78,139 @@ async def _bind_current_channel(runtime, interaction: discord.Interaction):
     await _save_channel(runtime, interaction, interaction.channel)
 
 
+def _normalize(name: str) -> str:
+    return "".join(ch for ch in str(name or "").casefold() if ch.isalnum())
+
+
+async def _resolve_diagnostic_channel(guild):
+    configured_id = None
+    try:
+        configured_id = public_summary.get_public_channel_id(guild.id)
+    except Exception as exc:
+        print(f"WARNING AJAP: diagnóstico resumen no pudo leer configuración: {exc}")
+
+    if configured_id:
+        channel = guild.get_channel(int(configured_id))
+        if channel is None:
+            try:
+                channel = await public_summary.APP.bot.fetch_channel(int(configured_id))
+            except Exception:
+                channel = None
+        if channel is not None and hasattr(channel, "send"):
+            return channel, configured_id, "CONFIGURADO"
+
+    accepted = {"resumenmercado", "resumendemercado", "mercadoresumen"}
+    for channel in getattr(guild, "text_channels", []):
+        if _normalize(getattr(channel, "name", "")) in accepted:
+            return channel, configured_id, "POR_NOMBRE"
+
+    return None, configured_id, "NO_ENCONTRADO"
+
+
+async def _diagnose_and_force(runtime, interaction: discord.Interaction):
+    if not runtime.es_admin(interaction):
+        await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
+        return
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "⚠️ Este comando solo funciona dentro de un servidor.", ephemeral=True
+        )
+        return
+
+    # Acknowledge immediately: the backfill may need several Discord sends.
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    channel, configured_id, source = await _resolve_diagnostic_channel(interaction.guild)
+    if channel is None:
+        await interaction.followup.send(
+            "❌ **No encontré un destino para el resumen.**\n"
+            f"Canal guardado en DB: `{configured_id or 'ninguno'}`.\n"
+            "Ejecutá `/canal_publico_mercado` dentro de #RESUMEN-MERCADO.",
+            ephemeral=True,
+        )
+        return
+
+    me = interaction.guild.me
+    perms = channel.permissions_for(me) if me is not None else None
+    can_view = bool(perms.view_channel) if perms is not None else True
+    can_send = bool(perms.send_messages) if perms is not None else True
+    can_embed = bool(perms.embed_links) if perms is not None else True
+
+    if not can_view or not can_send:
+        await interaction.followup.send(
+            f"❌ Encontré {channel.mention}, pero el bot no puede publicar ahí.\n"
+            f"Ver canal: **{'Sí' if can_view else 'NO'}** • "
+            f"Enviar mensajes: **{'Sí' if can_send else 'NO'}** • "
+            f"Insertar enlaces/embeds: **{'Sí' if can_embed else 'NO'}**",
+            ephemeral=True,
+        )
+        return
+
+    mode = "EMBED"
+    test_message = None
+    test_embed = discord.Embed(
+        title="🧪 RESUMEN DE MERCADO CONECTADO",
+        description=(
+            "El bot puede publicar correctamente en este canal. "
+            "Ahora voy a recuperar los rumores pendientes que falten."
+        ),
+        color=discord.Color.green(),
+    )
+    test_embed.set_footer(text="AJAP Transfer Market • Prueba de conexión")
+
+    try:
+        test_message = await channel.send(
+            embed=test_embed,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+    except (discord.Forbidden, discord.HTTPException) as embed_exc:
+        mode = "TEXTO"
+        print(f"WARNING AJAP: prueba embed resumen falló: {embed_exc}")
+        try:
+            test_message = await channel.send(
+                "🧪 **RESUMEN DE MERCADO CONECTADO**\n"
+                "El bot puede publicar correctamente en este canal. "
+                "Ahora voy a recuperar los rumores pendientes que falten.",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except (discord.Forbidden, discord.HTTPException) as text_exc:
+            await interaction.followup.send(
+                f"❌ Discord rechazó el envío a {channel.mention}: `{type(text_exc).__name__}`.\n"
+                "Revisá que el bot tenga **Ver canal** y **Enviar mensajes**.",
+                ephemeral=True,
+            )
+            print(f"WARNING AJAP: prueba texto resumen también falló: {text_exc}")
+            return
+
+    recovered = "NO_EJECUTADO"
+    try:
+        import market_rumor_patch as market_rumor
+
+        await market_rumor._backfill_pending_rumors()
+        recovered = "EJECUTADO"
+    except Exception as exc:
+        recovered = f"ERROR {type(exc).__name__}"
+        print(f"WARNING AJAP: forzado de rumores pendientes falló: {exc}")
+
+    # Persist the discovered channel too, even when it was found by name. This
+    # repairs stale/missing configuration without requiring a second command.
+    try:
+        public_summary.set_public_channel(
+            interaction.guild.id,
+            channel.id,
+            interaction.user.id,
+        )
+    except Exception as exc:
+        print(f"WARNING AJAP: diagnóstico no pudo persistir canal público: {exc}")
+
+    await interaction.followup.send(
+        f"✅ **Prueba enviada a {channel.mention}.**\n"
+        f"Origen: **{source}** • Envío: **{mode}** • "
+        f"Backfill: **{recovered}** • Mensaje: `{getattr(test_message, 'id', '—')}`",
+        ephemeral=True,
+    )
+
+
 def _register_explicit_channel_commands(runtime, bot):
     registered = []
 
@@ -105,6 +239,16 @@ def _register_explicit_channel_commands(runtime, bot):
             await _bind_current_channel(runtime, interaction)
 
         registered.append("/vincular_resumen_mercado")
+
+    if bot.tree.get_command("probar_resumen_mercado") is None:
+        @bot.tree.command(
+            name="probar_resumen_mercado",
+            description="Prueba el resumen público y recupera rumores pendientes",
+        )
+        async def probar_resumen_mercado(interaction: discord.Interaction):
+            await _diagnose_and_force(runtime, interaction)
+
+        registered.append("/probar_resumen_mercado")
 
     return registered
 
