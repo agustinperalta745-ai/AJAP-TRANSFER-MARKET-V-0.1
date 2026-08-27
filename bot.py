@@ -85,6 +85,9 @@ import loan_canon_cap_patch  # noqa: F401,E402
 # Conecta la auditoría económica al menú MI CLUB: saldo, ingresos, egresos,
 # cánones, opciones de compra, clausulazos y ajustes de administración.
 import treasury_menu_patch  # noqa: F401,E402
+# Expone esa misma auditoría dentro de Staff -> Administración -> Economía,
+# con selector de club y filtros de ingresos/egresos.
+import staff_treasury_patch  # noqa: F401,E402
 # Al ejecutar una opción de compra de un préstamo, avisar automáticamente al
 # canal de movimientos Staff sin crear una falsa tarea pendiente de carga en PES.
 import loan_purchase_staff_notification_patch  # noqa: F401,E402
