@@ -1,8 +1,10 @@
-"""Selector explícito para vincular el canal público del mercado sin tocar Staff.
+"""Formas explícitas de vincular el canal público del mercado sin tocar Staff.
 
-Agrega /canal_publico_mercado con un parámetro de canal seleccionable. Puede
-usarse desde cualquier canal del servidor y guarda el destino elegido en la
-misma configuración que consumen rumores, fichajes, préstamos y clausulazos.
+- /canal_publico_mercado permite elegir un canal desde un parámetro.
+- /vincular_resumen_mercado vincula directamente el canal donde se ejecuta.
+
+Ambos guardan el destino en la misma configuración usada por rumores,
+transferencias, préstamos, intercambios, clausulazos y opciones de compra.
 """
 
 from __future__ import annotations
@@ -15,64 +17,84 @@ import public_market_summary_patch as public_summary
 _ORIGINAL_APPLY = public_summary.apply_public_market_summary_patch
 
 
-def _register_explicit_channel_command(runtime, bot):
-    if bot.tree.get_command("canal_publico_mercado") is not None:
-        return False
+def _can_publish(runtime, interaction: discord.Interaction, canal: discord.TextChannel):
+    if not runtime.es_admin(interaction):
+        return False, "⛔ Solo administradores."
+    if interaction.guild is None:
+        return False, "⚠️ Este comando solo funciona dentro de un servidor."
+    if canal.guild.id != interaction.guild.id:
+        return False, "⚠️ Elegí un canal de este mismo servidor."
 
-    @bot.tree.command(
-        name="canal_publico_mercado",
-        description="Elegí el canal público donde se anunciará el mercado",
+    me = interaction.guild.me
+    if me is not None:
+        perms = canal.permissions_for(me)
+        if not perms.view_channel or not perms.send_messages:
+            return (
+                False,
+                f"⚠️ No puedo publicar en {canal.mention}. Dame **Ver canal** y **Enviar mensajes**.",
+            )
+    return True, None
+
+
+async def _save_channel(runtime, interaction: discord.Interaction, canal: discord.TextChannel):
+    ok, error = _can_publish(runtime, interaction, canal)
+    if not ok:
+        await interaction.response.send_message(error, ephemeral=True)
+        return
+
+    public_summary.set_public_channel(
+        interaction.guild.id,
+        canal.id,
+        interaction.user.id,
     )
-    async def canal_publico_mercado(
-        interaction: discord.Interaction,
-        canal: discord.TextChannel,
-    ):
-        if not runtime.es_admin(interaction):
-            await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
-            return
-        if interaction.guild is None:
-            await interaction.response.send_message(
-                "⚠️ Este comando solo funciona dentro de un servidor.",
-                ephemeral=True,
-            )
-            return
-        if canal.guild.id != interaction.guild.id:
-            await interaction.response.send_message(
-                "⚠️ Elegí un canal de este mismo servidor.",
-                ephemeral=True,
-            )
-            return
+    await interaction.response.send_message(
+        f"✅ **Canal público del mercado vinculado:** {canal.mention}\n"
+        "Rumores, transferencias, préstamos, intercambios, clausulazos y opciones de compra "
+        "se anunciarán ahí. El canal Staff/PES no se modifica.",
+        ephemeral=True,
+    )
 
-        me = interaction.guild.me
-        if me is not None:
-            perms = canal.permissions_for(me)
-            if not perms.view_channel or not perms.send_messages:
+
+def _register_explicit_channel_commands(runtime, bot):
+    registered = []
+
+    if bot.tree.get_command("canal_publico_mercado") is None:
+        @bot.tree.command(
+            name="canal_publico_mercado",
+            description="Elegí el canal público donde se anunciará el mercado",
+        )
+        async def canal_publico_mercado(
+            interaction: discord.Interaction,
+            canal: discord.TextChannel,
+        ):
+            await _save_channel(runtime, interaction, canal)
+
+        registered.append("/canal_publico_mercado")
+
+    if bot.tree.get_command("vincular_resumen_mercado") is None:
+        @bot.tree.command(
+            name="vincular_resumen_mercado",
+            description="Vincula este canal como resumen público del mercado",
+        )
+        async def vincular_resumen_mercado(interaction: discord.Interaction):
+            if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
                 await interaction.response.send_message(
-                    f"⚠️ No puedo publicar en {canal.mention}. Dame **Ver canal** y **Enviar mensajes**.",
+                    "⚠️ Usá este comando dentro del canal de texto que querés vincular.",
                     ephemeral=True,
                 )
                 return
+            await _save_channel(runtime, interaction, interaction.channel)
 
-        public_summary.set_public_channel(
-            interaction.guild.id,
-            canal.id,
-            interaction.user.id,
-        )
-        await interaction.response.send_message(
-            f"✅ **Canal público del mercado vinculado:** {canal.mention}\n"
-            "Rumores, transferencias, préstamos, intercambios, clausulazos y opciones de compra "
-            "se anunciarán ahí. El canal Staff/PES no se modifica.",
-            ephemeral=True,
-        )
+        registered.append("/vincular_resumen_mercado")
 
-    return True
+    return registered
 
 
 def apply_with_explicit_selector(runtime, bot):
     _ORIGINAL_APPLY(runtime, bot)
-    registered = _register_explicit_channel_command(runtime, bot)
+    registered = _register_explicit_channel_commands(runtime, bot)
     if registered:
-        print("AJAP canal público: selector /canal_publico_mercado activo")
+        print("AJAP canal público: comandos activos " + ", ".join(registered))
 
 
 if not getattr(public_summary, "_ajap_explicit_public_channel_selector", False):
