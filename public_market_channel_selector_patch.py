@@ -11,8 +11,20 @@ from __future__ import annotations
 
 import discord
 
+import market_usage_channel_patch as market_usage
 import public_market_summary_patch as public_summary
 
+
+# Estos comandos son de CONFIGURACIÓN y justamente deben poder ejecutarse fuera
+# del canal único de uso del mercado. Sin esta excepción, /canal_mercado los
+# bloquea antes de que puedan vincular #RESUMEN-MERCADO.
+market_usage.EXEMPT_COMMANDS.update(
+    {
+        "canal_publico_mercado",
+        "vincular_resumen_mercado",
+        "canal_resumen_mercado",
+    }
+)
 
 _ORIGINAL_APPLY = public_summary.apply_public_market_summary_patch
 
