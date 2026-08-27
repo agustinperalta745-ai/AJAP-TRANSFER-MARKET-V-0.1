@@ -120,3 +120,8 @@ if not getattr(
 ):
     _apply_guild_isolation_then_sync._ajap_additional_roster_sync_wrapped = True
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_sync
+
+
+# Tottenham already existed in the old fixed seed. Import its JSON replacement
+# here so the migration is part of the same pre-run per-guild roster sync chain.
+import tottenham_hotspur_roster_replace_patch  # noqa: E402,F401
