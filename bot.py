@@ -27,6 +27,9 @@ import torino_roster_patch  # noqa: F401
 # Fiorentina.json adds Fiorentina as a selectable Italian club with the uploaded
 # 25-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
 import fiorentina_roster_patch  # noqa: F401
+# Lazio.json adds Lazio as a selectable Italian club with the uploaded
+# 23-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
+import lazio_roster_patch  # noqa: F401
 
 # Patch nickname/vacancy flows before run_bot registers Discord commands/views.
 import member_nickname_patch  # noqa: F401
