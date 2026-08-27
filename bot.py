@@ -146,5 +146,8 @@ import resignation_consistency_patch  # noqa: F401,E402
 # Filtro visual FINAL: al elegir club, solo se muestran equipos respaldados por
 # un JSON real en data/. Los equipos viejos quedan en DB para no romper historial.
 import json_team_selection_patch  # noqa: F401,E402
+# Última defensa para formularios: ejecuta el submit con firma flexible y contexto
+# correcto incluso si discord.py cambia nuevamente sus argumentos privados.
+import modal_submit_hardening_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
