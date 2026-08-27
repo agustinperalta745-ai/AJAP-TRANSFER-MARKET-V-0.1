@@ -65,6 +65,9 @@ import league_validation_admin_review_patch  # noqa: F401,E402
 # reinicio se decide entre resultado total o suma de tramos, y sin captura final
 # el marcador manual necesita confirmación del DT rival.
 import league_result_evidence_patch  # noqa: F401,E402
+# Liga vive fuera del canal único de Mercado: sus botones y modales funcionan en
+# Resultados/Staff aunque /canal_mercado apunte a otro canal.
+import league_market_channel_exemption_patch  # noqa: F401,E402
 # Corrige el puente entre /canal_movimientos y listeners en background: siempre
 # consulta la DB del guild explícito y evita duplicar una misma revisión.
 import guild_report_channel_bridge_patch  # noqa: F401,E402
