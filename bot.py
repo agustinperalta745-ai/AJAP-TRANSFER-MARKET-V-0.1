@@ -47,6 +47,9 @@ import league_channel_panel_patch  # noqa: F401,E402
 # El ✅ sobre una captura aparece solamente después de comprobar que el resultado
 # quedó persistido y ya participa del cálculo que usa el menú LIGA.
 import league_result_confirmation_patch  # noqa: F401,E402
+# Regla definitiva de Liga: solo cruces entre participantes oficiales. Si la
+# captura falla o es inválida, crea una tarjeta Staff con carga manual persistente.
+import league_validation_admin_review_patch  # noqa: F401,E402
 # Tras elegir equipo, mostrar inmediatamente el mismo panel final y filtrado.
 import manager_selector_patch  # noqa: F401,E402
 # Agrupa plantilla, economía, valor e información dentro de MI CLUB.
