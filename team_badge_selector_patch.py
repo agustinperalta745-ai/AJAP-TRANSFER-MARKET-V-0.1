@@ -1,70 +1,26 @@
-"""Show club badges in the initial team selector using guild custom emojis.
+"""Use Staff-uploaded club emojis safely in the team selector.
 
-Discord select menus do not accept arbitrary image URLs. For clubs with a manual
-server emoji configured, AJAP reuses that emoji directly. Other clubs may still be
-provisioned automatically from assets/teams and safely fall back to country flags.
+Manchester City uses the manual :mancity: emoji from the exact Discord guild
+that opened the selector. We do not create, version, delete, or reuse club emojis
+across servers. Every other club keeps its Unicode country flag until Staff adds
+its manual emoji later.
 """
 
 from __future__ import annotations
-
-import re
-import unicodedata
-from pathlib import Path
 
 import discord
 
 import guild_isolation_patch as guild_isolation
 import json_team_selection_patch as json_selector
 import team_assignment as teams
-import team_badges_patch as badges
 
 
 APP = None
 BOT = None
-ASSET_DIR = Path(__file__).resolve().parent / "assets" / "teams"
-_EMOJI_CACHE = {}
-_WARNED_GUILDS = set()
 
-# Manual server emojis are the simplest/most reliable path. The bot resolves them
-# by name from guild.emojis, so no hard-coded Discord ID is required.
 MANUAL_EMOJI_NAMES = {
     "Manchester City": "mancity",
 }
-
-# Selector-specific assets remain available as automatic fallback for clubs that
-# do not have a manual server emoji.
-SELECTOR_ASSETS = {
-    "Manchester City": "manchester_city_emoji.png",
-}
-SELECTOR_EMOJI_VERSIONS = {
-    "Manchester City": 5,
-}
-
-
-def _emoji_name(club: str) -> str:
-    normalized = unicodedata.normalize("NFKD", str(club or ""))
-    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
-    slug = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_name).strip("_").lower()
-    name = f"ajap_{slug}" if slug else "ajap_club"
-    version = int(SELECTOR_EMOJI_VERSIONS.get(club, 1))
-    if version > 1:
-        name = f"{name}_v{version}"
-    return name[:32].rstrip("_")
-
-
-def _asset_path(club: str):
-    selector_filename = SELECTOR_ASSETS.get(club)
-    if selector_filename:
-        selector_path = ASSET_DIR / selector_filename
-        if selector_path.is_file():
-            return selector_path
-
-    url = badges.TEAM_BADGES.get(club)
-    if not url:
-        return None
-    filename = str(url).rsplit("/", 1)[-1]
-    path = ASSET_DIR / filename
-    return path if path.is_file() else None
 
 
 def _current_guild():
@@ -78,51 +34,34 @@ def _current_guild():
 
 
 def _manual_badge_emoji(guild, club: str):
+    """Resolve only from the supplied guild; never from a cross-guild cache."""
     if guild is None:
         return None
-    manual_name = MANUAL_EMOJI_NAMES.get(club)
+    manual_name = MANUAL_EMOJI_NAMES.get(str(club))
     if not manual_name:
         return None
-
-    cache_key = (int(guild.id), f"manual:{manual_name}")
-    cached = _EMOJI_CACHE.get(cache_key)
-    if cached is not None and getattr(cached, "available", True):
-        return cached
-
     emoji = discord.utils.get(guild.emojis, name=manual_name)
-    if emoji is not None and getattr(emoji, "available", True):
-        _EMOJI_CACHE[cache_key] = emoji
-        return emoji
-    return None
+    if emoji is None or not getattr(emoji, "available", True):
+        return None
+    return emoji
 
 
 def _find_badge_emoji(guild, club: str):
-    if guild is None:
-        return None
-
-    # Manual emoji always wins. For Manchester City this means :mancity:.
-    manual = _manual_badge_emoji(guild, club)
-    if manual is not None:
-        return manual
-
-    name = _emoji_name(club)
-    cached = _EMOJI_CACHE.get((int(guild.id), name))
-    if cached is not None and getattr(cached, "available", True):
-        return cached
-    emoji = discord.utils.get(guild.emojis, name=name)
-    if emoji is not None and getattr(emoji, "available", True):
-        _EMOJI_CACHE[(int(guild.id), name)] = emoji
-        return emoji
-    return None
+    return _manual_badge_emoji(guild, club)
 
 
-def _selector_emoji(club: str, country: str):
-    guild = _current_guild()
-    badge = _find_badge_emoji(guild, club)
-    return badge if badge is not None else json_selector._country_emoji(country)
+def _selector_emoji(club: str, country: str, guild=None):
+    # Custom emoji only for clubs explicitly configured by Staff. Because the
+    # actual interaction guild is passed into the view, Discord receives an ID
+    # belonging to this same server instead of a stale/cross-server ID.
+    target_guild = guild or _current_guild()
+    badge = _manual_badge_emoji(target_guild, club)
+    if badge is not None:
+        return badge
+    return json_selector._country_emoji(country)
 
 
-def _badge_welcome_embed():
+def _badge_welcome_embed(guild=None):
     rows = json_selector._json_team_rows()
     occupied = {str(row["name"]).casefold() for row in teams.assignments()}
     embed = discord.Embed(
@@ -137,10 +76,11 @@ def _badge_welcome_embed():
         embed.description = "Todavía no hay equipos con JSON cargado disponibles."
         return embed
 
+    target_guild = guild or _current_guild()
     for row in rows[:25]:
         club = row["name"]
         status = "🔒 Ya asignado" if club.casefold() in occupied else "✅ Disponible"
-        icon = _selector_emoji(club, row["country"])
+        icon = _selector_emoji(club, row["country"], target_guild)
         embed.add_field(
             name=f"{icon} {club}",
             value=f"{row['country']} • {status}",
@@ -155,9 +95,10 @@ def _install_badge_selector():
     BaseTeamSelect = teams.TeamSelect
 
     class BadgeTeamSelect(BaseTeamSelect):
-        def __init__(self):
+        def __init__(self, guild=None):
             rows = json_selector._json_team_rows()[:25]
             occupied = {str(row["name"]).casefold() for row in teams.assignments()}
+            target_guild = guild or _current_guild()
             options = [
                 discord.SelectOption(
                     label=row["name"][:100],
@@ -166,7 +107,7 @@ def _install_badge_selector():
                         f"{'🔒 Ya asignado' if row['name'].casefold() in occupied else '✅ Disponible'}"
                     )[:100],
                     value=row["name"],
-                    emoji=_selector_emoji(row["name"], row["country"]),
+                    emoji=_selector_emoji(row["name"], row["country"], target_guild),
                 )
                 for row in rows
             ]
@@ -179,10 +120,10 @@ def _install_badge_selector():
             )
 
     class BadgeTeamChoiceView(discord.ui.View):
-        def __init__(self):
+        def __init__(self, guild=None):
             super().__init__(timeout=300)
             if json_selector._json_team_rows():
-                self.add_item(BadgeTeamSelect())
+                self.add_item(BadgeTeamSelect(guild=guild))
 
     teams.TeamSelect = BadgeTeamSelect
     teams.TeamChoiceView = BadgeTeamChoiceView
@@ -190,54 +131,20 @@ def _install_badge_selector():
 
 
 async def _ensure_guild_badges(guild):
-    created = 0
-    for club in badges.TEAM_BADGES:
-        # If Staff uploaded the emoji manually, use it and never create/delete a
-        # competing AJAP revision for that club.
-        manual = _manual_badge_emoji(guild, club)
-        if manual is not None:
-            print(
-                f"AJAP escudo manual OK: guild={guild.id} club={club} "
-                f"emoji=:{manual.name}: id={manual.id}"
-            )
-            continue
-
-        path = _asset_path(club)
-        if path is None:
-            continue
-
-        name = _emoji_name(club)
-        existing = discord.utils.get(guild.emojis, name=name)
-        if existing is not None and getattr(existing, "available", True):
-            _EMOJI_CACHE[(int(guild.id), name)] = existing
-            continue
-
-        try:
-            emoji = await guild.create_custom_emoji(
-                name=name,
-                image=path.read_bytes(),
-                reason=f"AJAP: escudo de {club} para selector de equipos",
-            )
-        except discord.Forbidden:
-            if guild.id not in _WARNED_GUILDS:
-                _WARNED_GUILDS.add(guild.id)
-                print(
-                    "WARNING AJAP escudos selector: el bot necesita permiso "
-                    f"Gestionar expresiones/emojis en guild={guild.id}; se usan banderas como fallback"
-                )
-            break
-        except discord.HTTPException as exc:
-            print(f"WARNING AJAP escudos selector: no se pudo crear {name} en guild={guild.id}: {exc}")
-            continue
-
-        _EMOJI_CACHE[(int(guild.id), name)] = emoji
-        created += 1
-
-    if created:
-        print(f"AJAP escudos selector: {created} emoji(s) de club creados en guild={guild.id}")
+    # Manual-only policy: never create/delete emojis from the bot.
+    city = _manual_badge_emoji(guild, "Manchester City")
+    if city is not None:
+        print(
+            f"AJAP escudo manual City OK: guild={guild.id} emoji=:{city.name}: id={city.id}"
+        )
+    else:
+        print(
+            f"WARNING AJAP escudo City: guild={guild.id} no tiene :mancity:; se usa bandera"
+        )
+    return 0
 
 
-async def _provision_badges_on_ready():
+async def _check_manual_badges_on_ready():
     if BOT is None:
         return
     for guild in BOT.guilds:
@@ -252,9 +159,9 @@ def apply_team_badge_selector_patch(runtime, bot):
         return
 
     _install_badge_selector()
-    bot.add_listener(_provision_badges_on_ready, "on_ready")
+    bot.add_listener(_check_manual_badges_on_ready, "on_ready")
     runtime._ajap_team_badge_selector_patch = True
-    print("AJAP selector con escudos activo: emoji manual preferido; PNG->emoji como fallback")
+    print("AJAP selector escudos manual-only activo: City=:mancity: del guild exacto")
 
 
 _original_apply_json_team_selection_patch = json_selector.apply_json_team_selection_patch
