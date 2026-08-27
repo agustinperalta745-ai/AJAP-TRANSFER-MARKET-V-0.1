@@ -101,3 +101,9 @@ if not getattr(
 ):
     _apply_guild_isolation_then_staff_entry_guard._ajap_staff_market_entry_guard_wrapped = True
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_staff_entry_guard
+
+# PSG.json existe en data/, pero además necesita sembrar roster_players y
+# league_teams para que el selector JSON-only pueda mostrarlo. Se importa acá,
+# después del guard Staff, para que su wrapper quede en la cadena final antes
+# de que run_bot capture y ejecute apply_guild_isolation_patch.
+import psg_roster_patch  # noqa: F401,E402
