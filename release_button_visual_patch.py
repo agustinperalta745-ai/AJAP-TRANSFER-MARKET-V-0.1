@@ -68,3 +68,6 @@ import admin_manual_reset_patch  # noqa: F401,E402
 # Antes de la primera confirmación muestra un resumen claro de todo lo que va a
 # restaurarse, limpiarse, revertirse y conservarse si finalmente se ejecuta.
 import reset_explanation_patch  # noqa: F401,E402
+# Backups de seguridad: copia completa por servidor cada 24 horas, selector Staff
+# para restaurar una fecha y backup preventivo automático antes de cada restore.
+import automatic_backup_patch  # noqa: F401,E402
