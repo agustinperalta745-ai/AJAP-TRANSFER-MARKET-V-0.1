@@ -79,3 +79,10 @@ import backup_staff_summary_patch  # noqa: F401,E402
 # Discord limita el tamaño total del embed; mostramos pocas líneas por sección y
 # mantenemos absolutamente todo el detalle dentro del TXT adjunto.
 import backup_summary_display_guard_patch  # noqa: F401,E402
+
+# Identidad final del DT: crea roles de clubes automáticamente, los asigna y
+# quita según la fuente de verdad de SQLite, mantiene Nombre | Club y usa el
+# escudo del emoji como icono del rol cuando el servidor soporta ROLE_ICONS.
+# Se carga al final para envolver la versión definitiva de guild isolation y de
+# las mutaciones de asignación/renuncia.
+import team_role_identity_patch  # noqa: F401,E402
