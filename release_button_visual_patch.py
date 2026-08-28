@@ -60,3 +60,8 @@ if not getattr(_prior_guild_isolation, "_ajap_v1_reset_wrapped", False):
 
     _apply_guild_isolation_then_v1_reset._ajap_v1_reset_wrapped = True
     _guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_v1_reset
+
+# Herramienta manual para Staff: Administración -> Gestión -> RESET V1.
+# Usa la misma lógica del reset oficial, pero puede ejecutarse bajo demanda y
+# exige dos confirmaciones antes de tocar la base del servidor actual.
+import admin_manual_reset_patch  # noqa: F401,E402
