@@ -86,3 +86,8 @@ import backup_summary_display_guard_patch  # noqa: F401,E402
 # Se carga al final para envolver la versión definitiva de guild isolation y de
 # las mutaciones de asignación/renuncia.
 import team_role_identity_patch  # noqa: F401,E402
+
+# Manual de jugador FINAL: primera apertura de /mercado muestra una guía paginada
+# y, una vez aceptada, queda disponible desde el botón 📖 MANUAL BOT.
+# El nombre visible correcto del proyecto es AJPA Transfer Market.
+import player_manual_patch  # noqa: F401,E402
