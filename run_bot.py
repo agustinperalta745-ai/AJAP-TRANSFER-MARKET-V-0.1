@@ -55,6 +55,7 @@ from ajax_roster_patch import apply_ajax_json
 from celta_roster_patch import apply_celta_json
 from zaragoza_roster_patch import apply_zaragoza_json
 from atletico_madrid_roster_patch import apply_atletico_json
+from galatasaray_roster_patch import apply_galatasaray_json
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -177,6 +178,8 @@ apply_celta_json(runtime)
 apply_zaragoza_json(runtime)
 # Atletico de Madrid usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
 apply_atletico_json(runtime)
+# Galatasaray usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
+apply_galatasaray_json(runtime)
 
 budget_status = ""
 if budget_seeded is True:
@@ -193,7 +196,7 @@ else:
     pes6_status = " • importador PES6 listo (dataset externo pendiente de incorporar)"
 
 print(
-    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax + Celta de Vigo + Real Zaragoza + Atletico de Madrid habilitados antes de conectar Discord"
+    "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax + Celta de Vigo + Real Zaragoza + Atletico de Madrid + Galatasaray habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
     + budget_status
     + " • publicar por rangos OVR activo"
