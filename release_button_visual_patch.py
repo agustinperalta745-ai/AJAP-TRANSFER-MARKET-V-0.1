@@ -65,3 +65,6 @@ if not getattr(_prior_guild_isolation, "_ajap_v1_reset_wrapped", False):
 # Usa la misma lógica del reset oficial, pero puede ejecutarse bajo demanda y
 # exige dos confirmaciones antes de tocar la base del servidor actual.
 import admin_manual_reset_patch  # noqa: F401,E402
+# Antes de la primera confirmación muestra un resumen claro de todo lo que va a
+# restaurarse, limpiarse, revertirse y conservarse si finalmente se ejecuta.
+import reset_explanation_patch  # noqa: F401,E402
