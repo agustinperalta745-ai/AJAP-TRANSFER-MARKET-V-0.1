@@ -32,7 +32,6 @@ TEAM_BADGES = {
 ALIASES = {
     "manchester city": "Manchester City",
     "man city": "Manchester City",
-    "city": "Manchester City",
     "tottenham hotspur": "Tottenham Hotspur",
     "tottenham": "Tottenham Hotspur",
     "spurs": "Tottenham Hotspur",
