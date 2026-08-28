@@ -183,7 +183,16 @@ def _decorate_panel_with_badge(base):
 
         badge = _manual_badge_emoji(_current_guild(), club)
         if badge is not None:
+            # Mismo escudo en dos tamaños: emoji junto al nombre + thumbnail
+            # grande a la derecha, exactamente como ya se veía en Aston Villa.
             embed.title = f"{badge} {str(club).upper()}"
+            try:
+                embed.set_thumbnail(url=str(badge.url))
+            except Exception as exc:
+                print(
+                    "WARNING AJAP escudo grande panel: "
+                    f"club={club} error={type(exc).__name__}: {exc}"
+                )
         return embed
 
     panel_with_badge._ajap_club_badge_title = True
