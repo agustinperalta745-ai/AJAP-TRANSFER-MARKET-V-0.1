@@ -73,3 +73,6 @@ import reset_explanation_patch  # noqa: F401,E402
 import automatic_backup_patch  # noqa: F401,E402
 # Serializa backup/restore y evita que el primer snapshot compita con migraciones.
 import backup_reliability_patch  # noqa: F401,E402
+# Cada snapshot (automático, manual o preventivo pre-restore) deja en el canal
+# Staff un resumen del período respaldado y un TXT con el detalle completo.
+import backup_staff_summary_patch  # noqa: F401,E402
