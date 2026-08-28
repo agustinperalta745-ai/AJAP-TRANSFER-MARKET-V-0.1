@@ -180,5 +180,8 @@ import guided_search_select_fix_patch  # noqa: F401,E402
 # Liberaciones de jugadores: solo con mercado abierto, costo fijo del 20% del
 # valor de mercado, descuento automático, historial/tesorería y pase a libre.
 import player_release_patch  # noqa: F401,E402
+# Diferencia visualmente LIBERAR JUGADOR de RENUNCIAR AL CLUB: liberación queda
+# gris con 🆓; la renuncia conserva el botón rojo 🚪.
+import release_button_visual_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
