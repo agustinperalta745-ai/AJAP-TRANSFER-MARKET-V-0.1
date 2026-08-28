@@ -223,5 +223,8 @@ import player_release_patch  # noqa: F401,E402
 # Diferencia visualmente LIBERAR JUGADOR de RENUNCIAR AL CLUB: liberación queda
 # gris con 🆓; la renuncia conserva el botón rojo 🚪.
 import release_button_visual_patch  # noqa: F401,E402
+# Acceso persistente al canal del bot: MERCADO es la llave del canal; DT queda
+# reservado para quien actualmente dirige un club y puede quitarse al renunciar.
+import market_access_role_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
