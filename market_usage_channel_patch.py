@@ -6,10 +6,15 @@ servidor solo funcionan en ese canal. Los DMs siguen funcionando (por ejemplo,
 notificaciones y acciones privadas) y los comandos/componentes de configuración
 o flujos externos al mercado quedan exceptuados donde corresponde.
 
-Además, el canal interactivo del mercado se autocorrige al iniciar/reconectar:
-si algún overwrite de Discord bloqueó Enviar mensajes o Usar comandos de
-aplicaciones, el bot los vuelve a habilitar únicamente en el canal configurado
-con /canal_mercado. El canal público/resumen de solo lectura no se toca.
+El canal interactivo del mercado NO depende del rol DT para poder abrir
+/mercado. Esto es importante porque un usuario que renuncia deja de tener DT,
+pero necesita seguir pudiendo entrar al mercado para elegir otro club.
+
+Al iniciar/reconectar, el bot autocorrige el canal configurado y garantiza Ver
+canal, Enviar mensajes, Leer historial y Usar comandos de aplicaciones. También
+protege a usuarios que acaban de perder el rol DT con un allow individual si un
+overwrite de otro rol todavía los bloqueara. El canal público/resumen de solo
+lectura no se toca.
 """
 
 import asyncio
@@ -222,13 +227,70 @@ async def _resolve_text_channel(guild: discord.Guild, channel_id: int):
     return channel
 
 
+def _market_allow(overwrite: discord.PermissionOverwrite):
+    """Marca únicamente los permisos necesarios para usar /mercado."""
+    dirty = False
+    for name in (
+        "view_channel",
+        "send_messages",
+        "read_message_history",
+        "use_application_commands",
+    ):
+        if getattr(overwrite, name) is not True:
+            setattr(overwrite, name, True)
+            dirty = True
+    return dirty
+
+
+async def _ensure_member_market_access(
+    guild: discord.Guild,
+    channel: discord.TextChannel,
+    member: discord.Member,
+    *,
+    reason: str,
+):
+    """Última defensa: un miembro concreto debe poder ejecutar /mercado."""
+    if member.bot:
+        return True
+
+    perms = channel.permissions_for(member)
+    if (
+        perms.view_channel
+        and perms.send_messages
+        and perms.read_message_history
+        and perms.use_application_commands
+    ):
+        return True
+
+    me = guild.me
+    if me is None or not channel.permissions_for(me).manage_channels:
+        return False
+
+    overwrite = channel.overwrites_for(member)
+    _market_allow(overwrite)
+    try:
+        await channel.set_permissions(member, overwrite=overwrite, reason=reason)
+        print(
+            "AJAP canal mercado: acceso individual restaurado "
+            f"guild={guild.id} channel={channel.id} user={member.id}"
+        )
+        return True
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        print(
+            "WARNING AJAP canal mercado: no pude restaurar acceso individual "
+            f"guild={guild.id} channel={channel.id} user={member.id} "
+            f"error={type(exc).__name__}: {exc}"
+        )
+        return False
+
+
 async def _repair_market_channel_permissions(
     guild: discord.Guild,
     channel_id: int,
     *,
     reason: str,
 ):
-    """Garantiza que los DT puedan escribir y usar slash commands en el canal interactivo."""
+    """Garantiza que /mercado siga accesible incluso sin rol DT."""
     channel = await _resolve_text_channel(guild, int(channel_id))
     if channel is None:
         print(
@@ -249,9 +311,9 @@ async def _repair_market_channel_permissions(
         )
         return False
 
-    # El canal configurado con /canal_mercado es el canal INTERACTIVO. Por eso
-    # habilitamos únicamente dos permisos: escribir y usar comandos de aplicaciones.
-    # No tocamos Ver canal, historial, adjuntos ni ningún otro permiso.
+    # /mercado es también la puerta de entrada para un usuario SIN club. Por eso
+    # @everyone debe poder ver el canal y ejecutar el slash command. El rol DT
+    # sigue representando al manager activo, pero ya no es la llave de acceso.
     targets = [guild.default_role]
     for target in channel.overwrites:
         if target == guild.default_role:
@@ -265,23 +327,20 @@ async def _repair_market_channel_permissions(
         dirty = False
 
         if target == guild.default_role:
-            # Un allow explícito en el canal rompe cualquier deny heredado de la
-            # categoría para este canal específico.
-            if overwrite.send_messages is not True:
-                overwrite.send_messages = True
-                dirty = True
-            if overwrite.use_application_commands is not True:
-                overwrite.use_application_commands = True
-                dirty = True
+            dirty = _market_allow(overwrite)
         else:
-            # Un deny de rol/miembro se aplica después de @everyone y podría seguir
-            # bloqueando /mercado. Solo corregimos denies explícitos.
-            if overwrite.send_messages is False:
-                overwrite.send_messages = True
-                dirty = True
-            if overwrite.use_application_commands is False:
-                overwrite.use_application_commands = True
-                dirty = True
+            # Un deny explícito en un rol/miembro puede ocultar los slash commands
+            # aunque @everyone esté permitido. Solo convertimos denies de estos
+            # cuatro permisos; el resto de permisos del canal no se toca.
+            for name in (
+                "view_channel",
+                "send_messages",
+                "read_message_history",
+                "use_application_commands",
+            ):
+                if getattr(overwrite, name) is False:
+                    setattr(overwrite, name, True)
+                    dirty = True
 
         if not dirty:
             continue
@@ -314,6 +373,26 @@ async def _repair_market_channel_permissions(
     return True
 
 
+def _dt_role_removed(before: discord.Member, after: discord.Member) -> bool:
+    """Detecta específicamente la pérdida del rol configurado como DT."""
+    removed = {role.id for role in before.roles} - {role.id for role in after.roles}
+    if not removed:
+        return False
+    try:
+        import dt_role_patch as dt_roles
+
+        role = dt_roles._dt_role(after.guild)
+        return role is not None and role.id in removed
+    except Exception:
+        # Fallback seguro para servidores todavía no configurados: rol llamado DT.
+        before_by_id = {role.id: role for role in before.roles}
+        return any(
+            (before_by_id[role_id].name or "").strip().casefold() == "dt"
+            for role_id in removed
+            if role_id in before_by_id
+        )
+
+
 def _install_permission_repair(bot):
     if getattr(bot, "_ajap_market_channel_permission_repair", False):
         return
@@ -327,17 +406,67 @@ def _install_permission_repair(bot):
             if not channel_id:
                 continue
             try:
-                await _repair_market_channel_permissions(
+                repaired = await _repair_market_channel_permissions(
                     guild,
                     int(channel_id),
-                    reason="AJAP: restaurar uso de /mercado en el canal interactivo",
+                    reason="AJAP: restaurar acceso general a /mercado",
                 )
+                if not repaired:
+                    continue
+                channel = await _resolve_text_channel(guild, int(channel_id))
+                if channel is None:
+                    continue
+
+                # Si alguien ya había renunciado antes de este deploy, puede tener
+                # un deny individual/heredado. Verificamos usuarios sin club y solo
+                # creamos un allow personal cuando sus permisos efectivos fallan.
+                guild_context = getattr(APP, "guild_context", None)
+                for member in list(getattr(guild, "members", [])):
+                    if member.bot:
+                        continue
+                    club = None
+                    try:
+                        if guild_context is not None:
+                            with guild_context(int(guild.id)):
+                                club = APP.club_de(member.id)
+                        else:
+                            club = APP.club_de(member.id)
+                    except Exception:
+                        club = None
+                    if club:
+                        continue
+                    await _ensure_member_market_access(
+                        guild,
+                        channel,
+                        member,
+                        reason="AJAP: permitir /mercado a usuario sin club",
+                    )
             except Exception as exc:
                 print(
                     "WARNING AJAP canal mercado: error inesperado autocorrigiendo "
                     f"guild={guild.id} channel={channel_id} "
                     f"error={type(exc).__name__}: {exc}"
                 )
+
+    @bot.listen("on_member_update")
+    async def repair_after_dt_role_removed(before: discord.Member, after: discord.Member):
+        # La renuncia quita DT antes de borrar la asignación en SQLite. Detectamos
+        # el rol directamente y restauramos acceso al instante, sin depender del
+        # orden de esas dos operaciones.
+        if after.bot or not _dt_role_removed(before, after):
+            return
+        channel_id = _market_channel_id_for_ready(after.guild.id)
+        if not channel_id:
+            return
+        channel = await _resolve_text_channel(after.guild, int(channel_id))
+        if channel is None:
+            return
+        await _ensure_member_market_access(
+            after.guild,
+            channel,
+            after,
+            reason="AJAP: conservar /mercado después de dejar el rol DT",
+        )
 
     bot._ajap_market_channel_permission_repair = True
 
@@ -389,7 +518,7 @@ def apply_market_usage_channel_patch(runtime, bot):
                 reason="AJAP: habilitar canal interactivo de mercado",
             )
             suffix = (
-                "\n🔧 Permisos de mensajes y comandos verificados automáticamente."
+                "\n🔧 Acceso a `/mercado` verificado automáticamente, incluso sin rol DT."
                 if repaired
                 else "\n⚠️ Guardé el canal, pero no pude autocorregir permisos. "
                 "El bot necesita **Administrar canales**."
@@ -405,8 +534,9 @@ def apply_market_usage_channel_patch(runtime, bot):
     _install_permission_repair(bot)
     runtime.market_usage_channel_id = get_market_channel_id
     runtime.repair_market_channel_permissions = _repair_market_channel_permissions
+    runtime.ensure_member_market_access = _ensure_member_market_access
     runtime._ajap_market_usage_channel_patch = True
     print(
-        "Canal único de mercado activo: /canal_mercado + bloqueo fuera del canal "
+        "Canal único de mercado activo: /canal_mercado + acceso independiente de DT "
         "+ autocorrección de permisos"
     )
