@@ -1,9 +1,8 @@
-"""Admin command to publish AJPA's bot introduction in any chosen text channel."""
+"""Admin command to publish AJPA's bot introduction in the current channel."""
 
 from __future__ import annotations
 
 import discord
-from discord import app_commands
 
 import guild_isolation_patch as guild_isolation
 import market_usage_channel_patch as market_channels
@@ -55,13 +54,9 @@ def apply_bot_intro_message_patch(runtime, bot):
 
         @bot.tree.command(
             name="presentacion_bot",
-            description="Publica la presentación de AJPA Transfer Market en el canal elegido",
+            description="Publica la presentación de AJPA Transfer Market en este canal",
         )
-        @app_commands.describe(canal="Canal donde el bot enviará su presentación")
-        async def presentacion_bot(
-            interaction: discord.Interaction,
-            canal: discord.TextChannel,
-        ):
+        async def presentacion_bot(interaction: discord.Interaction):
             if not APP.es_admin(interaction):
                 await interaction.response.send_message(
                     "⛔ Solo el Staff puede publicar la presentación del bot.",
@@ -69,10 +64,10 @@ def apply_bot_intro_message_patch(runtime, bot):
                 )
                 return
 
-            guild = getattr(interaction, "guild", None)
-            if guild is None or canal.guild.id != guild.id:
+            channel = getattr(interaction, "channel", None)
+            if channel is None or not hasattr(channel, "send"):
                 await interaction.response.send_message(
-                    "⚠️ Elegí un canal de este mismo servidor.",
+                    "⚠️ No pude identificar el canal donde ejecutaste el comando.",
                     ephemeral=True,
                 )
                 return
@@ -80,31 +75,32 @@ def apply_bot_intro_message_patch(runtime, bot):
             await interaction.response.defer(ephemeral=True, thinking=True)
 
             try:
-                await canal.send(
+                await channel.send(
                     INTRO_MESSAGE,
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
             except discord.Forbidden:
                 await interaction.followup.send(
-                    f"⛔ No tengo permiso para enviar mensajes en {canal.mention}.",
+                    "⛔ No tengo permiso para enviar mensajes en este canal.",
                     ephemeral=True,
                 )
                 return
             except discord.HTTPException as exc:
                 await interaction.followup.send(
-                    f"⚠️ Discord no me dejó publicar el mensaje en {canal.mention}. "
+                    "⚠️ Discord no me dejó publicar el mensaje en este canal. "
                     f"Error: {type(exc).__name__}.",
                     ephemeral=True,
                 )
                 return
 
+            mention = getattr(channel, "mention", "este canal")
             await interaction.followup.send(
-                f"✅ Presentación enviada en {canal.mention}.",
+                f"✅ Presentación enviada en {mention}.",
                 ephemeral=True,
             )
 
     runtime._ajpa_bot_intro_message_patch = True
-    print("AJPA presentación del bot activa: /presentacion_bot canal:#canal")
+    print("AJPA presentación del bot activa: /presentacion_bot publica en el canal actual")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
