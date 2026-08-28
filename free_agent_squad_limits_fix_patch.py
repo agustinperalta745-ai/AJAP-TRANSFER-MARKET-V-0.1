@@ -73,3 +73,7 @@ print(
     "AJAP fix agentes libres activo: Jugador Libre exento del mínimo 20; "
     "destino mantiene máximo 32"
 )
+
+# El dashboard Staff debe usar la misma fuente JSON-only que el selector real de
+# equipos y no interpretar cuentas financieras faltantes como saldo $0.
+import staff_dashboard_catalog_fix_patch  # noqa: F401,E402
