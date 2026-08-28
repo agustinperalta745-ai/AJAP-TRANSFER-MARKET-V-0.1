@@ -97,3 +97,8 @@ import player_manual_patch  # noqa: F401,E402
 # club y publica el equipo anterior como vacante. Debe cargarse al final para
 # envolver la ManagementView y la identidad definitivas.
 import admin_manager_switch_patch  # noqa: F401,E402
+
+# Renuncia con decisión Staff FINAL: el club se libera de inmediato pero DT/acceso
+# quedan pendientes. Staff recibe Mantener rol / Quitar rol; quitar elimina también
+# MERCADO para que el usuario deje de ver el canal interactivo.
+import resignation_staff_role_decision_patch  # noqa: F401,E402
