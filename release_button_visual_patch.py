@@ -71,3 +71,5 @@ import reset_explanation_patch  # noqa: F401,E402
 # Backups de seguridad: copia completa por servidor cada 24 horas, selector Staff
 # para restaurar una fecha y backup preventivo automático antes de cada restore.
 import automatic_backup_patch  # noqa: F401,E402
+# Serializa backup/restore y evita que el primer snapshot compita con migraciones.
+import backup_reliability_patch  # noqa: F401,E402
