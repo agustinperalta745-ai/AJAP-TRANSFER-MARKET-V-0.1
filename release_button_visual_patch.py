@@ -102,3 +102,7 @@ import admin_manager_switch_patch  # noqa: F401,E402
 # quedan pendientes. Staff recibe Mantener rol / Quitar rol; quitar elimina también
 # MERCADO para que el usuario deje de ver el canal interactivo.
 import resignation_staff_role_decision_patch  # noqa: F401,E402
+
+# Las decisiones Staff de renuncia viven fuera de #mercado-de-pases; sus botones
+# deben atravesar el gate de canal igual que las decisiones de vacantes.
+import resignation_role_channel_exemption_patch  # noqa: F401,E402
