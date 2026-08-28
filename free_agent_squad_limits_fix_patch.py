@@ -77,3 +77,7 @@ print(
 # El dashboard Staff debe usar la misma fuente JSON-only que el selector real de
 # equipos y no interpretar cuentas financieras faltantes como saldo $0.
 import staff_dashboard_catalog_fix_patch  # noqa: F401,E402
+
+# RESET V1 también devuelve la economía de los clubes JSON al presupuesto
+# inicial, para que ningún saldo de pruebas sobreviva a un reseteo total.
+import v1_reset_finance_baseline_patch  # noqa: F401,E402
