@@ -111,3 +111,7 @@ import resignation_role_channel_exemption_patch  # noqa: F401,E402
 # El fichaje es directo, atómico y revalida el máximo de plantilla también en
 # aprobación Staff y carga en PES.
 import released_free_agents_safety_patch  # noqa: F401,E402
+
+# ``Jugador Libre`` es un estado/pseudo-club, no un club real: queda exento del
+# mínimo de 20 al aprobar fichajes gratis. El destino conserva el máximo de 32.
+import free_agent_squad_limits_fix_patch  # noqa: F401,E402
