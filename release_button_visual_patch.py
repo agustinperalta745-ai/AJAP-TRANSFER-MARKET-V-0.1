@@ -44,3 +44,19 @@ print("AJAP visual liberaciones activo: botón gris 🆓; renuncia conserva rojo
 # manualmente en PES 6. Esta capa publica una tarjeta amarilla en /canal_movimientos
 # y permite marcarla verde con "Cargado en PES" sin mover al jugador dos veces.
 import release_staff_pes_patch  # noqa: F401,E402
+
+# RESET V1 OFICIAL: esta es la última capa importada antes de run_bot. Envolvemos
+# guild isolation para armar un reset de lanzamiento que se ejecuta en on_ready,
+# cuando todos los sincronizadores JSON ya quedaron instalados. El servidor
+# histórico de pruebas se conserva y cada servidor oficial se resetea una sola vez.
+import guild_isolation_patch as _guild_isolation  # noqa: E402
+from v1_official_reset_patch import apply_v1_official_reset as _apply_v1_reset  # noqa: E402
+
+_prior_guild_isolation = _guild_isolation.apply_guild_isolation_patch
+if not getattr(_prior_guild_isolation, "_ajap_v1_reset_wrapped", False):
+    def _apply_guild_isolation_then_v1_reset(runtime, bot):
+        _prior_guild_isolation(runtime, bot)
+        _apply_v1_reset(runtime, bot)
+
+    _apply_guild_isolation_then_v1_reset._ajap_v1_reset_wrapped = True
+    _guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_v1_reset
