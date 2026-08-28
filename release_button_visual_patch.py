@@ -106,3 +106,7 @@ import resignation_staff_role_decision_patch  # noqa: F401,E402
 # Las decisiones Staff de renuncia viven fuera de #mercado-de-pases; sus botones
 # deben atravesar el gate de canal igual que las decisiones de vacantes.
 import resignation_role_channel_exemption_patch  # noqa: F401,E402
+
+# Los jugadores liberados se publican automáticamente como agentes libres a $0.
+# El fichaje es directo, atómico y conserva el flujo Staff/PES del mercado.
+import released_free_agents_patch  # noqa: F401,E402
