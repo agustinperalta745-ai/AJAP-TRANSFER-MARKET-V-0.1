@@ -52,3 +52,10 @@ if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
 # interaction.guild into both the embed and select so manual emojis can never come
 # from another server/context.
 import manual_city_exact_guild_patch  # noqa: F401,E402
+
+# Activate the Discord identity projection too. This patch was already implemented
+# but was never imported by the production startup chain, so club roles (and their
+# shield icons when the guild supports ROLE_ICONS) were not being created/assigned.
+# Importing it here is intentionally late: badge aliases are final and run_bot will
+# later call the wrapped guild-isolation installer with the definitive team logic.
+import team_role_identity_patch  # noqa: F401,E402
