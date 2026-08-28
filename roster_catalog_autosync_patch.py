@@ -1,21 +1,19 @@
-"""Keep the selectable team catalog in sync with loaded rosters.
+"""Keep AJAP's active team catalog limited to real JSON-backed clubs.
 
-AJPA rule: every team that is actually loaded must be selectable. We rebuild the
-catalog on demand from two safe sources:
-- current roster_players clubs (JSON/seed/admin-loaded teams), and
-- the built-in OFFICIAL_TEAMS fallback, so an older guild database with an empty
-  league_teams table cannot render "no active teams" after a deploy.
+Current league rule: only clubs with a valid source JSON in data/ are part of the
+selectable/active catalog. Legacy seeded/admin-created rows may remain in SQLite
+for history and referential safety, but they are kept inactive and must not count
+as available clubs.
 
-Important: this patch must be INSTALLED after admin_team_delete_patch has applied.
-That module replaces builder._active_teams at runtime. The previous version patched
-builder._active_teams too early (module import time), so the delete patch silently
-overwrote the autosync and the user selector still saw an empty catalog.
-
-Staff-deleted teams remain hidden unless a roster for that club exists again. A
-new roster is treated as an intentional reload and clears the old tombstone.
+Staff-deleted teams remain hidden. Adding a new valid JSON file automatically
+makes that club eligible on the next catalog sync, provided its canonical row can
+be resolved (or it is created safely from the JSON name).
 """
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 import admin_roster_builder_patch as builder
 import guild_isolation_patch as guild_isolation
@@ -24,6 +22,7 @@ import team_assignment as teams
 
 _ORIGINAL_ACTIVE_TEAMS = None
 _ORIGINAL_OFFICIAL_NAME = None
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -54,6 +53,68 @@ def _is_deleted(conn, club: str) -> bool:
             (club,),
         ).fetchone()
     )
+
+
+def _json_source_team_names():
+    """Return only clubs backed by a readable JSON with a non-empty roster."""
+    names = []
+    seen = set()
+    for path in sorted(DATA_DIR.glob("*.json"), key=lambda item: item.name.casefold()):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            print(f"WARNING AJAP catálogo JSON: no se pudo leer {path.name}: {exc}")
+            continue
+
+        raw = str(payload.get("equipo", "") or "").strip()
+        players = payload.get("jugadores")
+        key = raw.casefold()
+        if not raw or not isinstance(players, list) or not players or key in seen:
+            continue
+        seen.add(key)
+        names.append(raw)
+    return names
+
+
+def _candidate_names(source_name: str):
+    raw = str(source_name or "").strip()
+    candidates = [raw]
+    lower = raw.casefold()
+
+    aliases = {
+        "villarreal cf": "Villarreal",
+        "villareal cf": "Villarreal",
+        "villareal": "Villarreal",
+        "sevilla fc": "Sevilla",
+    }
+    alias = aliases.get(lower)
+    if alias:
+        candidates.append(alias)
+
+    for suffix in (" FC", " CF"):
+        if raw.upper().endswith(suffix):
+            candidates.append(raw[: -len(suffix)].strip())
+
+    unique = []
+    seen = set()
+    for candidate in candidates:
+        key = candidate.casefold()
+        if candidate and key not in seen:
+            seen.add(key)
+            unique.append(candidate)
+    return unique
+
+
+def _resolve_catalog_name(conn, source_name: str) -> str:
+    """Prefer the canonical row already used by the DB, otherwise use JSON name."""
+    for candidate in _candidate_names(source_name):
+        row = conn.execute(
+            "SELECT name FROM league_teams WHERE name = ? COLLATE NOCASE LIMIT 1",
+            (candidate,),
+        ).fetchone()
+        if row:
+            return str(row["name"] or "").strip()
+    return str(source_name or "").strip()
 
 
 def _upsert_catalog(conn, club: str, country: str):
@@ -96,38 +157,24 @@ def _sync_loaded_teams_into_catalog():
 
     builder._ensure_schema()
     with app.db() as conn:
-        # 1) Repair old/stale guild DBs from the current built-in catalog. Do not
-        # resurrect a club Staff explicitly deleted.
-        for raw_name, raw_country in getattr(teams, "OFFICIAL_TEAMS", []):
-            club = str(raw_name or "").strip()
+        # The database can keep legacy rows for history, but only JSON-backed clubs
+        # are active. This makes every panel/admin selector use the same 23-club
+        # source of truth as the initial user selector.
+        conn.execute("UPDATE league_teams SET active = 0")
+
+        active_json_clubs = []
+        for source_name in _json_source_team_names():
+            club = _resolve_catalog_name(conn, source_name)
             if not club or _is_deleted(conn, club):
                 continue
-            _upsert_catalog(conn, club, str(raw_country or "Sin definir"))
-
-        # 2) Any club with a real roster is loaded, including future JSON teams.
-        # A roster reappearing after deletion means Staff deliberately reloaded it.
-        clubs = conn.execute(
-            """
-            SELECT DISTINCT TRIM(club) AS club
-            FROM roster_players
-            WHERE TRIM(COALESCE(club, '')) != ''
-            ORDER BY club COLLATE NOCASE
-            """
-        ).fetchall()
-
-        has_deleted = _table_exists(conn, "deleted_teams")
-        for row in clubs:
-            club = str(row["club"] or "").strip()
-            if not club:
-                continue
-
-            if has_deleted:
-                conn.execute(
-                    "DELETE FROM deleted_teams WHERE name = ? COLLATE NOCASE",
-                    (club,),
-                )
-
             _upsert_catalog(conn, club, _country_for(club))
+            active_json_clubs.append(club)
+
+        if active_json_clubs:
+            print(
+                "AJAP catálogo activo JSON-only: "
+                f"{len(active_json_clubs)} club(es)"
+            )
 
 
 def _active_teams():
@@ -155,12 +202,12 @@ def apply_roster_catalog_autosync_patch(runtime, bot):
     builder._official_name = _official_name
     teams.official_name = _official_name
 
-    # Force one repair immediately for the currently selected startup DB. Future
-    # guilds are repaired lazily when their selector/official-name lookup runs.
+    # Force one sync immediately for the startup DB. Future guilds are synced
+    # lazily whenever their selector/official-name lookup runs.
     _sync_loaded_teams_into_catalog()
 
     runtime._ajpa_roster_catalog_autosync_patch = True
-    print("AJPA catálogo reparador instalado DESPUÉS del guard de eliminación")
+    print("AJAP catálogo limitado a equipos con JSON real en data/")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
