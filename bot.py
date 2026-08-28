@@ -122,6 +122,11 @@ import roster_catalog_autosync_patch  # noqa: F401,E402
 # Fuente única de verdad para la asignación: si existe en clubs dentro de la DB
 # del servidor, MI CLUB y el resto del bot deben reconocerla aunque falle el apodo.
 import club_assignment_consistency_patch  # noqa: F401,E402
+# Autoridad final de asignaciones: una renuncia/desvinculación auditada siempre
+# libera al DT, el club vivo no puede ser pisado por una asignación histórica y,
+# si falta la fila viva, solo la última asignación auditada puede reconstruirla.
+# Se importa explícitamente para que esta protección no dependa de otro selector.
+import assignment_history_authority_patch  # noqa: F401,E402
 # Última capa visual de Planteles: misma estética neutral que Administración,
 # dos botones por fila y confirmaciones destructivas separadas.
 import admin_rosters_visual_patch  # noqa: F401,E402
