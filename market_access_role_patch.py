@@ -296,19 +296,6 @@ async def _repair_channel_permissions(
     return True
 
 
-async def _ensure_member_access_via_role(
-    guild: discord.Guild,
-    channel: discord.TextChannel,
-    member: discord.Member,
-    *,
-    reason: str,
-):
-    # market_usage's existing listeners call this helper for users that lose DT
-    # or are currently clubless. We turn that into a persistent role grant instead
-    # of creating per-user channel overwrites.
-    return await grant_market_access(guild, member.id, reason=reason)
-
-
 def _historical_manager_ids():
     with APP.db() as conn:
         try:
@@ -329,6 +316,39 @@ def _active_manager_ids():
         except Exception:
             rows = []
     return {int(row["user_id"]) for row in rows}
+
+
+def _eligible_for_market_role(guild: discord.Guild, member: discord.Member):
+    role = _configured_role(guild)
+    if role is not None and role in member.roles:
+        return True
+
+    try:
+        with _guild_context(guild.id):
+            ids = _historical_manager_ids() | _active_manager_ids()
+            if int(member.id) in ids:
+                return True
+            dt_role = dt_roles._dt_role(guild)
+            if dt_role is not None and dt_role in member.roles:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+async def _ensure_member_access_via_role(
+    guild: discord.Guild,
+    channel: discord.TextChannel,
+    member: discord.Member,
+    *,
+    reason: str,
+):
+    # market_usage's legacy listener loops over clubless members. Do NOT turn
+    # that into access for the whole server: only current/former managers or
+    # members already holding MERCADO are eligible.
+    if not _eligible_for_market_role(guild, member):
+        return False
+    return await grant_market_access(guild, member.id, reason=reason)
 
 
 async def _migrate_guild(guild: discord.Guild):
