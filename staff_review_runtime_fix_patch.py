@@ -9,6 +9,7 @@ import discord
 
 import market_usage_channel_patch as usage_gate
 import staff_review_channel_patch as staff_review
+import squad_limits_patch as squad_limits
 
 
 ALLOWED_CUSTOM_ID_PREFIXES = (
@@ -64,6 +65,11 @@ def apply_staff_review_runtime_fix(runtime, bot):
         persistent = 1
     except ValueError:
         pass
+
+    # Se instala acá porque a esta altura ya existen las vistas finales de
+    # ofertas/préstamos y el pipeline Staff/PES. Guild isolation se aplica justo
+    # después y envolverá también estas validaciones con el DB del servidor real.
+    squad_limits.apply_squad_limits_patch(runtime, bot)
 
     runtime._ajap_staff_review_runtime_fix = True
     print(
