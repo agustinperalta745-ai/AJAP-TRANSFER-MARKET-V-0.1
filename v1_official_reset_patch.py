@@ -184,6 +184,12 @@ def _reset(conn, guild_id, *, force=False, admin_id=None):
             conn.execute(f'DELETE FROM "{table}"')
             cleared += 1
 
+    # DELETE vacía market_cycles, pero SQLite conserva el AUTOINCREMENT en
+    # sqlite_sequence. Un reset total debe hacer que la próxima apertura sea
+    # nuevamente Ventana #1, no continuar #4, #5, etc.
+    if _table_exists(conn, "sqlite_sequence"):
+        conn.execute("DELETE FROM sqlite_sequence WHERE name='market_cycles'")
+
     if _table_exists(conn, "market_state"):
         conn.execute(
             "INSERT INTO market_state (id,is_open,updated_by,updated_at) "
