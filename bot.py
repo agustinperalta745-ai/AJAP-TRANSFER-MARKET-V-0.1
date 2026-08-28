@@ -5,52 +5,87 @@ working, but route startup through run_bot.py so the AJAP patches are applied
 before Discord connects.
 """
 
+import os
+import time
+
+# AJAP must have exactly one Discord gateway writer. This repository is currently
+# connected to two different Railway projects, each with its own persistent
+# volume/SQLite database. If both projects log in with the same Discord bot token,
+# consecutive interactions can be handled by different databases: one instance
+# saves "Ajax" and the next /mercado reads "sin equipo" (or an older club).
+#
+# `sublime-success` (project 6abcd5...) is the deployment that has been healthy
+# since the first persistent-volume commits, so it is the canonical writer.
+# The secondary Railway project stays alive/healthy but never imports or starts
+# the Discord bot. Set AJAP_PRIMARY_RAILWAY_PROJECT_ID explicitly in the future
+# before intentionally moving production to another Railway project.
+PRIMARY_RAILWAY_PROJECT_ID = (
+    os.getenv("AJAP_PRIMARY_RAILWAY_PROJECT_ID")
+    or "6abcd5b2-6995-4e18-b7f1-be32f6298fdc"
+).strip()
+CURRENT_RAILWAY_PROJECT_ID = (os.getenv("RAILWAY_PROJECT_ID") or "").strip()
+
+if (
+    CURRENT_RAILWAY_PROJECT_ID
+    and PRIMARY_RAILWAY_PROJECT_ID
+    and CURRENT_RAILWAY_PROJECT_ID != PRIMARY_RAILWAY_PROJECT_ID
+):
+    print(
+        "AJAP secondary Railway deployment detected: Discord gateway disabled | "
+        f"current_project={CURRENT_RAILWAY_PROJECT_ID} | "
+        f"primary_project={PRIMARY_RAILWAY_PROJECT_ID}"
+    )
+    # Keep the secondary worker healthy so Railway does not enter a restart loop.
+    # It intentionally performs no DB mutations and never connects to Discord.
+    while True:
+        time.sleep(3600)
+
 # Extend the fixed-team selector/seed before Bot.run() installs team assignment.
 # Import order matters: Everton wraps Newcastle's seed wrapper, so both rosters
 # are preserved in the same startup chain.
-import newcastle_extension  # noqa: F401
-import everton_extension  # noqa: F401
+import newcastle_extension  # noqa: F401,E402
+import everton_extension  # noqa: F401,E402
 # Existing per-guild DBs need a one-time safe sync for teams added later.
-import additional_roster_sync_patch  # noqa: F401
+import additional_roster_sync_patch  # noqa: F401,E402
 # Betis.json is the source of truth; this overlay also recalculates every Betis
 # OVR with the current 3-stat-by-position AJAP formula and bumps the migration.
-import betis_roster_replace_patch  # noqa: F401
+import betis_roster_replace_patch  # noqa: F401,E402
 # Sevilla.json replaces the legacy 22-player Sevilla seed with the canonical
 # 24-player roster, full PES6 attributes/abilities and the same AJAP OVR formula.
-import sevilla_roster_replace_patch  # noqa: F401
+import sevilla_roster_replace_patch  # noqa: F401,E402
 # Villareal.json replaces Villarreal's legacy seed with the uploaded 24-player
 # roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import villarreal_roster_replace_patch  # noqa: F401
+import villarreal_roster_replace_patch  # noqa: F401,E402
 # Torino.json adds Torino as a selectable Italian club with the uploaded
 # 27-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import torino_roster_patch  # noqa: F401
+import torino_roster_patch  # noqa: F401,E402
 # Fiorentina.json adds Fiorentina as a selectable Italian club with the uploaded
 # 25-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import fiorentina_roster_patch  # noqa: F401
+import fiorentina_roster_patch  # noqa: F401,E402
 # Lazio.json adds Lazio as a selectable Italian club with the uploaded
 # 23-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import lazio_roster_patch  # noqa: F401
+import lazio_roster_patch  # noqa: F401,E402
 # Fulham.json adds Fulham as a selectable English club with the uploaded
 # 29-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import fulham_roster_patch  # noqa: F401
+import fulham_roster_patch  # noqa: F401,E402
 # Bolton Wanderers.json adds Bolton Wanderers as a selectable English club with the uploaded
 # 21-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import bolton_wanderers_roster_patch  # noqa: F401
+import bolton_wanderers_roster_patch  # noqa: F401,E402
 # Middle.json adds Middlesbrough as a selectable English club with the uploaded
 # 32-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import middlesbrough_roster_patch  # noqa: F401
+import middlesbrough_roster_patch  # noqa: F401,E402
 # Manchester City.json adds Manchester City as a selectable English club with the uploaded
 # 28-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import manchester_city_roster_patch  # noqa: F401
+import manchester_city_roster_patch  # noqa: F401,E402
 # West Ham United.json adds West Ham United as a selectable English club with the uploaded
 # 26-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
-import west_ham_united_roster_patch  # noqa: F401
+import west_ham_united_roster_patch  # noqa: F401,E402
 
 # Patch nickname/vacancy flows before run_bot registers Discord commands/views.
-import member_nickname_patch  # noqa: F401
-import vacancy_nickname_patch  # noqa: F401
-import selector_nickname_patch  # noqa: F401
-import dt_resignation_patch  # noqa: F401
+import member_nickname_patch  # noqa: F401,E402
+import vacancy_nickname_patch  # noqa: F401,E402
+import selector_nickname_patch  # noqa: F401,E402
+import dt_resignation_patch  # noqa: F401,E402
 
 # Liga AJAP usa el mismo bot, pero queda separada del mercado. La envolvemos
 # alrededor del aislamiento por servidor para que sus tablas/resultados también
