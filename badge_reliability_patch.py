@@ -18,6 +18,10 @@ selector.MANUAL_EMOJI_NAMES.setdefault("Zaragoza", "zara")
 selector.MANUAL_EMOJI_NAMES.setdefault("Real Zaragoza", "zara")
 selector.MANUAL_EMOJI_NAMES.setdefault("Atletico Madrid", "atletico")
 selector.MANUAL_EMOJI_NAMES.setdefault("Atletico de Madrid", "atletico")
+selector.MANUAL_EMOJI_NAMES.setdefault("Sevilla", "SEV")
+selector.MANUAL_EMOJI_NAMES.setdefault("Sevilla FC", "SEV")
+selector.MANUAL_EMOJI_NAMES.setdefault("Villarreal", "villa")
+selector.MANUAL_EMOJI_NAMES.setdefault("Villarreal CF", "villa")
 
 
 if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
