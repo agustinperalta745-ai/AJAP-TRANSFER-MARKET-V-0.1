@@ -1,0 +1,41 @@
+"""Visual distinction between releasing a player and resigning as DT.
+
+The main MI CLUB action for player releases must not look like the destructive
+"RENUNCIAR AL CLUB" action. Keep resignation red, but render player release as a
+neutral secondary action with the free-agent icon. The final confirmation of an
+actual release remains red/danger because that step is intentionally destructive.
+"""
+
+from __future__ import annotations
+
+import discord
+
+import player_release_patch as release
+
+
+_original_release_hub_init = release.ReleaseHubButton.__init__
+_original_release_intro_embed = release.release_intro_embed
+
+
+def _release_hub_init_neutral(self, roster_callback, row=2):
+    _original_release_hub_init(self, roster_callback, row=row)
+    self.emoji = "🆓"
+    self.style = discord.ButtonStyle.secondary
+
+
+def _release_intro_embed_clear(club: str):
+    embed = _original_release_intro_embed(club)
+    embed.title = f"🆓 LIBERAR JUGADOR • {club.upper()}"
+    embed.description = (
+        "Elegí al jugador que querés dejar libre. Antes de confirmar vas a ver el costo exacto.\n\n"
+        f"💸 **Costo fijo: {release.RELEASE_PERCENT}% del valor de mercado**\n"
+        "🔒 Solo se puede liberar con el mercado abierto.\n"
+        "ℹ️ Esta acción libera a un jugador de la plantilla; **no renuncia tu cargo como DT**."
+    )
+    return embed
+
+
+release.ReleaseHubButton.__init__ = _release_hub_init_neutral
+release.release_intro_embed = _release_intro_embed_clear
+
+print("AJAP visual liberaciones activo: botón gris 🆓; renuncia conserva rojo 🚪")
