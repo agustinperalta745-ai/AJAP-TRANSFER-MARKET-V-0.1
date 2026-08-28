@@ -39,3 +39,8 @@ release.ReleaseHubButton.__init__ = _release_hub_init_neutral
 release.release_intro_embed = _release_intro_embed_clear
 
 print("AJAP visual liberaciones activo: botón gris 🆓; renuncia conserva rojo 🚪")
+
+# La liberación ya modifica AJAP al confirmar, pero Staff todavía debe reflejarla
+# manualmente en PES 6. Esta capa publica una tarjeta amarilla en /canal_movimientos
+# y permite marcarla verde con "Cargado en PES" sin mover al jugador dos veces.
+import release_staff_pes_patch  # noqa: F401,E402
