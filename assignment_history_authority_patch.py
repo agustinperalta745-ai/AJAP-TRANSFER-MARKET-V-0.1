@@ -1,17 +1,18 @@
-"""Keep resignation history authoritative without overwriting a live club.
+"""Keep assignment history authoritative without overwriting a live club.
 
-The first version of this patch made *every* latest assignment-history event
-fully authoritative. That fixed stale-club resurrection after RENUNCIA_DT, but
-it also introduced a worse failure mode: an old ASIGNADO event could replace a
-newer row in `clubs` when /mercado called club_de().
-
-Final rule:
+Rules:
 - RENUNCIA_DT / DESVINCULADO_ADMIN are authoritative. If they are the newest
   audited event, the manager is free until a new audited assignment exists.
-- ASIGNADO / ASIGNADO_VACANTE_ADMIN are recovery hints only. If `clubs` already
-  contains a valid club, the live row wins and is protected by the guard.
+- ASIGNADO / ASIGNADO_VACANTE_ADMIN never replace an existing valid live club.
+  The live `clubs` row wins while it exists.
+- If the live row is missing, the newest audited assignment is the only valid
+  recovery source. An older protected guard may not resurrect a previous club.
 - If the buggy previous version already changed a live club, repair it once from
   the guard event it recorded before the bad overwrite.
+
+This makes opening a fresh /mercado deterministic: it always resolves the current
+assignment from the guild database + newest audited mutation, never from stale UI
+or an older protected assignment.
 """
 
 from __future__ import annotations
@@ -125,6 +126,77 @@ def _repair_previous_active_history_overwrite(conn, user_id: int, observed):
     return previous_live
 
 
+def _recover_missing_live_assignment(conn, user_id: int, history):
+    """Recover a missing `clubs` row only from the newest audited assignment.
+
+    This is the important stale-state guard: when the live row disappeared, the
+    old consistency layer used to fall back to whatever club was still protected
+    in `club_assignment_guard`. If that guard belonged to a previous club, opening
+    /mercado could bring that previous club back. The latest active audit event is
+    newer evidence and is therefore the only recovery candidate.
+    """
+    club = str(history["club"] or "").strip() or None
+    action = str(history["action"] or "").strip().upper()
+    if not club:
+        return None
+
+    if consistency._club_deleted(conn, club):
+        consistency._set_guard(
+            conn,
+            user_id,
+            club,
+            False,
+            "HISTORY_RECOVERY_TEAM_DELETED",
+            history["actor_id"],
+        )
+        consistency._event(
+            conn,
+            user_id,
+            None,
+            None,
+            f"BLOCKED_RECOVERY_DELETED_TEAM_AFTER_{action}",
+        )
+        return None
+
+    guard = conn.execute(
+        "SELECT club, active FROM club_assignment_guard WHERE user_id = ? LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    guard_club = str(guard["club"] or "").strip() if guard else None
+
+    if (
+        guard is not None
+        and bool(guard["active"])
+        and guard_club
+        and guard_club.casefold() != club.casefold()
+    ):
+        consistency._event(
+            conn,
+            user_id,
+            guard_club,
+            club,
+            "IGNORED_STALE_GUARD_FOR_LATEST_ASSIGNMENT",
+        )
+
+    consistency._restore_club_row(conn, user_id, club)
+    consistency._set_guard(
+        conn,
+        user_id,
+        club,
+        True,
+        f"HISTORY_RECOVERY_{action}",
+        history["actor_id"],
+    )
+    consistency._event(
+        conn,
+        user_id,
+        None,
+        club,
+        f"RECOVERED_MISSING_LIVE_FROM_{action}",
+    )
+    return club
+
+
 def _history_authoritative_club(runtime, user_id: int):
     user_id = int(user_id)
     with runtime.db() as conn:
@@ -169,46 +241,52 @@ def _history_authoritative_club(runtime, user_id: int):
                 )
             return None
 
-        if history is not None and history["active"] and observed:
-            # IMPORTANT: a live `clubs` row is newer operational truth than an
-            # old positive history event. Never replace Aston with Ajax (or any
-            # other club) merely because ASIGNADO is the latest audited row.
-            if consistency._club_deleted(conn, observed):
-                conn.execute("DELETE FROM clubs WHERE user_id = ?", (user_id,))
-                observed = None
-            else:
-                guard = conn.execute(
-                    "SELECT club, active FROM club_assignment_guard WHERE user_id = ? LIMIT 1",
-                    (user_id,),
-                ).fetchone()
-                guard_club = str(guard["club"] or "").strip() if guard else None
-                needs_guard_sync = (
-                    guard is None
-                    or not bool(guard["active"])
-                    or (guard_club or "").casefold() != observed.casefold()
-                )
-                if needs_guard_sync:
-                    consistency._set_guard(
-                        conn,
-                        user_id,
-                        observed,
-                        True,
-                        "LIVE_CLUB_OVERRIDES_OLD_ACTIVE_HISTORY",
-                        None,
+        if history is not None and history["active"]:
+            if observed:
+                # IMPORTANT: a live `clubs` row is newer operational truth than
+                # an old positive history event. Never replace Aston with Ajax
+                # (or any other club) merely because ASIGNADO is still the latest
+                # audited row from an older workflow.
+                if consistency._club_deleted(conn, observed):
+                    conn.execute("DELETE FROM clubs WHERE user_id = ?", (user_id,))
+                    observed = None
+                else:
+                    guard = conn.execute(
+                        "SELECT club, active FROM club_assignment_guard WHERE user_id = ? LIMIT 1",
+                        (user_id,),
+                    ).fetchone()
+                    guard_club = str(guard["club"] or "").strip() if guard else None
+                    needs_guard_sync = (
+                        guard is None
+                        or not bool(guard["active"])
+                        or (guard_club or "").casefold() != observed.casefold()
                     )
-                    history_club = str(history["club"] or "").strip() or None
-                    if history_club and history_club.casefold() != observed.casefold():
-                        consistency._event(
+                    if needs_guard_sync:
+                        consistency._set_guard(
                             conn,
                             user_id,
-                            history_club,
                             observed,
-                            "IGNORED_STALE_ACTIVE_ASSIGNMENT_HISTORY",
+                            True,
+                            "LIVE_CLUB_OVERRIDES_OLD_ACTIVE_HISTORY",
+                            None,
                         )
-                return observed
+                        history_club = str(history["club"] or "").strip() or None
+                        if history_club and history_club.casefold() != observed.casefold():
+                            consistency._event(
+                                conn,
+                                user_id,
+                                history_club,
+                                observed,
+                                "IGNORED_STALE_ACTIVE_ASSIGNMENT_HISTORY",
+                            )
+                    return observed
 
-    # No inactive authority and no usable live row. Preserve the original guard
-    # recovery path, which may legitimately restore a missing active assignment.
+            # There is no usable live row. Recover only from the newest audited
+            # assignment; never from an older active guard.
+            return _recover_missing_live_assignment(conn, user_id, history)
+
+    # No recognized audited event at all: preserve the original guard's legacy
+    # fallback for databases that predate assignment history.
     return consistency._guarded_club_original(runtime, user_id)
 
 
@@ -231,8 +309,8 @@ def apply_assignment_history_authority_patch(runtime, bot):
 
     runtime._ajap_assignment_history_authority_patch = True
     print(
-        "AJAP historial de asignación v2 activo: renuncias/desvinculaciones son "
-        "autoritativas; una asignación vieja nunca pisa el club vivo"
+        "AJAP historial de asignación v3 activo: bajas autoritativas + club vivo "
+        "prioritario + recuperación solo desde la última asignación auditada"
     )
 
 
