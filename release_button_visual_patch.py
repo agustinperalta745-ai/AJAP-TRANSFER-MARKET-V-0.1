@@ -108,5 +108,6 @@ import resignation_staff_role_decision_patch  # noqa: F401,E402
 import resignation_role_channel_exemption_patch  # noqa: F401,E402
 
 # Los jugadores liberados se publican automáticamente como agentes libres a $0.
-# El fichaje es directo, atómico y conserva el flujo Staff/PES del mercado.
-import released_free_agents_patch  # noqa: F401,E402
+# El fichaje es directo, atómico y revalida el máximo de plantilla también en
+# aprobación Staff y carga en PES.
+import released_free_agents_safety_patch  # noqa: F401,E402
