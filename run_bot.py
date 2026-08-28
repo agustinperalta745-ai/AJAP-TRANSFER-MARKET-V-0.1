@@ -29,6 +29,7 @@ from offer_notifications_patch import apply_offer_notifications_patch
 from pes6_attributes_patch import apply_pes6_attributes_patch
 from pes6_stats_importer import import_pes6_original_stats
 from global_player_search_patch import apply_global_player_search_patch
+from global_search_club_badge_patch import apply_global_search_club_badge_patch
 from negotiation_picker_patch import apply_negotiation_picker_patch
 from publication_management_patch import apply_publication_management_patch
 from split_transferibles_patch import apply_split_transferibles_patch
@@ -164,6 +165,8 @@ apply_staff_review_runtime_fix(runtime, runtime.bot)
 # A partir de este punto, cada interacción usa la DB persistente de su servidor.
 # El servidor histórico de pruebas conserva su DB; los servidores nuevos nacen limpios.
 apply_guild_isolation_patch(runtime, runtime.bot)
+# Los selectores de búsqueda global reutilizan los mismos emojis manuales del club.
+apply_global_search_club_badge_patch(runtime, runtime.bot)
 # Aston Villa se sincroniza después del aislamiento para sembrar cada servidor por separado.
 apply_aston_villa_json(runtime)
 # Benfica usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
@@ -216,6 +219,7 @@ print(
     + " • atributos clave PES6 por posición activos"
     + pes6_status
     + " • búsqueda global de jugadores activa"
+    + " • escudos en selectores de búsqueda global activos"
     + " • reporte de cierre Staff activo"
     + " • checklist Staff/PES rojo-amarillo-verde activo"
     + " • aprobación Staff directa desde canal activa"
