@@ -76,3 +76,6 @@ import backup_reliability_patch  # noqa: F401,E402
 # Cada snapshot (automático, manual o preventivo pre-restore) deja en el canal
 # Staff un resumen del período respaldado y un TXT con el detalle completo.
 import backup_staff_summary_patch  # noqa: F401,E402
+# Discord limita el tamaño total del embed; mostramos pocas líneas por sección y
+# mantenemos absolutamente todo el detalle dentro del TXT adjunto.
+import backup_summary_display_guard_patch  # noqa: F401,E402
