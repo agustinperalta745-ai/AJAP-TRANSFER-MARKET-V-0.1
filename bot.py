@@ -174,5 +174,8 @@ import badge_reliability_patch  # noqa: F401,E402
 # Última defensa para formularios: ejecuta el submit con firma flexible y contexto
 # correcto incluso si discord.py cambia nuevamente sus argumentos privados.
 import modal_submit_hardening_patch  # noqa: F401,E402
+# Hotfix de la búsqueda guiada: Discord no admite valores vacíos en opciones de
+# select; usa un sentinel seguro para "Todos/Cualquiera" y evita el timeout.
+import guided_search_select_fix_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
