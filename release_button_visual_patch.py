@@ -91,3 +91,9 @@ import team_role_identity_patch  # noqa: F401,E402
 # y, una vez aceptada, queda disponible desde el botón 📖 MANUAL BOT.
 # El nombre visible correcto del proyecto es AJPA Transfer Market.
 import player_manual_patch  # noqa: F401,E402
+
+# Cambio administrativo de DT FINAL: Gestión -> CAMBIAR CLUB mueve la asignación
+# de forma atómica entre dos clubes, conserva el rol DT, sincroniza rol/apodo del
+# club y publica el equipo anterior como vacante. Debe cargarse al final para
+# envolver la ManagementView y la identidad definitivas.
+import admin_manager_switch_patch  # noqa: F401,E402
