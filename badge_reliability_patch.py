@@ -1,9 +1,8 @@
 """Final badge reliability layer for AJAP.
 
-Manchester City now relies on the Staff-uploaded :mancity: emoji from the exact
-Discord guild. No automatic guild emoji creation and no application-owned emoji
-are used anymore. Embed thumbnails prefer that same manual emoji CDN URL and fall
-back to the public PNG only when the manual emoji is unavailable.
+Every configured club prefers the Staff-uploaded emoji from the exact Discord
+guild as its embed thumbnail. Public PNGs remain only as fallbacks for clubs that
+already have one in assets/teams.
 """
 
 from __future__ import annotations
@@ -13,9 +12,12 @@ import discord
 import team_badges_patch as badges
 import team_badge_selector_patch as selector
 
-# Canonical club name used by the JSON roster/database.
-selector.MANUAL_EMOJI_NAMES.pop("Zaragoza", None)
-selector.MANUAL_EMOJI_NAMES["Real Zaragoza"] = "zara"
+# Accept both historical/canonical variants so the same manual emoji keeps
+# working even if a JSON/seed names the club slightly differently.
+selector.MANUAL_EMOJI_NAMES.setdefault("Zaragoza", "zara")
+selector.MANUAL_EMOJI_NAMES.setdefault("Real Zaragoza", "zara")
+selector.MANUAL_EMOJI_NAMES.setdefault("Atletico Madrid", "atletico")
+selector.MANUAL_EMOJI_NAMES.setdefault("Atletico de Madrid", "atletico")
 
 
 if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
@@ -40,9 +42,9 @@ if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
 
     discord.Embed.to_dict = _reliable_to_dict
     discord.Embed._ajap_badge_reliability_patch = True
-    print("AJAP badge reliability activo: emoji manual exacto + PNG fallback")
+    print("AJAP badge reliability activo: todos los clubes usan emoji manual + PNG fallback")
 
 # Final Staff bridge: when Perfil Usuario builds the team list, pass the concrete
-# interaction.guild into both the embed and select so :mancity: can never come
+# interaction.guild into both the embed and select so manual emojis can never come
 # from another server/context.
 import manual_city_exact_guild_patch  # noqa: F401,E402
