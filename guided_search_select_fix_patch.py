@@ -80,7 +80,7 @@ class SafeClubSelect(discord.ui.Select):
             discord.SelectOption(
                 label=club[:100],
                 value=club[:100],
-                default=bool(current and search._norm(current) == search._norm(club)),
+                default=bool(current and search._norm(club) == search._norm(current)),
             )
             for club in clubs
         )
@@ -149,5 +149,9 @@ class SafeOVRSelect(discord.ui.Select):
 search.PositionSelect = SafePositionSelect
 search.ClubSelect = SafeClubSelect
 search.OVRSelect = SafeOVRSelect
+
+# Also load the admin-only utility that publishes the bot's welcome/introduction
+# message in any text channel selected by Staff.
+import bot_intro_message_patch  # noqa: F401,E402
 
 print("AJAP hotfix búsqueda guiada activo: selects sin valores vacíos")
