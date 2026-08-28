@@ -19,7 +19,7 @@ import betis_roster_replace_patch  # noqa: F401
 # 24-player roster, full PES6 attributes/abilities and the same AJAP OVR formula.
 import sevilla_roster_replace_patch  # noqa: F401
 # Villareal.json replaces Villarreal's legacy seed with the uploaded 24-player
-# roster, full PES6 attributes/abilities and the same AJAP OVR formula.
+# roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
 import villarreal_roster_replace_patch  # noqa: F401
 # Torino.json adds Torino as a selectable Italian club with the uploaded
 # 27-player roster, full PES6 attributes/abilities and AJAP 3-stat OVR.
@@ -177,5 +177,8 @@ import modal_submit_hardening_patch  # noqa: F401,E402
 # Hotfix de la búsqueda guiada: Discord no admite valores vacíos en opciones de
 # select; usa un sentinel seguro para "Todos/Cualquiera" y evita el timeout.
 import guided_search_select_fix_patch  # noqa: F401,E402
+# Liberaciones de jugadores: solo con mercado abierto, costo fijo del 20% del
+# valor de mercado, descuento automático, historial/tesorería y pase a libre.
+import player_release_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
