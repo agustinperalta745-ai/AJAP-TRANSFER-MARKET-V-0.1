@@ -20,6 +20,7 @@ CLEAR_TABLES = (
     "loan_option_payments",
     "loans",
     "clause_requests",
+    "player_releases",
     "player_history",
     "transfers",
     "offers",
@@ -85,7 +86,7 @@ def _origins():
 
 
 def _reverse_market_finances(conn):
-    """Undo only cash effects created by test clauses/loans."""
+    """Undo cash effects created by clauses, loans and paid player releases."""
     if not _table_exists(conn, "club_finances"):
         return 0
 
@@ -124,6 +125,13 @@ def _reverse_market_finances(conn):
                 delta[str(row["buyer_club"])] += amount
                 delta[str(row["seller_club"])] -= amount
 
+    if _table_exists(conn, "player_releases"):
+        for row in conn.execute(
+            "SELECT from_club, release_cost FROM player_releases"
+        ).fetchall():
+            amount = int(row["release_cost"] or 0)
+            delta[str(row["from_club"])] += amount
+
     changed = 0
     for club, amount in delta.items():
         if not club or not amount:
@@ -140,15 +148,16 @@ def _reverse_market_finances(conn):
     return changed
 
 
-def _reset(conn, guild_id):
+def _reset(conn, guild_id, *, force=False, admin_id=None):
     conn.execute(
         "CREATE TABLE IF NOT EXISTS launch_reset_state ("
         "key TEXT PRIMARY KEY, guild_id INTEGER, "
         "applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)"
     )
-    if conn.execute(
+    already_applied = conn.execute(
         "SELECT 1 FROM launch_reset_state WHERE key=? LIMIT 1", (RESET_KEY,)
-    ).fetchone():
+    ).fetchone()
+    if already_applied and not force:
         return False, {}
 
     if not _table_exists(conn, "roster_players"):
@@ -184,15 +193,65 @@ def _reset(conn, guild_id):
         )
 
     conn.execute(
-        "INSERT INTO launch_reset_state (key,guild_id) VALUES (?,?)",
+        "INSERT OR IGNORE INTO launch_reset_state (key,guild_id) VALUES (?,?)",
         (RESET_KEY, int(guild_id)),
     )
+
+    if force:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS manual_reset_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                admin_id INTEGER,
+                players_restored INTEGER NOT NULL,
+                tables_cleared INTEGER NOT NULL,
+                finance_accounts_reverted INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO manual_reset_history
+            (guild_id, admin_id, players_restored, tables_cleared, finance_accounts_reverted)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                int(guild_id),
+                int(admin_id) if admin_id is not None else None,
+                int(restored),
+                int(cleared),
+                int(finance_changes),
+            ),
+        )
+
     conn.commit()
     return True, {
         "players": restored,
         "tables": cleared,
         "finances": finance_changes,
     }
+
+
+def manual_reset_current_guild(runtime, guild_id: int, admin_id: int):
+    """Run the same clean reset on demand for one guild, even if launch reset ran."""
+    guild_id = int(guild_id)
+    with runtime.guild_context(guild_id):
+        # Opening runtime.db triggers all JSON roster synchronizers first.
+        with runtime.db() as conn:
+            applied, stats = _reset(
+                conn,
+                guild_id,
+                force=True,
+                admin_id=int(admin_id),
+            )
+    print(
+        "AJAP RESET V1 MANUAL aplicado: "
+        f"guild={guild_id} • admin={admin_id} • jugadores={stats['players']} • "
+        f"tablas={stats['tables']} • finanzas_revertidas={stats['finances']}"
+    )
+    return applied, stats
 
 
 def apply_v1_official_reset(runtime, bot):
