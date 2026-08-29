@@ -281,7 +281,8 @@ async def _card(guild, home, away, hg, ag):
 
     center(short(home), 185, 224, _font(28, True))
     center(short(away), 815, 224, _font(28, True))
-    center(f"{int(hg)}  —  {int(ag)}", 500, 108, _font(92, True))
+    # Keep the score separator ASCII-only so Pillow never renders a missing-glyph box.
+    center(f"{int(hg)}  -  {int(ag)}", 500, 108, _font(92, True))
     center("RESULTADO FINAL", 500, 228, _font(18))
     out = io.BytesIO()
     canvas.save(out, "PNG", optimize=True)
