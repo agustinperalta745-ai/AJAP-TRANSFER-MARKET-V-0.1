@@ -8,6 +8,7 @@ player is already in the borrowing club's roster from the loan.
 
 import discord
 
+import active_finance_clubs_patch  # noqa: F401
 import loan_lifecycle_patch as loans
 
 
