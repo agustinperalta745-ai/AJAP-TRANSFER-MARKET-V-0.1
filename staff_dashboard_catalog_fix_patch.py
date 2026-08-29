@@ -101,3 +101,8 @@ print(
     "AJAP dashboard Staff corregido: catálogo JSON real + asignaciones activas + "
     "alertas de saldo sin falsos $0"
 )
+
+# This module is imported before run_bot. The final consistency layer wraps the
+# last roster sync used by run_bot so its fixes are installed only after every
+# other market/Staff/guild wrapper has finished loading.
+import final_runtime_consistency_patch  # noqa: F401,E402
