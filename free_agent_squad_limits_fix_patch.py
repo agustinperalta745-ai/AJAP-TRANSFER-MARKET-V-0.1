@@ -10,11 +10,15 @@ For JUGADOR LIBRE operations we validate only:
 - destination club exists;
 - destination has room under the 32 committed-slot ceiling.
 
-All normal transfers, loans, swaps and clausulazos keep the original 20-32
-validation chain unchanged.
+Free-agent approval is final: when Staff approves, the player is moved to the
+destination roster in the same transaction, history is written and the club DT
+receives a DM. Normal transfers, loans, swaps and clausulazos keep their existing
+Staff -> PES workflow unchanged.
 """
 
 from __future__ import annotations
+
+import asyncio
 
 import squad_limits_patch as squad_limits
 import released_free_agents_patch as free_agents
@@ -123,52 +127,82 @@ def _validate_staff_free_agent(rows):
     return True, None
 
 
-def _approve_free_agent(transfer_id, staff_id):
-    rows = _deal_rows(transfer_id)
-    handled, error = _validate_staff_free_agent(rows)
-    if not handled:
-        return None
-    if error:
-        return False, error
-    if not all((row["status"] or "").upper() == "PENDIENTE_ADMIN" for row in rows):
-        return False, "La operación ya no está pendiente de aprobación."
+def _club_manager_ids(conn, club):
+    try:
+        rows = conn.execute(
+            "SELECT user_id FROM clubs WHERE name=? COLLATE NOCASE",
+            (str(club),),
+        ).fetchall()
+    except Exception:
+        return []
+    return [int(row["user_id"]) for row in rows if row["user_id"]]
 
-    ids = [int(row["id"]) for row in rows]
-    placeholders = ",".join("?" for _ in ids)
+
+async def _notify_free_agent_approved(user_id, player, buyer):
     app = _runtime()
-    with app.db() as conn:
-        conn.execute(
-            f"""
-            UPDATE transfers
-            SET status='APROBADA', approved_by=?, approved_at=CURRENT_TIMESTAMP
-            WHERE id IN ({placeholders}) AND status='PENDIENTE_ADMIN'
-            """,
-            (int(staff_id), *ids),
+    bot = getattr(app, "bot", None) if app is not None else None
+    if bot is None:
+        return
+    try:
+        user = bot.get_user(int(user_id))
+        if user is None:
+            user = await bot.fetch_user(int(user_id))
+        await user.send(
+            "✅ **FICHAJE APROBADO POR STAFF**\n\n"
+            f"El Staff aprobó el fichaje de **{player}**.\n"
+            f"➡️ **Nuevo club:** {buyer}\n"
+            "💰 **Costo:** $0\n\n"
+            "📋 El jugador ya fue incorporado al plantel oficial de tu club."
         )
-    return True, None
+    except Exception as exc:
+        print(
+            f"WARNING AJAP: no se pudo enviar DM de agente libre aprobado "
+            f"a user_id={user_id}: {exc}"
+        )
 
 
-def _apply_free_agent_to_pes(transfer_id, staff_id):
-    rows = _deal_rows(transfer_id)
-    handled, error = _validate_staff_free_agent(rows)
-    if not handled:
-        return None
-    if error:
-        return False, error
+def _schedule_approval_notifications(notifications):
+    if not notifications:
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    sent = set()
+    for user_id, player, buyer in notifications:
+        key = (int(user_id), str(player).casefold(), str(buyer).casefold())
+        if key in sent:
+            continue
+        sent.add(key)
+        loop.create_task(_notify_free_agent_approved(user_id, player, buyer))
 
+
+def _finalize_free_agent(rows, staff_id, allowed_statuses):
+    """Move free agents to their buyer atomically and close the AJAP operation."""
+    app = _runtime()
+    if app is None:
+        return False, "El runtime de AJAP todavía no está disponible."
+
+    allowed = {str(status).upper() for status in allowed_statuses}
     statuses = {(row["status"] or "").upper() for row in rows}
     if statuses == {"APLICADA"}:
-        staff_review.market_reports._mark_deal_loaded(transfer_id, staff_id)
         return True, None
-    if statuses != {"APROBADA"}:
-        return False, "Primero debe aprobarse el fichaje de agente libre."
+    if not statuses or not statuses.issubset(allowed):
+        return False, "La operación ya no está en un estado válido para completarse."
 
-    app = _runtime()
+    notifications = []
     conn = app.db()
     try:
         conn.execute("BEGIN IMMEDIATE")
-
         for row in rows:
+            fresh = conn.execute(
+                "SELECT * FROM transfers WHERE id=? LIMIT 1",
+                (int(row["id"]),),
+            ).fetchone()
+            if not fresh or (fresh["status"] or "").upper() not in allowed:
+                conn.rollback()
+                return False, "La operación cambió de estado; no se aplicó ningún movimiento."
+
             if row["player_id"]:
                 player = conn.execute(
                     "SELECT * FROM roster_players WHERE id=? LIMIT 1",
@@ -186,35 +220,29 @@ def _apply_free_agent_to_pes(transfer_id, staff_id):
                 return False, f"{row['player']} figura en {current}; no se aplicó ningún movimiento."
 
             buyer = str(row["buyer"] or "").strip()
+            if not buyer:
+                conn.rollback()
+                return False, "La operación de agente libre no tiene club de destino."
             ok, reason = squad_limits.validate_free_agent(conn, buyer)
             if not ok:
                 conn.rollback()
                 return False, reason
 
-        for row in rows:
-            if row["player_id"]:
-                player = conn.execute(
-                    "SELECT * FROM roster_players WHERE id=? LIMIT 1",
-                    (int(row["player_id"]),),
-                ).fetchone()
-            else:
-                player = conn.execute(
-                    "SELECT * FROM roster_players WHERE name=? COLLATE NOCASE LIMIT 1",
-                    (row["player"],),
-                ).fetchone()
-
             conn.execute(
                 "UPDATE roster_players SET club=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                (row["buyer"], int(player["id"])),
+                (buyer, int(player["id"])),
             )
             conn.execute(
                 """
                 UPDATE transfers
-                SET status='APLICADA', applied_by=?, applied_at=CURRENT_TIMESTAMP,
-                    pes_loaded_by=?, pes_loaded_at=COALESCE(pes_loaded_at,CURRENT_TIMESTAMP)
+                SET status='APLICADA',
+                    approved_by=COALESCE(approved_by, ?),
+                    approved_at=COALESCE(approved_at, CURRENT_TIMESTAMP),
+                    applied_by=?, applied_at=CURRENT_TIMESTAMP,
+                    pes_loaded_by=?, pes_loaded_at=COALESCE(pes_loaded_at, CURRENT_TIMESTAMP)
                 WHERE id=?
                 """,
-                (int(staff_id), int(staff_id), int(row["id"])),
+                (int(staff_id), int(staff_id), int(staff_id), int(row["id"])),
             )
 
             history = conn.execute(
@@ -230,18 +258,61 @@ def _apply_free_agent_to_pes(transfer_id, staff_id):
                     """,
                     (
                         int(player["id"]), row["player"], free_agents.FREE_AGENT_CLUB,
-                        row["buyer"], int(row["id"]), row["season_id"],
+                        buyer, int(row["id"]), row["season_id"],
                         free_agents.FREE_AGENT_TYPE,
                     ),
                 )
 
+            for user_id in _club_manager_ids(conn, buyer):
+                notifications.append((user_id, row["player"], buyer))
+
         conn.commit()
-        return True, None
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
+
+    _schedule_approval_notifications(notifications)
+    return True, None
+
+
+def _approve_free_agent(transfer_id, staff_id):
+    rows = _deal_rows(transfer_id)
+    handled, error = _validate_staff_free_agent(rows)
+    if not handled:
+        return None
+    if error:
+        return False, error
+    if not all((row["status"] or "").upper() == "PENDIENTE_ADMIN" for row in rows):
+        return False, "La operación ya no está pendiente de aprobación."
+
+    # Para agentes libres, aprobar es la acción final en AJAP: no existe un
+    # segundo paso necesario para que aparezca en el plantel.
+    return _finalize_free_agent(rows, staff_id, {"PENDIENTE_ADMIN"})
+
+
+def _apply_free_agent_to_pes(transfer_id, staff_id):
+    rows = _deal_rows(transfer_id)
+    if not _all_free_agent(rows):
+        return None
+
+    statuses = {(row["status"] or "").upper() for row in rows}
+    if statuses == {"APLICADA"}:
+        staff_review.market_reports._mark_deal_loaded(transfer_id, staff_id)
+        return True, None
+
+    # Compatibilidad con operaciones de agentes libres que quedaron APROBADAS
+    # antes de este fix: el viejo botón "Cargado en PES" también las finaliza.
+    if statuses != {"APROBADA"}:
+        return False, "Primero debe aprobarse el fichaje de agente libre."
+
+    handled, error = _validate_staff_free_agent(rows)
+    if not handled:
+        return None
+    if error:
+        return False, error
+    return _finalize_free_agent(rows, staff_id, {"APROBADA"})
 
 
 def install_final_staff_fix():
@@ -271,8 +342,8 @@ def install_final_staff_fix():
     staff_review._approve_deal = approve
     staff_review._apply_deal_to_pes = apply_to_pes
     print(
-        "AJAP FIX FINAL agentes libres: Staff/PES ignora mínimo de Jugador Libre; "
-        "solo valida máximo 32 del destino"
+        "AJAP FIX FINAL agentes libres: aprobar Staff mueve al plantel + DM; "
+        "Jugador Libre ignora mínimo 20 y destino mantiene máximo 32"
     )
     return True
 
@@ -296,8 +367,8 @@ if not getattr(squad_limits.apply_squad_limits_patch, "_ajap_free_agent_final_wr
     squad_limits.apply_squad_limits_patch = _apply_squad_limits_then_free_agent_fix
 
 print(
-    "AJAP fix agentes libres activo: Jugador Libre exento del mínimo 20; "
-    "destino mantiene máximo 32"
+    "AJAP fix agentes libres activo: aprobación final inmediata + DM; "
+    "Jugador Libre exento del mínimo 20; destino mantiene máximo 32"
 )
 
 # El dashboard Staff debe usar la misma fuente JSON-only que el selector real de
