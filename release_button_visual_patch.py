@@ -115,9 +115,3 @@ import released_free_agents_safety_patch  # noqa: F401,E402
 # ``Jugador Libre`` es un estado/pseudo-club, no un club real: queda exento del
 # mínimo de 20 al aprobar fichajes gratis. El destino conserva el máximo de 32.
 import free_agent_squad_limits_fix_patch  # noqa: F401,E402
-
-# IMPORTANTE: esta capa antes existía en el repositorio pero no se importaba, por
-# lo que sus correcciones nunca llegaban a ejecutarse. Se carga acá, antes de
-# run_bot, para envolver el último sincronizador (Galatasaray) y activar recién al
-# final del arranque el fix definitivo de agentes libres, dashboard y RESET V1.
-import final_runtime_consistency_patch  # noqa: F401,E402
