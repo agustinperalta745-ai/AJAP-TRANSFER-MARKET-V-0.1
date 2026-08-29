@@ -190,8 +190,9 @@ async def rehabilitar_captura_prueba(interaction: discord.Interaction, mensaje: 
         except Exception:
             pass
 
-        # Re-run the exact original message. No repost is necessary.
-        await evidence.evidence_handle(source)
+        # Re-run the exact original message through the final installed handler,
+        # including the visible feedback guard. No repost is necessary.
+        await league.handle(runtime, BOT, source)
 
         details = []
         if state["removed_match"]:
