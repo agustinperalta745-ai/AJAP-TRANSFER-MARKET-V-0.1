@@ -13,3 +13,5 @@ Este commit fuerza un despliegue de Railway con el estado actual de main y las c
 - Dashboard Staff usa los clubes reales respaldados por JSON y RESET V1 restaura el presupuesto base de $10.000.000.
 
 No se reabre el bug antiguo de asignación de club: la autoridad vigente de clubs + historial auditado se mantiene tal como está en main.
+
+Reintento de despliegue: Railway normalizado el 2026-08-29; se fuerza un nuevo build desde main con todas las correcciones consolidadas.
