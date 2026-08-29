@@ -214,6 +214,35 @@ async def rehabilitar_captura_prueba(interaction: discord.Interaction, mensaje: 
         )
 
 
+async def _sync_rehab_command_to_guilds():
+    """Publish the Staff helper as a guild command so Discord shows it immediately."""
+    bot = BOT
+    if bot is None or not bot.user:
+        return
+
+    for guild in list(bot.guilds):
+        target = discord.Object(id=int(guild.id))
+        try:
+            bot.tree.add_command(
+                rehabilitar_captura_prueba,
+                guild=target,
+                override=True,
+            )
+            synced = await bot.tree.sync(guild=target)
+            present = any(
+                getattr(command, "name", None) == "rehabilitar_captura_prueba"
+                for command in synced
+            )
+            print(
+                "AJAP Liga slash sync guild="
+                f"{guild.id}: rehabilitar_captura_prueba={'OK' if present else 'NO_ENCONTRADO'}"
+            )
+        except Exception as exc:
+            print(
+                f"ERROR AJAP Liga slash sync guild={getattr(guild, 'id', '?')}: {exc}"
+            )
+
+
 def _install(runtime, bot):
     global APP, BOT
     APP, BOT = runtime, bot
@@ -225,8 +254,12 @@ def _install(runtime, bot):
         bot.tree.remove_command("rehabilitar_captura_prueba")
     bot.tree.add_command(rehabilitar_captura_prueba)
 
+    if not getattr(bot, "_ajap_rehab_guild_sync_listener", False):
+        bot.add_listener(_sync_rehab_command_to_guilds, "on_ready")
+        bot._ajap_rehab_guild_sync_listener = True
+
     runtime._ajap_league_capture_rehab_patch = True
-    print("AJAP Liga: /rehabilitar_captura_prueba registrado para Staff")
+    print("AJAP Liga: /rehabilitar_captura_prueba registrado para Staff + sync inmediato por servidor")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
