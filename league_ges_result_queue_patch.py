@@ -351,13 +351,19 @@ def _wrap():
     evidence._persist_official = wrapped
 
 
-async def _configure(runtime, interaction, canal):
+async def _configure(runtime, interaction):
     if interaction.guild is None or not runtime.es_admin(interaction):
         await interaction.response.send_message("⛔ Solo administradores dentro de un servidor.", ephemeral=True)
         return
-    if canal.guild.id != interaction.guild.id:
-        await interaction.response.send_message("⚠️ Elegí un canal de este servidor.", ephemeral=True)
+
+    canal = interaction.channel
+    if not isinstance(canal, discord.TextChannel):
+        await interaction.response.send_message(
+            "⚠️ Ejecutá este comando dentro del canal de texto que querés usar para los resultados de GES.",
+            ephemeral=True,
+        )
         return
+
     me = interaction.guild.me
     perms = canal.permissions_for(me) if me else None
     if perms and not (perms.view_channel and perms.send_messages and perms.embed_links and perms.attach_files):
@@ -368,7 +374,7 @@ async def _configure(runtime, interaction, canal):
         return
     _save_channel(runtime, interaction.guild.id, canal.id, interaction.user.id)
     await interaction.response.send_message(
-        f"✅ Canal de resultados GES vinculado: {canal.mention}. Los resultados oficiales se enviarán ahí con **En revisión** / **Cargado en GES**.",
+        f"✅ Este canal quedó vinculado para resultados GES: {canal.mention}. Los resultados oficiales se enviarán acá con **En revisión** / **Cargado en GES**.",
         ephemeral=True,
     )
 
@@ -384,13 +390,13 @@ def _install(runtime, bot):
     if old:
         bot.tree.remove_command(COMMAND)
 
-    @bot.tree.command(name=COMMAND, description="Vincula el canal de resultados para GES Liga")
-    async def canal_resultados_ges(interaction: discord.Interaction, canal: discord.TextChannel):
-        await _configure(runtime, interaction, canal)
+    @bot.tree.command(name=COMMAND, description="Vincula este canal como destino de resultados GES")
+    async def canal_resultados_ges(interaction: discord.Interaction):
+        await _configure(runtime, interaction)
 
     bot.add_view(GesView())
     runtime._ajap_ges_result_queue = True
-    print("AJPA GES activo: /canal_resultados_ges + estados En revisión/Cargado en GES")
+    print("AJPA GES activo: /canal_resultados_ges enlaza el canal actual + estados En revisión/Cargado en GES")
 
 
 _ORIGINAL = guild_isolation.apply_guild_isolation_patch
