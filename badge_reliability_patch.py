@@ -59,3 +59,7 @@ import manual_city_exact_guild_patch  # noqa: F401,E402
 # Importing it here is intentionally late: badge aliases are final and run_bot will
 # later call the wrapped guild-isolation installer with the definitive team logic.
 import team_role_identity_patch  # noqa: F401,E402
+
+# Cola Staff para pasar resultados oficiales a GES Liga. Se importa después de la
+# capa de escudos para que la placa use los emojis definitivos de cada club.
+import league_ges_result_queue_patch  # noqa: F401,E402
