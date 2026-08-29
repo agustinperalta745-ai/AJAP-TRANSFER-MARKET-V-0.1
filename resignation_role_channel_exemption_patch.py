@@ -18,6 +18,10 @@ if PREFIX not in market_usage.EXEMPT_COMPONENT_PREFIXES:
 
 print("AJAP renuncia Staff: botones Mantener/Quitar exentos del canal único de mercado")
 
+# UI final de liberaciones: la acción deja MI CLUB y vive dentro de PLANTILLA.
+# También hace que el regreso desde una liberación vuelva a los rangos OVR.
+import release_button_roster_location_patch  # noqa: F401,E402
+
 # Compatibilidad de datos previa al fix final de agentes libres: operaciones ya
 # aprobadas que quedaron en APROBADA se terminan automáticamente en la DB del
 # servidor actual, sin tocar transferencias/préstamos/intercambios normales.
