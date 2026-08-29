@@ -3,7 +3,8 @@
 The old callback asked Staff to type a club name and only acknowledged Discord
 after querying the DB. On a guild's first access, DB migrations can take long
 enough for Discord to expire the interaction. This patch acknowledges first,
-then loads the active teams, and uses exact club names from league_teams.
+then loads the active teams, uses exact club names from league_teams, and shows
+the configured club crest emoji instead of the old country flag.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import discord
 
 import guild_isolation_patch as guild_isolation
 import staff_admin_organized_patch as staff
+import team_badge_selector_patch as badges
 
 
 APP = None
@@ -26,23 +28,10 @@ def _is_view_button(item) -> bool:
     return "ver plantel" in label or custom_id == "ajap_admin_roster_view"
 
 
-def _country_emoji(country: str) -> str:
-    raw = str(country or "").strip().casefold()
-    if "argentin" in raw:
-        return "🇦🇷"
-    if "fran" in raw:
-        return "🇫🇷"
-    if "espa" in raw:
-        return "🇪🇸"
-    if "ital" in raw:
-        return "🇮🇹"
-    if "inglat" in raw or "england" in raw:
-        return "🏴"
-    if "portugal" in raw:
-        return "🇵🇹"
-    if "países bajos" in raw or "paises bajos" in raw or "holanda" in raw:
-        return "🇳🇱"
-    return "⚽"
+def _club_emoji(guild, club: str):
+    """Use the manual crest configured in this Discord server, never a flag."""
+    badge = badges._manual_badge_emoji(guild, str(club or "").strip())
+    return badge if badge is not None else "⚽"
 
 
 def _active_teams():
@@ -95,13 +84,13 @@ def _rosters_embed():
 
 
 class RosterTeamSelect(discord.ui.Select):
-    def __init__(self, rows):
+    def __init__(self, rows, guild=None):
         options = [
             discord.SelectOption(
                 label=str(row["name"])[:100],
                 description=(str(row["country"]) or "Equipo activo")[:100],
                 value=str(row["name"]),
-                emoji=_country_emoji(row["country"]),
+                emoji=_club_emoji(guild, row["name"]),
             )
             for row in rows[:25]
         ]
@@ -127,7 +116,7 @@ class RosterTeamSelect(discord.ui.Select):
             rows = _active_teams()
             await interaction.edit_original_response(
                 embed=embed,
-                view=RosterTeamView(rows),
+                view=RosterTeamView(rows, guild=interaction.guild),
             )
         except Exception as exc:
             print(f"AJAP VER PLANTEL error ({club}): {exc!r}")
@@ -164,10 +153,10 @@ class BackToRostersButton(discord.ui.Button):
 
 
 class RosterTeamView(discord.ui.View):
-    def __init__(self, rows):
+    def __init__(self, rows, guild=None):
         super().__init__(timeout=300)
         if rows:
-            self.add_item(RosterTeamSelect(rows))
+            self.add_item(RosterTeamSelect(rows, guild=guild))
         self.add_item(BackToRostersButton())
 
 
@@ -200,7 +189,7 @@ class ViewRosterSelectorButton(discord.ui.Button):
                 return
             await interaction.followup.send(
                 embed=_selector_embed(),
-                view=RosterTeamView(rows),
+                view=RosterTeamView(rows, guild=interaction.guild),
                 ephemeral=True,
             )
         except Exception as exc:
@@ -241,7 +230,7 @@ def apply_admin_roster_view_selector_patch(runtime, bot):
 
     _install_roster_view_selector()
     runtime._ajap_admin_roster_view_selector_patch = True
-    print("AJAP Staff: Ver plantel usa selector de equipos + defer anti-timeout")
+    print("AJAP Staff: Ver plantel usa selector con escudos + defer anti-timeout")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
