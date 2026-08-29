@@ -159,12 +159,29 @@ def _drop_failed(runtime, guild_id, source):
 def _status(runtime, guild_id, message_id, status, user_id):
     conn = _conn(runtime, guild_id)
     try:
-        conn.execute("""
-            UPDATE league_ges_result_queue
-            SET status=?,status_by=?,status_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
-            WHERE guild_id=? AND ges_message_id=?
-        """, (status, int(user_id), int(guild_id), int(message_id)))
+        conn.execute("BEGIN IMMEDIATE")
+        target = str(status).upper()
+        if target == "EN_REVISION":
+            cur = conn.execute("""
+                UPDATE league_ges_result_queue
+                SET status=?,status_by=?,status_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                WHERE guild_id=? AND ges_message_id=? AND status='PENDIENTE'
+            """, (target, int(user_id), int(guild_id), int(message_id)))
+        elif target == "CARGADO_GES":
+            cur = conn.execute("""
+                UPDATE league_ges_result_queue
+                SET status=?,status_by=?,status_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+                WHERE guild_id=? AND ges_message_id=? AND status IN ('PENDIENTE','EN_REVISION')
+            """, (target, int(user_id), int(guild_id), int(message_id)))
+        else:
+            conn.rollback()
+            return False
+        changed = cur.rowcount > 0
         conn.commit()
+        return changed
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -226,8 +243,6 @@ def _font(size, bold=False):
             return ImageFont.truetype(name, int(size))
         except Exception:
             pass
-    # Pillow >=10.1 ships a scalable default when size is provided. This keeps
-    # the score readable even in slim containers that do not include system fonts.
     try:
         return ImageFont.load_default(size=int(size))
     except TypeError:
@@ -328,19 +343,40 @@ class GesView(discord.ui.View):
         if not allowed:
             await interaction.response.send_message("⛔ Solo administradores.", ephemeral=True)
             return
-        row = _find(APP, interaction.guild_id, message=interaction.message.id)
-        if not row:
-            await interaction.response.send_message("⚠️ Resultado GES no encontrado.", ephemeral=True)
-            return
-        if str(row["status"]).upper() == "CARGADO_GES":
-            await interaction.response.send_message("ℹ️ Ya figura como cargado en GES.", ephemeral=True)
-            return
-        _status(APP, interaction.guild_id, interaction.message.id, status, interaction.user.id)
-        row = _find(APP, interaction.guild_id, message=interaction.message.id)
-        embed = _embed(interaction.guild, row, interaction.user.id)
-        if interaction.message.attachments:
-            embed.set_image(url="attachment://ges_resultado.png")
-        await interaction.response.edit_message(embed=embed, view=GesView(status))
+
+        # Acknowledge Discord immediately so the button never shows
+        # "La aplicación no ha respondido a tiempo" while DB/message work runs.
+        await interaction.response.defer()
+
+        try:
+            row = _find(APP, interaction.guild_id, message=interaction.message.id)
+            if not row:
+                await interaction.followup.send("⚠️ Resultado GES no encontrado.", ephemeral=True)
+                return
+
+            changed = _status(APP, interaction.guild_id, interaction.message.id, status, interaction.user.id)
+            row = _find(APP, interaction.guild_id, message=interaction.message.id)
+            current = str(row["status"] or "PENDIENTE").upper()
+
+            embed = _embed(interaction.guild, row, interaction.user.id if changed else row["status_by"])
+            if interaction.message.attachments:
+                embed.set_image(url="attachment://ges_resultado.png")
+            await interaction.message.edit(embed=embed, view=GesView(current))
+
+            if not changed:
+                if current == "CARGADO_GES":
+                    await interaction.followup.send("ℹ️ Ya figura como cargado en GES.", ephemeral=True)
+                elif current == "EN_REVISION" and str(status).upper() == "EN_REVISION":
+                    await interaction.followup.send("ℹ️ Este resultado ya está en revisión.", ephemeral=True)
+        except Exception as exc:
+            print(f"WARNING AJPA GES BUTTON: {type(exc).__name__}: {exc}")
+            try:
+                await interaction.followup.send(
+                    "⚠️ No pude actualizar el estado. Probá de nuevo en unos segundos.",
+                    ephemeral=True,
+                )
+            except Exception:
+                pass
 
     @discord.ui.button(label="En revisión", emoji="🔍", style=discord.ButtonStyle.primary, custom_id="ajap:league:ges:review")
     async def review(self, interaction, button):
@@ -410,9 +446,11 @@ def _install(runtime, bot):
     async def canal_resultados_ges(interaction: discord.Interaction):
         await _configure(runtime, interaction)
 
+    # Persistent view: timeout=None + fixed custom_ids makes existing buttons
+    # keep working after hours, restarts and Railway deploys.
     bot.add_view(GesView())
     runtime._ajap_ges_result_queue = True
-    print("AJPA GES activo: /canal_resultados_ges enlaza el canal actual + estados En revisión/Cargado en GES")
+    print("AJPA GES activo: botones persistentes + estados En revisión/Cargado en GES")
 
 
 _ORIGINAL = guild_isolation.apply_guild_isolation_patch
