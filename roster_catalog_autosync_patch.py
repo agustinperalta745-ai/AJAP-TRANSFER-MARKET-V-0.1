@@ -43,9 +43,18 @@ def _country_for(club: str) -> str:
     for name, country in getattr(teams, "OFFICIAL_TEAMS", []):
         if str(name).strip().casefold() == wanted:
             return str(country or "Sin definir")
-    if wanted == "real betis":
-        return "España"
-    return "Sin definir"
+
+    explicit_countries = {
+        "real betis": "España",
+        "betis": "España",
+        "sevilla": "España",
+        "sevilla fc": "España",
+        "villarreal": "España",
+        "villarreal cf": "España",
+        "villareal": "España",
+        "villareal cf": "España",
+    }
+    return explicit_countries.get(wanted, "Sin definir")
 
 
 def _is_deleted(conn, club: str) -> bool:
@@ -148,10 +157,16 @@ def _upsert_catalog(conn, club: str, country: str):
         "SELECT country FROM league_teams WHERE name = ? COLLATE NOCASE LIMIT 1",
         (club,),
     ).fetchone()
-    final_country = (
+    existing_country = (
         str(existing["country"] or "").strip()
-        if existing and str(existing["country"] or "").strip()
-        else str(country or "Sin definir").strip() or "Sin definir"
+        if existing
+        else ""
+    )
+    incoming_country = str(country or "Sin definir").strip() or "Sin definir"
+    final_country = (
+        incoming_country
+        if not existing_country or existing_country.casefold() == "sin definir"
+        else existing_country
     )
 
     conn.execute(
@@ -159,10 +174,7 @@ def _upsert_catalog(conn, club: str, country: str):
         INSERT INTO league_teams (name, country, active)
         VALUES (?, ?, 1)
         ON CONFLICT(name) DO UPDATE SET
-            country = CASE
-                WHEN TRIM(COALESCE(league_teams.country, '')) = '' THEN excluded.country
-                ELSE league_teams.country
-            END,
+            country = excluded.country,
             active = 1
         """,
         (club, final_country),
