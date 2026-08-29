@@ -2,11 +2,11 @@
 
 The market gate intentionally restricts market commands/components to the configured
 #mercado channel. Liga result workflows live in #Resultados and Staff/PES instead,
-so every Liga component/modal must bypass that gate.
+so every Liga component/modal and Liga-only Staff command must bypass that gate.
 
 This patch:
 - exempts all custom_ids under ``ajap:league:``;
-- exempts /liga_diagnostico from the market channel restriction;
+- exempts /liga_diagnostico and /rehabilitar_captura_prueba from the market channel restriction;
 - gives the two Liga modals stable ``ajap:league:`` custom_ids so their submits
   are also exempt, not only the buttons that open them.
 """
@@ -24,7 +24,12 @@ if "ajap:league:" not in market_gate.EXEMPT_COMPONENT_PREFIXES:
         "ajap:league:",
     )
 
-market_gate.EXEMPT_COMMANDS.add("liga_diagnostico")
+market_gate.EXEMPT_COMMANDS.update(
+    {
+        "liga_diagnostico",
+        "rehabilitar_captura_prueba",
+    }
+)
 
 
 def _give_modal_custom_id(modal_cls, custom_id: str, marker: str):
@@ -51,4 +56,4 @@ _give_modal_custom_id(
     "_ajap_league_market_exempt",
 )
 
-print("AJAP Liga fuera del gate de Mercado: botones + modales + diagnostico")
+print("AJAP Liga fuera del gate de Mercado: botones + modales + diagnostico + rehabilitar captura")
