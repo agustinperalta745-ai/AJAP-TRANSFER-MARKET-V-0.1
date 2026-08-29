@@ -17,3 +17,8 @@ if PREFIX not in market_usage.EXEMPT_COMPONENT_PREFIXES:
     )
 
 print("AJAP renuncia Staff: botones Mantener/Quitar exentos del canal único de mercado")
+
+# Compatibilidad de datos previa al fix final de agentes libres: operaciones ya
+# aprobadas que quedaron en APROBADA se terminan automáticamente en la DB del
+# servidor actual, sin tocar transferencias/préstamos/intercambios normales.
+import approved_free_agent_auto_reconcile_patch  # noqa: F401,E402
