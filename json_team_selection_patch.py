@@ -8,33 +8,20 @@ canonical club is active in the current guild DB.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import discord
 
 import guild_isolation_patch as guild_isolation
 import assignment_history_authority_patch  # noqa: F401
+import roster_catalog_autosync_patch as catalog
 import team_assignment as teams
 
 
 APP = None
-DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def _source_team_names():
-    names = []
-    for path in sorted(DATA_DIR.glob("*.json"), key=lambda item: item.name.casefold()):
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            print(f"WARNING AJAP selector JSON: no se pudo leer {path.name}: {exc}")
-            continue
-        raw = str(payload.get("equipo", "") or "").strip()
-        players = payload.get("jugadores")
-        if raw and isinstance(players, list) and players:
-            names.append(raw)
-    return names
+    """Reuse the canonical catalog reader, including multipart JSON sources."""
+    return list(catalog._json_source_team_names())
 
 
 def _candidate_names(source_name: str):
@@ -123,6 +110,8 @@ def _country_emoji(country: str) -> str:
         return "🇵🇹"
     if "países bajos" in raw or "paises bajos" in raw or "holanda" in raw:
         return "🇳🇱"
+    if "turqu" in raw:
+        return "🇹🇷"
     return "⚽"
 
 
