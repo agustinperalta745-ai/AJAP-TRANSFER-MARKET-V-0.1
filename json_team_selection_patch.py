@@ -4,6 +4,10 @@ This is intentionally a UI filter only. Legacy seeded/admin-created clubs stay i
 SQLite so old assignments, transfers and history are not destroyed, but a user
 without a club can only choose teams whose source JSON exists in data/ and whose
 canonical club is active in the current guild DB.
+
+The selector also reconciles every valid JSON source into the live catalog before
+rendering. This makes multipart clubs such as Galatasaray independent from startup
+migration order while still respecting Staff-deleted team tombstones.
 """
 
 from __future__ import annotations
@@ -53,6 +57,18 @@ def _candidate_names(source_name: str):
     return unique
 
 
+def _reconcile_source_clubs(conn, sources):
+    """Ensure every valid source club is active unless Staff explicitly deleted it."""
+    reconciled = []
+    for source_name in sources:
+        club = catalog._resolve_catalog_name(conn, source_name)
+        if not club or catalog._is_deleted(conn, club):
+            continue
+        catalog._upsert_catalog(conn, club, catalog._country_for(club))
+        reconciled.append(club)
+    return reconciled
+
+
 def _json_team_rows():
     if APP is None:
         return []
@@ -64,6 +80,12 @@ def _json_team_rows():
     rows = []
     used = set()
     with APP.db() as conn:
+        # Do not trust startup ordering here. If a valid JSON/multipart source
+        # exists, make its canonical league_teams row live immediately before
+        # rendering the selector. Historical aliases remain inactive.
+        _reconcile_source_clubs(conn, sources)
+        conn.commit()
+
         for source_name in sources:
             row = None
             for candidate in _candidate_names(source_name):
