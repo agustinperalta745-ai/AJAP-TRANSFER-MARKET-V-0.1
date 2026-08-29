@@ -210,12 +210,28 @@ def _embed(guild, row, actor=None):
 
 
 def _font(size, bold=False):
-    for name in (("DejaVuSans-Bold.ttf", "DejaVuSans.ttf") if bold else ("DejaVuSans.ttf",)):
+    """Return a real scalable font on Railway instead of Pillow's tiny bitmap fallback."""
+    regular = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "DejaVuSans.ttf",
+    )
+    bold_names = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+        "DejaVuSans-Bold.ttf",
+    )
+    for name in (bold_names if bold else regular):
         try:
-            return ImageFont.truetype(name, size)
+            return ImageFont.truetype(name, int(size))
         except Exception:
             pass
-    return ImageFont.load_default()
+    # Pillow >=10.1 ships a scalable default when size is provided. This keeps
+    # the score readable even in slim containers that do not include system fonts.
+    try:
+        return ImageFont.load_default(size=int(size))
+    except TypeError:
+        return ImageFont.load_default()
 
 
 async def _card(guild, home, away, hg, ag):
