@@ -121,3 +121,9 @@ import free_agent_squad_limits_fix_patch  # noqa: F401,E402
 # run_bot, para envolver el último sincronizador (Galatasaray) y activar recién al
 # final del arranque el fix definitivo de agentes libres, dashboard y RESET V1.
 import final_runtime_consistency_patch  # noqa: F401,E402
+
+# El cierre de mercado entrega una hoja operativa única: MOVIMIENTOS A PES.
+# Consolida movimientos intermedios de un mismo jugador en un cambio neto final,
+# agrega liberaciones y ajustes de historial, y mantiene pendientes/rechazados
+# fuera del checklist que Staff debe aplicar sobre la nueva DB de PES.
+import pes_movement_summary_patch  # noqa: F401,E402
