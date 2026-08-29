@@ -1,0 +1,15 @@
+AJPA Transfer Market — despliegue consolidado 2026-08-29
+
+Este commit fuerza un despliegue de Railway con el estado actual de main y las correcciones finales ya incorporadas en el runtime:
+
+- Planteles: mínimo 20 jugadores activos y máximo 32 plazas comprometidas.
+- Con 20 no se puede vender, liberar ni ceder a préstamo; los intercambios permanentes 1x1 siguen permitidos si el resultado queda dentro de 20–32.
+- Con 32 plazas comprometidas no se puede comprar ni recibir a préstamo; un 1x1 sigue permitido si no aumenta el total.
+- Los jugadores propios cedidos reservan su plaza para el regreso, evitando que el club llene 32 y bloquee una devolución contractual.
+- Jugadores liberados: pasan a Jugador Libre y aparecen en Transferibles por $0.
+- Fichaje de agente libre: reserva atómica, evita dobles fichajes y revalida el máximo de 32 también en aprobación Staff y carga PES.
+- La ficha de agente libre conserva estadísticas, último club y valor de mercado aunque el precio de fichaje sea $0.
+- Staff/Admin puede entrar a /mercado y usar Administración sin necesitar club asignado.
+- Dashboard Staff usa los clubes reales respaldados por JSON y RESET V1 restaura el presupuesto base de $10.000.000.
+
+No se reabre el bug antiguo de asignación de club: la autoridad vigente de clubs + historial auditado se mantiene tal como está en main.
