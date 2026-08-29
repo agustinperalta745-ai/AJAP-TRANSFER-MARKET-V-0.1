@@ -11,6 +11,7 @@ import team_assignment as teams
 GALATASARAY = "Galatasaray"
 COUNTRY = "Turquía"
 MIGRATION_MARKER = "galatasaray_json_v1_ovr3_20260827"
+CATALOG_RESTORE_MARKER = "galatasaray_catalog_restore_v2_20260829"
 SOURCE = "Galatasaray.json • OVR AJPA promedio de 3 stats • 2026-08-27"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 SOURCE_PARTS = tuple(DATA_DIR / f"Galatasaray.json.part{index:02d}" for index in range(1, 6))
@@ -108,10 +109,39 @@ def _upsert_attributes(conn, player_id, payload):
         )
 
 
+def _restore_catalog_once(conn):
+    """Clear only the stale pre-fix tombstone once; future Staff deletes still persist."""
+    restored = conn.execute(
+        "SELECT 1 FROM seed_state WHERE key = ?",
+        (CATALOG_RESTORE_MARKER,),
+    ).fetchone()
+    if restored:
+        return False
+
+    if "deleted_teams" in roster_base._tables(conn):
+        conn.execute(
+            "DELETE FROM deleted_teams WHERE name = ? COLLATE NOCASE",
+            (GALATASARAY,),
+        )
+    conn.execute(
+        "INSERT INTO league_teams (name, country, active) VALUES (?, ?, 1) "
+        "ON CONFLICT(name) DO UPDATE SET country = excluded.country, active = 1",
+        (GALATASARAY, COUNTRY),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO seed_state (key) VALUES (?)",
+        (CATALOG_RESTORE_MARKER,),
+    )
+    print("AJAP Galatasaray restaurado una vez al catálogo oficial activo")
+    return True
+
+
 def _sync_connection(runtime, conn):
     from lyon_test_seed import minimum_for_rating
 
     roster_base._ensure_schema(runtime, conn)
+    _restore_catalog_once(conn)
+
     names = [name for name, _position, _rating_value in GALATASARAY_ROSTER]
     marks = ",".join("?" for _ in names)
     present = conn.execute(
