@@ -1,15 +1,15 @@
 """Final runtime consistency fixes for AJAP.
 
-This module is imported before run_bot, but wraps the last roster sync invoked by
-run_bot (Galatasaray). That lets the fixes below install AFTER every market,
-guild, Staff and roster layer has already been applied, preventing later wrappers
-from restoring stale behavior.
+Imported before run_bot, but installed only after the last roster synchronizer
+(Galatasaray) finishes. This guarantees no later market/guild/Staff wrapper can
+restore stale behavior.
 
 Final guarantees:
 - ``Jugador Libre`` is a pseudo-club and never participates in the 20-player
   minimum. A free-agent signing validates only destination capacity (max 32).
-- Staff dashboard counts only valid JSON-backed clubs and only real finance rows;
-  legacy/auxiliary DB rows cannot inflate available-club or low-balance alerts.
+- Staff dashboard counts the canonical JSON-backed clubs, including split JSON
+  sources such as Galatasaray, and ignores legacy/auxiliary rows.
+- RESET V1 always restores every canonical JSON club to the initial $10M budget.
 """
 
 from __future__ import annotations
@@ -70,14 +70,40 @@ def _install_free_agent_validator(runtime):
     squad_limits.validate_rows = validate_rows
 
 
-def _valid_json_clubs(conn):
+def _canonical_json_names():
+    """Same JSON source used by RESET V1, including split Galatasaray JSON."""
+    import v1_official_reset_patch as reset
+
+    names = []
+    seen = set()
+    for _source, payload in reset._payloads():
+        club = str(payload.get("equipo") or "").strip()
+        players = payload.get("jugadores") or []
+        if not club or not isinstance(players, list) or not players:
+            continue
+        key = club.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(club)
+    return names
+
+
+def _resolve_club(conn, source_name):
     import roster_catalog_autosync_patch as catalog
 
+    club = catalog._resolve_catalog_name(conn, source_name)
+    if not club or catalog._is_deleted(conn, club):
+        return None
+    return club
+
+
+def _valid_json_clubs(conn):
     clubs = []
     seen = set()
-    for source_name in catalog._json_source_team_names():
-        club = catalog._resolve_catalog_name(conn, source_name)
-        if not club or catalog._is_deleted(conn, club):
+    for source_name in _canonical_json_names():
+        club = _resolve_club(conn, source_name)
+        if not club:
             continue
         key = club.casefold()
         if key in seen:
@@ -85,6 +111,26 @@ def _valid_json_clubs(conn):
         seen.add(key)
         clubs.append(club)
     return clubs
+
+
+def _ensure_initial_accounts(conn, clubs, initial_budget):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS club_finances (
+            club TEXT PRIMARY KEY COLLATE NOCASE,
+            balance INTEGER NOT NULL DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    for club in clubs:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO club_finances (club, balance, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            """,
+            (club, int(initial_budget)),
+        )
 
 
 def _install_dashboard_truth(runtime):
@@ -98,7 +144,6 @@ def _install_dashboard_truth(runtime):
         return
 
     def snapshot(_fallback=current):
-        # First let the normal dashboard calculate offers/operations/etc.
         try:
             catalog._sync_loaded_teams_into_catalog()
         except Exception as exc:
@@ -111,34 +156,15 @@ def _install_dashboard_truth(runtime):
                 valid = {club.casefold() for club in clubs}
                 data["total_clubs"] = len(clubs)
 
-                # Ensure every real JSON club has its canonical starting account.
-                # INSERT OR IGNORE never overwrites legitimate market balances.
-                if clubs:
-                    conn.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS club_finances (
-                            club TEXT PRIMARY KEY COLLATE NOCASE,
-                            balance INTEGER NOT NULL DEFAULT 0,
-                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                        )
-                        """
-                    )
-                    for club in clubs:
-                        conn.execute(
-                            """
-                            INSERT OR IGNORE INTO club_finances (club, balance, updated_at)
-                            VALUES (?, ?, CURRENT_TIMESTAMP)
-                            """,
-                            (club, int(builder.INITIAL_TEAM_BUDGET)),
-                        )
+                _ensure_initial_accounts(conn, clubs, builder.INITIAL_TEAM_BUDGET)
 
-                assigned = 0
                 tables = {
                     row["name"]
                     for row in conn.execute(
                         "SELECT name FROM sqlite_master WHERE type='table'"
                     ).fetchall()
                 }
+                assigned = 0
                 if "clubs" in tables:
                     rows = conn.execute(
                         "SELECT DISTINCT name FROM clubs WHERE name IS NOT NULL"
@@ -150,20 +176,13 @@ def _install_dashboard_truth(runtime):
                     )
                 data["assigned"] = assigned
 
-                # Only actual finance rows belonging to the valid JSON catalog
-                # can trigger this alert. Missing/legacy rows are never treated as $0.
-                low = 0
-                if clubs:
-                    rows = conn.execute(
-                        "SELECT club, balance FROM club_finances"
-                    ).fetchall()
-                    low = sum(
-                        1
-                        for row in rows
-                        if str(row["club"] or "").strip().casefold() in valid
-                        and int(row["balance"] or 0) < 1_000_000
-                    )
-                data["low_balance"] = low
+                rows = conn.execute("SELECT club, balance FROM club_finances").fetchall()
+                data["low_balance"] = sum(
+                    1
+                    for row in rows
+                    if str(row["club"] or "").strip().casefold() in valid
+                    and int(row["balance"] or 0) < 1_000_000
+                )
         except Exception as exc:
             print(f"WARNING AJAP final dashboard truth: {exc}")
         return data
@@ -172,16 +191,63 @@ def _install_dashboard_truth(runtime):
     dashboard._staff_snapshot = snapshot
 
 
+def _install_reset_budget_truth(runtime):
+    import v1_official_reset_patch as reset
+    import admin_roster_builder_patch as builder
+
+    current = reset._reset
+    if getattr(current, "_ajap_final_runtime_budget_reset", False):
+        return
+
+    def reset_with_budget(conn, guild_id, *, force=False, admin_id=None, _fallback=current):
+        applied, stats = _fallback(
+            conn,
+            guild_id,
+            force=force,
+            admin_id=admin_id,
+        )
+        if not applied:
+            return applied, stats
+
+        clubs = _valid_json_clubs(conn)
+        _ensure_initial_accounts(conn, clubs, builder.INITIAL_TEAM_BUDGET)
+        for club in clubs:
+            conn.execute(
+                """
+                UPDATE club_finances
+                SET balance=?, updated_at=CURRENT_TIMESTAMP
+                WHERE club=? COLLATE NOCASE
+                """,
+                (int(builder.INITIAL_TEAM_BUDGET), club),
+            )
+        conn.commit()
+
+        stats = dict(stats or {})
+        stats["budgets"] = len(clubs)
+        # The manual reset UI already exposes 'finances'. Include the budget
+        # restoration there too so Staff can see that accounts were reset.
+        stats["finances"] = max(int(stats.get("finances", 0)), len(clubs))
+        print(
+            "AJAP FINAL RESET presupuesto: "
+            f"guild={guild_id} • clubes={len(clubs)} • saldo=$10.000.000"
+        )
+        return applied, stats
+
+    reset_with_budget._ajap_final_runtime_budget_reset = True
+    reset._reset = reset_with_budget
+
+
 def install_final_runtime_consistency(runtime):
     if getattr(runtime, "_ajap_final_runtime_consistency", False):
         return False
 
     _install_free_agent_validator(runtime)
     _install_dashboard_truth(runtime)
+    _install_reset_budget_truth(runtime)
     runtime._ajap_final_runtime_consistency = True
     print(
         "AJAP FINAL runtime fix activo: Jugador Libre sin mínimo 20 + "
-        "dashboard limitado al catálogo JSON real"
+        "dashboard JSON real + RESET $10M"
     )
     return True
 
