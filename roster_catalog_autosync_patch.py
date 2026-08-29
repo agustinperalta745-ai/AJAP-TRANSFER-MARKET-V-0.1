@@ -5,7 +5,11 @@ selectable/active catalog. Legacy seeded/admin-created rows may remain in SQLite
 for history and referential safety, but they are kept inactive and must not count
 as available clubs.
 
-Staff-deleted teams remain hidden. Adding a new valid JSON file automatically
+A source may be either a normal ``*.json`` file or a multipart upload split as
+``*.json.part01``, ``*.json.part02``, etc. Multipart files are concatenated and
+validated as one JSON document before their club is admitted to the catalog.
+
+Staff-deleted teams remain hidden. Adding a new valid JSON source automatically
 makes that club eligible on the next catalog sync, provided its canonical row can
 be resolved (or it is created safely from the JSON name).
 """
@@ -55,17 +59,37 @@ def _is_deleted(conn, club: str) -> bool:
     )
 
 
-def _json_source_team_names():
-    """Return only clubs backed by a readable JSON with a non-empty roster."""
-    names = []
-    seen = set()
+def _json_payload_sources():
+    """Yield (source label, parsed payload) for regular and multipart JSON files."""
     for path in sorted(DATA_DIR.glob("*.json"), key=lambda item: item.name.casefold()):
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            yield path.name, json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
             print(f"WARNING AJAP catálogo JSON: no se pudo leer {path.name}: {exc}")
-            continue
 
+    multipart = {}
+    for part in DATA_DIR.glob("*.json.part*"):
+        prefix, separator, suffix = part.name.rpartition(".part")
+        if not separator or not prefix.casefold().endswith(".json") or not suffix.isdigit():
+            continue
+        multipart.setdefault(prefix, []).append((int(suffix), part))
+
+    for prefix in sorted(multipart, key=str.casefold):
+        parts = sorted(multipart[prefix], key=lambda item: item[0])
+        try:
+            text = "".join(path.read_text(encoding="utf-8") for _index, path in parts)
+            yield f"{prefix}.part*", json.loads(text)
+        except Exception as exc:
+            print(
+                f"WARNING AJAP catálogo JSON multipart: no se pudo reconstruir {prefix}: {exc}"
+            )
+
+
+def _json_source_team_names():
+    """Return clubs backed by a readable JSON source with a non-empty roster."""
+    names = []
+    seen = set()
+    for source_label, payload in _json_payload_sources():
         raw = str(payload.get("equipo", "") or "").strip()
         players = payload.get("jugadores")
         key = raw.casefold()
@@ -73,6 +97,8 @@ def _json_source_team_names():
             continue
         seen.add(key)
         names.append(raw)
+        if ".part*" in source_label:
+            print(f"AJAP catálogo JSON multipart válido: {source_label} -> {raw}")
     return names
 
 
@@ -157,9 +183,9 @@ def _sync_loaded_teams_into_catalog():
 
     builder._ensure_schema()
     with app.db() as conn:
-        # The database can keep legacy rows for history, but only JSON-backed clubs
-        # are active. This makes every panel/admin selector use the same 23-club
-        # source of truth as the initial user selector.
+        # The database can keep legacy rows for history, but only clubs backed by
+        # a valid JSON source are active. Every panel/admin selector therefore
+        # uses the same live source of truth as the initial user selector.
         conn.execute("UPDATE league_teams SET active = 0")
 
         active_json_clubs = []
@@ -207,7 +233,7 @@ def apply_roster_catalog_autosync_patch(runtime, bot):
     _sync_loaded_teams_into_catalog()
 
     runtime._ajpa_roster_catalog_autosync_patch = True
-    print("AJAP catálogo limitado a equipos con JSON real en data/")
+    print("AJAP catálogo limitado a equipos con JSON real en data/ (incluye multipart)")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
