@@ -12,6 +12,7 @@ on:
       - 'mobile_auth.py'
       - 'mobile_auth_patch.py'
       - 'mobile_pairing_patch.py'
+      - 'mobile_pairing_bootstrap_patch.py'
       - 'bot_mobile.py'
       - 'tests/test_mobile_read_api.py'
       - 'tests/test_mobile_write_api.py'
@@ -24,6 +25,7 @@ on:
       - 'mobile_auth.py'
       - 'mobile_auth_patch.py'
       - 'mobile_pairing_patch.py'
+      - 'mobile_pairing_bootstrap_patch.py'
       - 'bot_mobile.py'
       - 'tests/test_mobile_read_api.py'
       - 'tests/test_mobile_write_api.py'
@@ -39,6 +41,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile mobile backend
-        run: python -m py_compile mobile_read_api.py mobile_write_api.py mobile_write_release_compat.py mobile_auth.py mobile_auth_patch.py mobile_pairing_patch.py bot_mobile.py
+        run: python -m py_compile mobile_read_api.py mobile_write_api.py mobile_write_release_compat.py mobile_auth.py mobile_auth_patch.py mobile_pairing_patch.py mobile_pairing_bootstrap_patch.py bot_mobile.py
       - name: Run mobile API tests
         run: python -m unittest tests/test_mobile_read_api.py tests/test_mobile_write_api.py -v
