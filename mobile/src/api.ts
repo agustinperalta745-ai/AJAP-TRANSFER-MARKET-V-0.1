@@ -98,25 +98,37 @@ function anonymousProfile(): MobileProfile {
   };
 }
 
+function networkError(): ApiError {
+  return {
+    message: 'No se pudo conectar con AJPA. Revisá la conexión e intentá nuevamente.',
+    status: 0,
+  };
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_CONFIGURED) {
     throw { message: 'API no configurada todavía.' } satisfies ApiError;
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch {
+    throw networkError();
+  }
 
   let payload: any = null;
   try { payload = await response.json(); } catch { payload = null; }
   if (!response.ok) {
     throw {
-      message: String(payload?.message || payload?.error || `API request failed: ${response.status}`),
+      message: String(payload?.message || payload?.error || `La API respondió ${response.status}.`),
       status: response.status,
     } satisfies ApiError;
   }
@@ -138,19 +150,30 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
   const previous = sessionToken;
   sessionToken = '';
   try {
-    return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    });
+    try {
+      return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
+        method: 'POST',
+        body: JSON.stringify({ code }),
+      });
+    } catch (error) {
+      const status = (error as ApiError)?.status;
+      // Some Android/Railway paths can fail at transport level specifically on
+      // POST while normal GET traffic keeps working. Retry the same one-time
+      // exchange via GET using a private header; the code never goes in the URL.
+      if (status === 0 || status === 404 || status === 405) {
+        return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
+          method: 'GET',
+          headers: { 'X-AJPA-Pair-Code': code },
+        });
+      }
+      throw error;
+    }
   } finally {
     sessionToken = previous;
   }
 }
 
 export async function fetchMe(): Promise<MobileProfile> {
-  // An unpaired installation is a valid guest state. Do not hit /me without a
-  // session token: the backend correctly answers 401, but that only pollutes
-  // Railway logs and makes the APK look broken before the user links Discord.
   if (!sessionToken) return anonymousProfile();
 
   try {
@@ -158,8 +181,6 @@ export async function fetchMe(): Promise<MobileProfile> {
   } catch (error) {
     const apiError = error as ApiError;
     if (apiError?.status === 401) {
-      // Stop retrying an expired/revoked token for the rest of this app run.
-      // The user can immediately link again with /app_codigo.
       sessionToken = '';
       return anonymousProfile();
     }
