@@ -16,10 +16,15 @@ import mobile_write_release_compat  # noqa: E402
 import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
+import league_team_catalog_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
 # final per-guild runtime before Discord connects.
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
+
+# Keep the result reader aligned with the current active clubs before Discord
+# imports the league modules and builds their canonical team prompts.
+league_team_catalog_patch.apply_league_team_catalog_patch()
 
 # Keep OAuth-compatible /api/v1/me and add paired, authenticated write routes.
 mobile_write_release_compat.apply()
