@@ -6,7 +6,7 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import BotParityApp from './src/BotParityApp';
+import BotParityAppV2 from './src/BotParityAppV2';
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
           backgroundColor="#02060a"
           translucent={false}
         />
-        <BotParityApp />
+        <BotParityAppV2 />
       </SafeAreaView>
     </SafeAreaProvider>
   );
