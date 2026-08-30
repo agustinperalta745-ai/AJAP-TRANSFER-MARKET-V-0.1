@@ -139,24 +139,15 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
   const previous = sessionToken;
   sessionToken = '';
   try {
-    try {
-      return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      });
-    } catch (error) {
-      const status = (error as ApiError)?.status;
-      // Some Android/Railway paths can fail at transport level specifically on
-      // POST while normal GET traffic keeps working. Retry the same one-time
-      // exchange via GET using a private header; the code never goes in the URL.
-      if (status === 0 || status === 404 || status === 405) {
-        return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
-          method: 'GET',
-          headers: { 'X-AJPA-Pair-Code': code },
-        });
-      }
-      throw error;
-    }
+    // Pair exactly once. The previous POST-then-GET fallback could consume the
+    // one-time code on POST even when Android lost the response; the retry then
+    // correctly saw the same code as already used. The hardened backend exposes
+    // the same exchange over GET with the code in a private request header, so
+    // use that single path and never double-submit a one-time code.
+    return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
+      method: 'GET',
+      headers: { 'X-AJPA-Pair-Code': code },
+    });
   } finally {
     sessionToken = previous;
   }
