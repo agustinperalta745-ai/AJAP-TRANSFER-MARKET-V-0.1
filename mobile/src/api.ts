@@ -3,6 +3,14 @@ const configuredUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
 export const API_URL = configuredUrl.replace(/\/+$/, '');
 export const API_CONFIGURED = API_URL.length > 0;
 
+let sessionToken = '';
+export function setSessionToken(token: string | null | undefined) {
+  sessionToken = (token ?? '').trim();
+}
+export function getSessionToken() {
+  return sessionToken;
+}
+
 export type LeagueStatus = {
   market_open: boolean;
   market_updated_at?: string | null;
@@ -39,17 +47,43 @@ export type RosterPlayer = {
 };
 
 export type LeagueSnapshot = {
-  read_only: true;
+  read_only: boolean;
   status: LeagueStatus;
   clubs: ClubSummary[];
   market: MarketItem[];
   free_agents: MarketItem[];
 };
 
-export type ApiError = {
-  message: string;
-  status?: number;
+export type MobileProfile = {
+  authenticated: true;
+  read_only: boolean;
+  user: { id: string; username?: string; global_name?: string | null };
+  in_guild: boolean;
+  is_staff: boolean;
+  club: string | null;
+  balance: number | null;
+  roster_count: number;
 };
+
+export type OfferItem = {
+  id: number;
+  publication_id: number;
+  player: string;
+  amount: string;
+  message: string;
+  from_club: string;
+  to_club: string;
+  status: string;
+  operation_type: string;
+  offer_kind: string;
+  offered_player_id: number | null;
+  offered_player: string | null;
+  incoming: boolean;
+};
+
+export type MyOffers = { incoming: OfferItem[]; outgoing: OfferItem[] };
+
+export type ApiError = { message: string; status?: number };
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_CONFIGURED) {
@@ -60,18 +94,20 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
 
+  let payload: any = null;
+  try { payload = await response.json(); } catch { payload = null; }
   if (!response.ok) {
     throw {
-      message: `API request failed: ${response.status}`,
+      message: String(payload?.message || payload?.error || `API request failed: ${response.status}`),
       status: response.status,
     } satisfies ApiError;
   }
-
-  return response.json() as Promise<T>;
+  return payload as T;
 }
 
 export function fetchSnapshot(): Promise<LeagueSnapshot> {
@@ -83,4 +119,67 @@ export async function fetchRoster(club: string): Promise<RosterPlayer[]> {
     `/api/v1/clubs/${encodeURIComponent(club)}/roster`,
   );
   return result.players;
+}
+
+export async function pairDevice(code: string): Promise<{ token: string; profile: MobileProfile }> {
+  const previous = sessionToken;
+  sessionToken = '';
+  try {
+    return await apiRequest('/api/v1/auth/pair', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  } finally {
+    sessionToken = previous;
+  }
+}
+
+export function fetchMe(): Promise<MobileProfile> {
+  return apiRequest<MobileProfile>('/api/v1/me');
+}
+
+export function fetchMyOffers(): Promise<MyOffers> {
+  return apiRequest<MyOffers>('/api/v1/my/offers');
+}
+
+export function publishPlayer(payload: {
+  player_id: number;
+  operation_type: string;
+  price: string;
+  detail?: string;
+  loan_seasons?: string;
+  purchase_option_enabled?: boolean;
+  purchase_option_value?: string;
+}) {
+  return apiRequest('/api/v1/publications', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export function withdrawPublication(publicationId: number) {
+  return apiRequest(`/api/v1/publications/${publicationId}/withdraw`, { method: 'POST', body: '{}' });
+}
+
+export function sendOffer(publicationId: number, payload: {
+  amount?: string;
+  offered_player_id?: number | null;
+  message?: string;
+}) {
+  return apiRequest(`/api/v1/publications/${publicationId}/offers`, {
+    method: 'POST', body: JSON.stringify(payload),
+  });
+}
+
+export function acceptOffer(offerId: number) {
+  return apiRequest(`/api/v1/offers/${offerId}/accept`, { method: 'POST', body: '{}' });
+}
+
+export function rejectOffer(offerId: number) {
+  return apiRequest(`/api/v1/offers/${offerId}/reject`, { method: 'POST', body: '{}' });
+}
+
+export function signFreeAgent(publicationId: number) {
+  return apiRequest(`/api/v1/free-agents/${publicationId}/sign`, { method: 'POST', body: '{}' });
+}
+
+export function releasePlayer(playerId: number) {
+  return apiRequest(`/api/v1/players/${playerId}/release`, { method: 'POST', body: '{}' });
 }
