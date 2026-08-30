@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   ovrValue: { color: '#8eeaab', fontSize: 18, fontWeight: '900', lineHeight: 20 },
   ovrLabel: { color: '#5f8f70', fontSize: 8, fontWeight: '900' },
   playerMain: { flex: 1, marginLeft: 12 },
-  playerName: { color: '#f6fff8', fontSize: 16, fontWeight: '850' },
+  playerName: { color: '#f6fff8', fontSize: 16, fontWeight: '900' },
   playerId: { color: '#5f7569', fontSize: 10, marginTop: 4 },
   rightColumn: { alignItems: 'flex-end', marginLeft: 8 },
   valueText: { color: '#f6fff8', fontSize: 14, fontWeight: '900' },
