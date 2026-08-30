@@ -56,6 +56,48 @@ export type LeagueSnapshot = {
   free_agents: MarketItem[];
 };
 
+export type LeagueStanding = {
+  team: string;
+  pj: number;
+  pg: number;
+  pe: number;
+  pp: number;
+  gf: number;
+  gc: number;
+  dg: number;
+  pts: number;
+};
+
+export type LeagueScorer = {
+  player: string;
+  team: string;
+  goals: number;
+};
+
+export type LeagueData = {
+  standings: LeagueStanding[];
+  scorers: LeagueScorer[];
+};
+
+export type TransferHistoryItem = {
+  id: number;
+  player: string;
+  seller: string;
+  buyer: string;
+  amount: string;
+  status: string;
+  operation_type: string;
+  created_at: string;
+  approved_at: string;
+  applied_at: string;
+  notes: string;
+};
+
+export type AdminAssignment = {
+  user_id: string;
+  club: string;
+};
+
 export type MobileProfile = {
   authenticated: boolean;
   read_only: boolean;
@@ -133,6 +175,27 @@ export async function fetchRoster(club: string): Promise<RosterPlayer[]> {
     `/api/v1/clubs/${encodeURIComponent(club)}/roster`,
   );
   return result.players;
+}
+
+export function fetchLeague(): Promise<LeagueData> {
+  return apiRequest<LeagueData>('/api/v1/league');
+}
+
+export async function fetchHistory(): Promise<TransferHistoryItem[]> {
+  const result = await apiRequest<{ items: TransferHistoryItem[] }>('/api/v1/history');
+  return result.items;
+}
+
+export async function fetchAdminAssignments(): Promise<AdminAssignment[]> {
+  const result = await apiRequest<{ assignments: AdminAssignment[] }>('/api/v1/admin/assignments');
+  return result.assignments;
+}
+
+export function setAdminMarketOpen(open: boolean) {
+  return apiRequest<{ ok: boolean; market_open: boolean }>('/api/v1/admin/market', {
+    method: 'POST',
+    body: JSON.stringify({ open }),
+  });
 }
 
 export async function pairDevice(code: string): Promise<{ token: string; profile: MobileProfile }> {
