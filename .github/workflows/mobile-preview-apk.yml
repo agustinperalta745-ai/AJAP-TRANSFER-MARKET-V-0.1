@@ -41,14 +41,9 @@ jobs:
 
       - name: Prepare polished visuals and launcher icon
         run: |
+          base64 -d icon.b64 > icon.png
           node <<'NODE'
           const fs = require('fs');
-
-          const branding = fs.readFileSync('src/branding.ts', 'utf8');
-          const logo = branding.match(/AJPA_LOGO_DATA_URI\s*=\s*['"]data:image\/(?:png|jpeg);base64,([^'"]+)/);
-          if (!logo) throw new Error('AJPA logo data was not found');
-          fs.writeFileSync('icon.png', Buffer.from(logo[1], 'base64'));
-
           const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
           app.expo.icon = './icon.png';
           app.expo.android = {
