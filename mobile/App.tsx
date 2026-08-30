@@ -6,7 +6,7 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import LiveApp from './src/LiveApp';
+import AuthApp from './src/AuthApp';
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
           backgroundColor="#08110d"
           translucent={false}
         />
-        <LiveApp />
+        <AuthApp />
       </SafeAreaView>
     </SafeAreaProvider>
   );
