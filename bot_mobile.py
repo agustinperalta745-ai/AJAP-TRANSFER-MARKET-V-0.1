@@ -6,6 +6,9 @@ import os
 import sitecustomize  # noqa: F401
 
 os.environ.setdefault("AJPA_MOBILE_API_ENABLED", "1")
+# Production mobile app must read the definitive AJPA Discord server by default.
+# Railway can still override this explicitly with AJPA_MOBILE_GUILD_ID if needed.
+os.environ.setdefault("AJPA_MOBILE_GUILD_ID", "1541577795426324571")
 
 import mobile_auth_patch  # noqa: E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
