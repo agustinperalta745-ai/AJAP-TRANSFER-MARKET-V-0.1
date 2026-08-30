@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/mobile-app-foundation
+      - feature/discord-login-mi-club
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-preview-apk.yml'
@@ -16,6 +17,7 @@ jobs:
         working-directory: mobile
     env:
       EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+      EXPO_PUBLIC_DISCORD_CLIENT_ID: '1541608838032265238'
 
     steps:
       - name: Checkout
@@ -43,7 +45,6 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
 
       - name: Build standalone APK
         run: ./gradlew assembleRelease
@@ -51,7 +52,6 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
 
       - name: Prepare APK
         run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-preview.apk
