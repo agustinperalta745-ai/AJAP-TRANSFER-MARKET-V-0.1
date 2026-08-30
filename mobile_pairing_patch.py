@@ -26,11 +26,20 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
                 isinstance(interaction.user, discord.Member)
                 and interaction.user.guild_permissions.administrator
             )
+
+            # Critical: the code must be created in the exact same SQLite file
+            # that /api/v1/auth/pair reads. Using runtime.db here depends on the
+            # Discord guild ContextVar and can write the code to a different
+            # guild DB than AJPA Mobile is configured to consume. That makes a
+            # brand-new code look "inexistente, vencido o ya usado" immediately.
             code = mobile_write_api.issue_pair_code(
-                runtime.db,
+                mobile_write_api.write_db,
                 int(interaction.user.id),
                 is_staff=is_staff,
             )
+
+            # Keep this informational field based on the Discord guild where the
+            # manager executed the command; it does not affect pairing storage.
             club = runtime.club_de(interaction.user.id)
             embed = discord.Embed(
                 title="📱 Vincular AJPA Mobile",
