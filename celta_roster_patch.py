@@ -1,193 +1,245 @@
-"""Load Celta de Vigo from data/Celta de Vigo.json with full PES6 stats and AJPA OVR."""
+"""Replace Celta de Vigo and AS Roma with AS Monaco and Feyenoord.
+
+This module intentionally keeps the legacy ``apply_celta_json`` entry point because
+run_bot.py already calls it. Its behavior is now the official 2026-08-30 team
+replacement migration:
+- AS Monaco and Feyenoord are enabled/synced from their JSON sources.
+- Celta de Vigo and AS Roma are removed from the active catalog.
+- Current rosters/assignments/market rows that still belong to the retired teams
+  are removed per guild, while transfer/history audit rows are preserved.
+"""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-import fiorentina_roster_patch as roster_base
 import team_assignment as teams
 
-CELTA = "Celta de Vigo"
-COUNTRY = "España"
-MIGRATION_MARKER = "celta_de_vigo_json_v1_ovr3_20260827"
-SOURCE = "Celta de Vigo.json • OVR AJPA promedio de 3 stats • 2026-08-27"
-SOURCE_PATH = Path(__file__).resolve().parent / "data" / "Celta de Vigo.json"
+from feyenoord_roster_patch import apply_feyenoord_json
+from monaco_roster_patch import apply_monaco_json
 
-POSITION_BY_PLAYER = {
-    "Baiano": "CF",
-    "Jesus Perera": "CF",
-    "De Ridder": "WF/RMF",
-    "Guayre": "WF/CF",
-    "Javi Guerrero": "CF",
-    "Iriney": "DMF/CMF",
-    "Borja Oubiña": "DMF/CMF",
-    "Gustavo Lopez": "LMF/WF",
-    "Nene": "WF/LMF",
-    "Canobbio": "AMF/SS",
-    "P.Garcia": "DMF/CMF",
-    "Antonio Nuñez": "RMF/WF",
-    "Jorge": "AMF/CMF",
-    "Jonathan": "RMF/WF",
-    "Lequi": "CB",
-    "P. Contreras": "CB",
-    "George Lucas": "RB",
-    "Angel": "RB",
-    "Yago": "CB",
-    "Placente": "LB",
-    "Pinto": "GK",
-    "Esteban": "GK",
-    "Marcos Bermudez": "CB",
-}
-
-STAT_MAP = roster_base.STAT_MAP
-ATTR_COLUMNS = roster_base.ATTR_COLUMNS
+REMOVED_TEAMS = ("Celta de Vigo", "AS Roma")
+MIGRATION_MARKER = "replace_celta_roma_with_monaco_feyenoord_20260830"
 
 
-def _load_source():
-    payload = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
-    if str(payload.get("equipo", "")).strip().casefold() != CELTA.casefold():
-        raise ValueError("Celta de Vigo.json no corresponde a Celta de Vigo")
-    players = payload.get("jugadores") or []
-    by_name = {str(player["nombre"]).strip(): player for player in players}
-    if len(players) != 23 or set(by_name) != set(POSITION_BY_PLAYER):
-        missing = sorted(set(POSITION_BY_PLAYER) - set(by_name))
-        extra = sorted(set(by_name) - set(POSITION_BY_PLAYER))
-        raise ValueError(
-            f"Celta de Vigo.json inválido: jugadores={len(players)} faltan={missing or '-'} sobran={extra or '-'}"
-        )
-    return by_name
+def _remove_from_memory_catalog() -> None:
+    retired = {name.casefold() for name in REMOVED_TEAMS}
+    teams.OFFICIAL_TEAMS[:] = [
+        (name, country)
+        for name, country in teams.OFFICIAL_TEAMS
+        if name.casefold() not in retired
+    ]
+    for name in REMOVED_TEAMS:
+        teams.OFFICIAL.pop(name.casefold(), None)
 
 
-CELTA_DATA = _load_source()
+_remove_from_memory_catalog()
 
 
-def _rating(position, stats):
-    return roster_base._rating(position, stats)
-
-
-CELTA_ROSTER = [
-    (name, POSITION_BY_PLAYER[name], _rating(POSITION_BY_PLAYER[name], CELTA_DATA[name]["stats"]))
-    for name in POSITION_BY_PLAYER
-]
-
-if not any(name.casefold() == CELTA.casefold() for name, _country in teams.OFFICIAL_TEAMS):
-    teams.OFFICIAL_TEAMS.append((CELTA, COUNTRY))
-teams.OFFICIAL[CELTA.casefold()] = CELTA
-
-
-def _upsert_attributes(conn, player_id, payload):
-    raw = payload.get("stats") or {}
-    values = {target: raw.get(source) for source, target in STAT_MAP.items()}
-    insert_columns = ["player_id", *ATTR_COLUMNS, "source", "updated_at"]
-    placeholders = ["?" for _ in insert_columns[:-1]] + ["CURRENT_TIMESTAMP"]
-    params = [player_id, *[values.get(column) for column in ATTR_COLUMNS], SOURCE]
-    updates = [f"{column} = excluded.{column}" for column in ATTR_COLUMNS]
-    updates += ["source = excluded.source", "updated_at = CURRENT_TIMESTAMP"]
-    conn.execute(
-        f"INSERT INTO pes6_player_attributes ({', '.join(insert_columns)}) "
-        f"VALUES ({', '.join(placeholders)}) "
-        f"ON CONFLICT(player_id) DO UPDATE SET {', '.join(updates)}",
-        params,
+def _table_exists(conn, table: str) -> bool:
+    return bool(
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+            (table,),
+        ).fetchone()
     )
-    conn.execute("DELETE FROM pes6_player_special_abilities WHERE player_id = ?", (player_id,))
-    for ability in payload.get("habilidades_especiales") or []:
-        conn.execute(
-            "INSERT OR IGNORE INTO pes6_player_special_abilities "
-            "(player_id, ability, source) VALUES (?, ?, ?)",
-            (player_id, str(ability).strip(), SOURCE),
+
+
+def _columns(conn, table: str) -> set[str]:
+    if not _table_exists(conn, table):
+        return set()
+    safe = table.replace('"', '""')
+    return {
+        str(row["name"])
+        for row in conn.execute(f'PRAGMA table_info("{safe}")').fetchall()
+    }
+
+
+def _delete_by_player_ids(conn, table: str, player_ids: list[int]) -> None:
+    if not player_ids or not _table_exists(conn, table):
+        return
+    if "player_id" not in _columns(conn, table):
+        return
+    marks = ",".join("?" for _ in player_ids)
+    safe = table.replace('"', '""')
+    conn.execute(
+        f'DELETE FROM "{safe}" WHERE player_id IN ({marks})',
+        tuple(player_ids),
+    )
+
+
+def _delete_by_club_columns(conn, table: str, club: str) -> None:
+    if not _table_exists(conn, table):
+        return
+    cols = _columns(conn, table)
+    candidates = (
+        "club",
+        "seller",
+        "buyer",
+        "from_club",
+        "to_club",
+        "lender_club",
+        "borrower_club",
+        "owner_club",
+        "source_club",
+        "destination_club",
+        "team",
+    )
+    club_cols = [column for column in candidates if column in cols]
+    if not club_cols:
+        return
+    safe = table.replace('"', '""')
+    where = " OR ".join(
+        f'"{column.replace(chr(34), chr(34) * 2)}" = ? COLLATE NOCASE'
+        for column in club_cols
+    )
+    conn.execute(
+        f'DELETE FROM "{safe}" WHERE {where}',
+        tuple(club for _ in club_cols),
+    )
+
+
+def _cleanup_connection(conn) -> int:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS seed_state (
+            key TEXT PRIMARY KEY,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deleted_teams (
+            name TEXT PRIMARY KEY COLLATE NOCASE,
+            deleted_by INTEGER,
+            deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
 
-
-def _sync_connection(runtime, conn):
-    from lyon_test_seed import minimum_for_rating
-
-    roster_base._ensure_schema(runtime, conn)
-    names = [name for name, _position, _rating_value in CELTA_ROSTER]
-    marks = ",".join("?" for _ in names)
-    present = conn.execute(
-        f"SELECT COUNT(*) AS n FROM roster_players WHERE name COLLATE NOCASE IN ({marks})",
-        tuple(names),
+    done = conn.execute(
+        "SELECT 1 FROM seed_state WHERE key = ? LIMIT 1",
+        (MIGRATION_MARKER,),
     ).fetchone()
-    if int(present["n"] if present else 0) < len(CELTA_ROSTER):
-        conn.execute("DELETE FROM seed_state WHERE key = ?", (MIGRATION_MARKER,))
-
-    done = conn.execute("SELECT 1 FROM seed_state WHERE key = ?", (MIGRATION_MARKER,)).fetchone()
     if done:
-        conn.execute(
-            "INSERT INTO league_teams (name, country, active) VALUES (?, ?, 1) "
-            "ON CONFLICT(name) DO UPDATE SET country = excluded.country, active = 1",
-            (CELTA, COUNTRY),
-        )
+        # Defensive guard: old static/catalog code must never reactivate them.
+        if _table_exists(conn, "league_teams"):
+            for club in REMOVED_TEAMS:
+                conn.execute(
+                    "UPDATE league_teams SET active = 0 WHERE name = ? COLLATE NOCASE",
+                    (club,),
+                )
         return 0
 
-    changed = 0
-    for name, position, rating in CELTA_ROSTER:
-        row = conn.execute(
-            "SELECT id, club FROM roster_players WHERE name = ? COLLATE NOCASE LIMIT 1",
-            (name,),
-        ).fetchone()
-        if row:
-            player_id = int(row["id"])
+    removed_players = 0
+    for club in REMOVED_TEAMS:
+        player_ids: list[int] = []
+        if _table_exists(conn, "roster_players"):
+            rows = conn.execute(
+                "SELECT id FROM roster_players WHERE club = ? COLLATE NOCASE",
+                (club,),
+            ).fetchall()
+            player_ids = [int(row["id"]) for row in rows]
+            removed_players += len(player_ids)
+
+        # Remove live/current state tied to retired teams. Historical completed
+        # transfers/player_history are intentionally kept as an audit trail.
+        if _table_exists(conn, "clubs"):
             conn.execute(
-                "UPDATE roster_players SET position = ?, rating = ?, min_sale_value = ?, "
-                "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (position, rating, minimum_for_rating(rating), player_id),
+                "DELETE FROM clubs WHERE name = ? COLLATE NOCASE",
+                (club,),
             )
-        else:
-            cursor = conn.execute(
-                "INSERT INTO roster_players "
-                "(name, position, club, added_by, rating, min_sale_value, updated_at) "
-                "VALUES (?, ?, ?, NULL, ?, ?, CURRENT_TIMESTAMP)",
-                (name, position, CELTA, rating, minimum_for_rating(rating)),
+
+        for table in (
+            "publications",
+            "offers",
+            "loans",
+            "clause_requests",
+            "free_team_requests",
+            "vacancy_requests",
+        ):
+            _delete_by_club_columns(conn, table, club)
+
+        if _table_exists(conn, "club_finances"):
+            _delete_by_club_columns(conn, "club_finances", club)
+
+        for table in (
+            "player_rating_inputs",
+            "pes6_player_attributes",
+            "pes6_attributes",
+            "player_attributes",
+            "pes6_player_special_abilities",
+        ):
+            _delete_by_player_ids(conn, table, player_ids)
+
+        if _table_exists(conn, "roster_players"):
+            conn.execute(
+                "DELETE FROM roster_players WHERE club = ? COLLATE NOCASE",
+                (club,),
             )
-            player_id = int(cursor.lastrowid)
-        _upsert_attributes(conn, player_id, CELTA_DATA[name])
-        changed += 1
+
+        if _table_exists(conn, "league_teams"):
+            conn.execute(
+                "UPDATE league_teams SET active = 0 WHERE name = ? COLLATE NOCASE",
+                (club,),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO deleted_teams (name, deleted_by, deleted_at)
+            VALUES (?, NULL, CURRENT_TIMESTAMP)
+            ON CONFLICT(name) DO UPDATE SET
+                deleted_by = NULL,
+                deleted_at = CURRENT_TIMESTAMP
+            """,
+            (club,),
+        )
 
     conn.execute(
-        "INSERT INTO league_teams (name, country, active) VALUES (?, ?, 1) "
-        "ON CONFLICT(name) DO UPDATE SET country = excluded.country, active = 1",
-        (CELTA, COUNTRY),
+        "INSERT OR IGNORE INTO seed_state (key) VALUES (?)",
+        (MIGRATION_MARKER,),
     )
-    if "deleted_teams" in roster_base._tables(conn):
-        conn.execute("DELETE FROM deleted_teams WHERE name = ? COLLATE NOCASE", (CELTA,))
-    conn.execute("INSERT OR IGNORE INTO seed_state (key) VALUES (?)", (MIGRATION_MARKER,))
-    return changed
+    return removed_players
 
 
-def apply_celta_json(runtime):
-    if getattr(runtime, "_ajap_celta_json", False):
+def apply_team_replacements(runtime) -> None:
+    if getattr(runtime, "_ajap_monaco_feyenoord_replacement", False):
         return
-    base_db = runtime.db
-    synced_guilds = set()
 
-    def celta_synced_db():
+    # These wrappers preserve transferred players and synchronize the uploaded
+    # JSON data independently for every guild database.
+    apply_monaco_json(runtime)
+    apply_feyenoord_json(runtime)
+
+    base_db = runtime.db
+    cleaned_guilds: set[int] = set()
+
+    def replacement_synced_db():
         conn = base_db()
         guild_id = int(runtime.current_guild_id())
-        if guild_id in synced_guilds:
+        if guild_id in cleaned_guilds:
             return conn
         try:
-            changed = _sync_connection(runtime, conn)
+            removed = _cleanup_connection(conn)
             conn.commit()
-            synced_guilds.add(guild_id)
-            if changed:
-                print(
-                    f"AJAP Celta de Vigo cargado: guild={guild_id} • "
-                    f"{len(CELTA_ROSTER)} jugadores desde Celta de Vigo.json"
-                )
+            cleaned_guilds.add(guild_id)
+            print(
+                "AJAP reemplazo de clubes aplicado: "
+                f"guild={guild_id} • AS Monaco + Feyenoord activos • "
+                f"Celta de Vigo + AS Roma retirados • {removed} jugadores viejos removidos"
+            )
         except Exception:
             conn.close()
             raise
         return conn
 
-    runtime.db = celta_synced_db
-    runtime._ajap_celta_json = True
+    runtime.db = replacement_synced_db
+    runtime._ajap_monaco_feyenoord_replacement = True
     print(
-        f"AJAP migración Celta de Vigo activa: {len(CELTA_ROSTER)} jugadores • "
-        "OVR AJPA de 3 stats"
+        "AJAP migración de reemplazo activa: "
+        "AS Monaco + Feyenoord reemplazan Celta de Vigo + AS Roma"
     )
 
 
-OVR_BY_PLAYER = {name: rating for name, _position, rating in CELTA_ROSTER}
-print(f"AJAP Celta de Vigo JSON listo: {len(CELTA_ROSTER)} jugadores")
+# Backward-compatible entry point used by the current run_bot.py.
+def apply_celta_json(runtime) -> None:
+    apply_team_replacements(runtime)
