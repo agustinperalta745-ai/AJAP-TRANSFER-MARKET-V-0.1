@@ -12,12 +12,12 @@ export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#08110d' }}
+        style={{ flex: 1, backgroundColor: '#02060a' }}
         edges={['top', 'bottom', 'left', 'right']}
       >
         <StatusBar
           barStyle="light-content"
-          backgroundColor="#08110d"
+          backgroundColor="#02060a"
           translucent={false}
         />
         <LiveApp />
