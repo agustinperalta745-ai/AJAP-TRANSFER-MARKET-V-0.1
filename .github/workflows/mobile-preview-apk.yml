@@ -3,6 +3,7 @@ name: Mobile Preview APK
 on:
   push:
     branches:
+      - main
       - feature/mobile-app-foundation
     paths:
       - 'mobile/**'
