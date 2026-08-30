@@ -16,89 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ github.token }}
 
-      - name: Apply menu backgrounds to current mobile UI
-        run: |
-          python - <<'PY'
-          from pathlib import Path
+      - name: Apply backgrounds
+        run: python mobile/apply_botparity_backgrounds.py
 
-          p = Path('mobile/src/BotParityAppV2.tsx')
-          s = p.read_text(encoding='utf-8')
-
-          # The current APK renders BotParityAppV2. Keep the backgrounds on the
-          # active UI instead of the older LiveApp component.
-          if '  ImageBackground,\n' not in s:
-              s = s.replace('  Alert,\n', '  Alert,\n  ImageBackground,\n')
-
-          bg_imports = """import { BG_INICIO } from './bg_inicio';
-          import { BG_EQUIPOS } from './bg_equipos';
-          import { BG_MERCADO } from './bg_mercado';
-          import { BG_LIBRES } from './bg_libres';
-          import { BG_PERFIL } from './bg_perfil';
-          """.replace('          import', 'import').replace('          ', '')
-
-          session_import = "import { clearStoredSession, loadStoredSession, saveStoredSession } from './session';\n"
-          if "from './bg_inicio'" not in s:
-              s = s.replace(session_import, session_import + bg_imports)
-
-          map_block = """  const screenBackground = (() => {
-            if (screen === 'profile') return BG_PERFIL;
-            if (['club', 'roster', 'economy', 'clubValue', 'clubInfo'].includes(screen)) return BG_EQUIPOS;
-            if (screen === 'transferibles') return BG_LIBRES;
-            if (['market', 'publish', 'clausulazo', 'offers', 'search', 'history'].includes(screen)) return BG_MERCADO;
-            return BG_INICIO;
-          })();
-
-          """.replace('            ', '    ').replace('          ', '  ')
-          marker = '  let body: ReactNode = home;\n'
-          if 'const screenBackground' not in s:
-              s = s.replace(marker, map_block + marker)
-
-          old_main = '      <View style={s.main}>{body}</View>\n'
-          new_main = '''      <View style={s.main}>
-        <ImageBackground
-          source={{ uri: screenBackground }}
-          style={s.screenBackground}
-          imageStyle={s.screenBackgroundImage}
-          resizeMode="cover"
-        >
-          <View style={s.screenShade}>{body}</View>
-        </ImageBackground>
-      </View>
-'''
-          if old_main in s:
-              s = s.replace(old_main, new_main)
-
-          old_style = '  main: { flex: 1 },\n'
-          new_style = """  main: { flex: 1 },
-          screenBackground: { flex: 1 },
-          screenBackgroundImage: { opacity: 0.86 },
-          screenShade: { flex: 1, backgroundColor: 'rgba(2,6,10,0.28)' },
-          """.replace('          ', '  ')
-          if 'screenBackgroundImage:' not in s:
-              s = s.replace(old_style, new_style)
-
-          replacements = {
-              "panel: '#08121c'": "panel: 'rgba(8,18,28,0.82)'",
-              "panel2: '#0b1824'": "panel2: 'rgba(11,24,36,0.82)'",
-              "backgroundColor: '#03080d'": "backgroundColor: 'rgba(3,8,13,0.90)'",
-              "backgroundColor: '#170b0e'": "backgroundColor: 'rgba(23,11,14,0.88)'",
-              "backgroundColor: '#071b12'": "backgroundColor: 'rgba(7,27,18,0.84)'",
-              "backgroundColor: '#1b0b0d'": "backgroundColor: 'rgba(27,11,13,0.84)'",
-              "backgroundColor: '#091928'": "backgroundColor: 'rgba(9,25,40,0.88)'",
-              "backgroundColor: '#05101a'": "backgroundColor: 'rgba(5,16,26,0.90)'",
-              "backgroundColor: '#07111a'": "backgroundColor: 'rgba(7,17,26,0.88)'",
-              "backgroundColor: '#0a1620'": "backgroundColor: 'rgba(10,22,32,0.88)'",
-          }
-          for old, new in replacements.items():
-              s = s.replace(old, new)
-
-          p.write_text(s, encoding='utf-8')
-          PY
-
-      - name: Commit applied backgrounds
+      - name: Commit backgrounds
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
