@@ -24,11 +24,17 @@ selector.MANUAL_EMOJI_NAMES.setdefault("Villarreal", "villa")
 selector.MANUAL_EMOJI_NAMES.setdefault("Villarreal CF", "villa")
 selector.MANUAL_EMOJI_NAMES.setdefault("AS Monaco", "mona")
 selector.MANUAL_EMOJI_NAMES.setdefault("Monaco", "mona")
+selector.MANUAL_EMOJI_NAMES.setdefault("Feyenoord", "feye")
+selector.MANUAL_EMOJI_NAMES.setdefault("Feyernoord", "feye")
 
 # Monaco's JSON canonical name is "AS Monaco". Register both visible variants
 # so any embed/panel text resolves to the same Discord manual emoji :mona:.
 badges.ALIASES.setdefault("as monaco", "AS Monaco")
 badges.ALIASES.setdefault("monaco", "AS Monaco")
+
+# Feyenoord uses the Staff-uploaded Discord manual emoji :feye:.
+badges.ALIASES.setdefault("feyenoord", "Feyenoord")
+badges.ALIASES.setdefault("feyernoord", "Feyenoord")
 
 
 if not getattr(discord.Embed, "_ajap_badge_reliability_patch", False):
