@@ -2,6 +2,7 @@ import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'rea
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -32,6 +33,11 @@ import {
   withdrawPublication,
 } from './api';
 import { clearStoredSession, loadStoredSession, saveStoredSession } from './session';
+import { BG_INICIO } from './bg_inicio';
+import { BG_EQUIPOS } from './bg_equipos';
+import { BG_MERCADO } from './bg_mercado';
+import { BG_LIBRES } from './bg_libres';
+import { BG_PERFIL } from './bg_perfil';
 
 type Screen =
   | 'home'
@@ -60,8 +66,8 @@ type OffersState = { incoming: OfferItem[]; outgoing: OfferItem[] };
 
 const C = {
   bg: '#02060a',
-  panel: '#08121c',
-  panel2: '#0b1824',
+  panel: 'rgba(8,18,28,0.80)',
+  panel2: 'rgba(11,24,36,0.80)',
   border: '#1f3447',
   blue: '#2d92ff',
   blueSoft: '#8ac5ff',
@@ -746,6 +752,14 @@ export default function BotParityAppV2() {
     </ScrollView>
   );
 
+  const screenBackground = (() => {
+    if (screen === 'profile') return BG_PERFIL;
+    if (['club', 'roster', 'economy', 'clubValue', 'clubInfo'].includes(screen)) return BG_EQUIPOS;
+    if (screen === 'transferibles') return BG_LIBRES;
+    if (['market', 'publish', 'clausulazo', 'offers', 'search', 'history'].includes(screen)) return BG_MERCADO;
+    return BG_INICIO;
+  })();
+
   let body: ReactNode = home;
   if (screen === 'club') body = clubMenu;
   else if (screen === 'roster') body = rosterScreen;
@@ -776,7 +790,16 @@ export default function BotParityAppV2() {
         )}
         <Pressable onPress={() => setScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>◎</Text></Pressable>
       </View>
-      <View style={s.main}>{body}</View>
+      <View style={s.main}>
+        <ImageBackground
+          source={{ uri: screenBackground }}
+          style={s.screenBackground}
+          imageStyle={s.screenBackgroundImage}
+          resizeMode="cover"
+        >
+          <View style={s.screenShade}>{body}</View>
+        </ImageBackground>
+      </View>
     </View>
   );
 }
@@ -784,21 +807,24 @@ export default function BotParityAppV2() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   main: { flex: 1 },
+  screenBackground: { flex: 1 },
+  screenBackgroundImage: { opacity: 0.88 },
+  screenShade: { flex: 1, backgroundColor: 'rgba(2,6,10,0.24)' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 14 },
   content: { padding: 16, paddingBottom: 34, gap: 11 },
   flex: { flex: 1, minWidth: 0 },
-  topBar: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#142230', backgroundColor: '#03080d' },
+  topBar: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#142230', backgroundColor: 'rgba(3,8,13,0.90)' },
   brand: { color: C.white, fontSize: 23, fontWeight: '900', letterSpacing: 1.8, lineHeight: 25 },
   brandSub: { color: C.blue, fontSize: 8, fontWeight: '900', letterSpacing: 1.8 },
   topAction: { paddingVertical: 10, paddingRight: 14 },
   topActionText: { color: C.blueSoft, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  profileButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#29435a', alignItems: 'center', justifyContent: 'center', backgroundColor: '#07111a' },
+  profileButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#29435a', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(7,17,26,0.86)' },
   profileButtonText: { color: C.blueSoft, fontSize: 20, fontWeight: '900' },
   eyebrow: { color: C.blue, fontSize: 10, fontWeight: '900', letterSpacing: 1.6, marginBottom: 4 },
   screenTitle: { color: C.white, fontSize: 28, fontWeight: '900' },
   muted: { color: C.muted, fontSize: 12.5, lineHeight: 18, marginTop: 3 },
   menuTile: { minHeight: 76, flexDirection: 'row', alignItems: 'center', backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 14 },
-  menuDanger: { borderColor: '#5b2a32', backgroundColor: '#170b0e' },
+  menuDanger: { borderColor: '#5b2a32', backgroundColor: 'rgba(23,11,14,0.86)' },
   menuEmoji: { fontSize: 25, width: 42 },
   menuTitle: { color: C.white, fontSize: 15, fontWeight: '900' },
   menuSubtitle: { color: C.muted, fontSize: 11, lineHeight: 15, marginTop: 3 },
@@ -808,8 +834,8 @@ const s = StyleSheet.create({
   summaryValue: { color: C.white, fontSize: 16, fontWeight: '900' },
   summaryLabel: { color: C.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
   marketState: { borderWidth: 1, borderRadius: 14, padding: 12 },
-  marketOpen: { backgroundColor: '#071b12', borderColor: '#245a3b' },
-  marketClosed: { backgroundColor: '#1b0b0d', borderColor: '#613037' },
+  marketOpen: { backgroundColor: 'rgba(7,27,18,0.82)', borderColor: '#245a3b' },
+  marketClosed: { backgroundColor: 'rgba(27,11,13,0.82)', borderColor: '#613037' },
   marketStateText: { color: C.white, fontSize: 10, fontWeight: '900' },
   card: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 14 },
   statCard: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 16 },
@@ -829,13 +855,13 @@ const s = StyleSheet.create({
   button: { minHeight: 42, borderRadius: 12, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: C.blue },
   buttonGreen: { backgroundColor: '#176a3a' },
   buttonRed: { backgroundColor: '#a93840' },
-  buttonGhost: { backgroundColor: '#0a1620', borderWidth: 1, borderColor: '#30475b' },
+  buttonGhost: { backgroundColor: 'rgba(10,22,32,0.86)', borderWidth: 1, borderColor: '#30475b' },
   disabled: { opacity: 0.4 },
   buttonText: { color: C.white, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  editorCard: { backgroundColor: '#091928', borderWidth: 1, borderColor: C.blue, borderRadius: 19, padding: 15 },
+  editorCard: { backgroundColor: 'rgba(9,25,40,0.86)', borderWidth: 1, borderColor: C.blue, borderRadius: 19, padding: 15 },
   editorTitle: { color: C.white, fontSize: 21, fontWeight: '900' },
   inputLabel: { color: C.blueSoft, fontWeight: '900', fontSize: 9, letterSpacing: 1.2, marginTop: 13, marginBottom: 6 },
-  input: { minHeight: 48, backgroundColor: '#05101a', borderWidth: 1, borderColor: '#29435a', borderRadius: 12, paddingHorizontal: 13, color: C.white, fontSize: 16 },
+  input: { minHeight: 48, backgroundColor: 'rgba(5,16,26,0.88)', borderWidth: 1, borderColor: '#29435a', borderRadius: 12, paddingHorizontal: 13, color: C.white, fontSize: 16 },
   textarea: { minHeight: 78, paddingTop: 12, textAlignVertical: 'top' },
   codeInput: { textAlign: 'center', letterSpacing: 5, fontWeight: '900', fontSize: 21, marginVertical: 12 },
   listHeading: { color: C.blueSoft, fontWeight: '900', fontSize: 10, letterSpacing: 1.4, marginTop: 8 },
