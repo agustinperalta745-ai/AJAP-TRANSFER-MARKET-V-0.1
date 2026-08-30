@@ -1,22 +1,33 @@
-name: Mobile Read API Tests
+name: Mobile API Tests
 
 on:
   push:
     branches:
+      - main
       - feature/mobile-app-foundation
     paths:
       - 'mobile_read_api.py'
+      - 'mobile_write_api.py'
+      - 'mobile_auth.py'
+      - 'mobile_auth_patch.py'
+      - 'mobile_pairing_patch.py'
       - 'bot_mobile.py'
       - 'tests/test_mobile_read_api.py'
+      - 'tests/test_mobile_write_api.py'
       - '.github/workflows/mobile-read-api-test.yml'
   pull_request:
     paths:
       - 'mobile_read_api.py'
+      - 'mobile_write_api.py'
+      - 'mobile_auth.py'
+      - 'mobile_auth_patch.py'
+      - 'mobile_pairing_patch.py'
       - 'bot_mobile.py'
       - 'tests/test_mobile_read_api.py'
+      - 'tests/test_mobile_write_api.py'
 
 jobs:
-  test-read-only-api:
+  test-mobile-api:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,5 +36,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run tests
-        run: python -m unittest tests/test_mobile_read_api.py -v
+      - name: Compile mobile backend
+        run: python -m py_compile mobile_read_api.py mobile_write_api.py mobile_auth.py mobile_auth_patch.py mobile_pairing_patch.py bot_mobile.py
+      - name: Run mobile API tests
+        run: python -m unittest tests/test_mobile_read_api.py tests/test_mobile_write_api.py -v
