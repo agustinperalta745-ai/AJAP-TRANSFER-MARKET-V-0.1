@@ -1,0 +1,8 @@
+[build]
+builder = "RAILPACK"
+
+[deploy]
+startCommand = "python bot_mobile.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ALWAYS"

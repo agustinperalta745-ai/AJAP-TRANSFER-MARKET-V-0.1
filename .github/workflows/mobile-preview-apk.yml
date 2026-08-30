@@ -1,0 +1,64 @@
+name: Mobile Preview APK
+
+on:
+  push:
+    branches:
+      - feature/mobile-app-foundation
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-preview-apk.yml'
+
+jobs:
+  build-android-preview:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+      - name: Build standalone APK
+        run: ./gradlew assembleRelease
+        working-directory: mobile/android
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-preview.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-preview
+          path: mobile/AJPA-Transfer-Market-preview.apk
+          if-no-files-found: error
