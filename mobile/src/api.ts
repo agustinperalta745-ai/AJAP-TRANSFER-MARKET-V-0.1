@@ -125,7 +125,7 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
   const previous = sessionToken;
   sessionToken = '';
   try {
-    return await apiRequest('/api/v1/auth/pair', {
+    return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
       method: 'POST',
       body: JSON.stringify({ code }),
     });
