@@ -5,6 +5,9 @@ import unittest
 from pathlib import Path
 
 import mobile_write_api as api
+import mobile_write_release_compat
+
+mobile_write_release_compat.apply()
 
 
 class MobileWriteApiTests(unittest.TestCase):
@@ -90,13 +93,11 @@ class MobileWriteApiTests(unittest.TestCase):
                 INSERT INTO club_finances VALUES ('Ajax', 10000000), ('Aston Villa', 10000000);
                 """
             )
-            # Ajax has 21 active players so it may sell/release one.
             for i in range(1, 22):
                 conn.execute(
                     "INSERT INTO roster_players(name,position,club,rating,min_sale_value) VALUES(?,?,?,?,?)",
                     (f"Ajax {i}", "CF", "Ajax", 75, 1500000),
                 )
-            # Aston Villa has 20 active players.
             for i in range(1, 21):
                 conn.execute(
                     "INSERT INTO roster_players(name,position,club,rating,min_sale_value) VALUES(?,?,?,?,?)",
