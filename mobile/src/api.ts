@@ -85,19 +85,6 @@ export type MyOffers = { incoming: OfferItem[]; outgoing: OfferItem[] };
 
 export type ApiError = { message: string; status?: number };
 
-function anonymousProfile(): MobileProfile {
-  return {
-    authenticated: false,
-    read_only: false,
-    user: { id: '' },
-    in_guild: false,
-    is_staff: false,
-    club: null,
-    balance: null,
-    roster_count: 0,
-  };
-}
-
 function networkError(): ApiError {
   return {
     message: 'No se pudo conectar con AJPA. Revisá la conexión e intentá nuevamente.',
@@ -174,15 +161,20 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
 }
 
 export async function fetchMe(): Promise<MobileProfile> {
-  if (!sessionToken) return anonymousProfile();
+  if (!sessionToken) {
+    throw { message: 'La app todavía no está vinculada.', status: 401 } satisfies ApiError;
+  }
 
   try {
     return await apiRequest<MobileProfile>('/api/v1/me');
   } catch (error) {
-    const apiError = error as ApiError;
-    if (apiError?.status === 401) {
+    const requestError = error as ApiError;
+    if (requestError?.status === 401) {
+      // Never turn an invalid/expired token into a fake profile. The previous
+      // behavior returned an anonymous object, which the UI rendered as
+      // "VINCULADO · OPERACIONES HABILITADAS" even though no valid session
+      // existed. Clear the in-memory token and let the screen show Vincular.
       sessionToken = '';
-      return anonymousProfile();
     }
     throw error;
   }
