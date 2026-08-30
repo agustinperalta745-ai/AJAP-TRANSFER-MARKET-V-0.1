@@ -45,6 +45,15 @@ jobs:
       - name: Apply team badges
         run: node scripts/apply-team-badges.mjs
 
+      - name: Normalize team badge PNGs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          for img in assets/teams/*.png; do
+            convert "$img" -strip "PNG32:${img}.normalized.png"
+            mv "${img}.normalized.png" "$img"
+          done
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
