@@ -55,7 +55,7 @@ export type LeagueSnapshot = {
 };
 
 export type MobileProfile = {
-  authenticated: true;
+  authenticated: boolean;
   read_only: boolean;
   user: { id: string; username?: string; global_name?: string | null };
   in_guild: boolean;
@@ -84,6 +84,19 @@ export type OfferItem = {
 export type MyOffers = { incoming: OfferItem[]; outgoing: OfferItem[] };
 
 export type ApiError = { message: string; status?: number };
+
+function anonymousProfile(): MobileProfile {
+  return {
+    authenticated: false,
+    read_only: false,
+    user: { id: '' },
+    in_guild: false,
+    is_staff: false,
+    club: null,
+    balance: null,
+    roster_count: 0,
+  };
+}
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_CONFIGURED) {
@@ -134,8 +147,24 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
   }
 }
 
-export function fetchMe(): Promise<MobileProfile> {
-  return apiRequest<MobileProfile>('/api/v1/me');
+export async function fetchMe(): Promise<MobileProfile> {
+  // An unpaired installation is a valid guest state. Do not hit /me without a
+  // session token: the backend correctly answers 401, but that only pollutes
+  // Railway logs and makes the APK look broken before the user links Discord.
+  if (!sessionToken) return anonymousProfile();
+
+  try {
+    return await apiRequest<MobileProfile>('/api/v1/me');
+  } catch (error) {
+    const apiError = error as ApiError;
+    if (apiError?.status === 401) {
+      // Stop retrying an expired/revoked token for the rest of this app run.
+      // The user can immediately link again with /app_codigo.
+      sessionToken = '';
+      return anonymousProfile();
+    }
+    throw error;
+  }
 }
 
 export function fetchMyOffers(): Promise<MyOffers> {
