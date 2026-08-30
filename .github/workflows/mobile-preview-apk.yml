@@ -41,15 +41,23 @@ jobs:
 
       - name: Prepare polished visuals and launcher icon
         run: |
-          base64 -d icon.b64 > icon.png
           node <<'NODE'
           const fs = require('fs');
+
+          const branding = fs.readFileSync('src/branding.ts', 'utf8');
+          const logo = branding.match(/AJPA_LOGO_DATA_URI\s*=\s*['"]data:image\/(png|jpeg);base64,([^'"]+)/);
+          if (!logo) throw new Error('AJPA logo data was not found');
+
+          const ext = logo[1] === 'jpeg' ? 'jpg' : 'png';
+          const iconPath = `icon.${ext}`;
+          fs.writeFileSync(iconPath, Buffer.from(logo[2], 'base64'));
+
           const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-          app.expo.icon = './icon.png';
+          app.expo.icon = `./${iconPath}`;
           app.expo.android = {
             ...app.expo.android,
             adaptiveIcon: {
-              foregroundImage: './icon.png',
+              foregroundImage: `./${iconPath}`,
               backgroundColor: '#02060a'
             }
           };
@@ -57,10 +65,12 @@ jobs:
 
           const uiPath = 'src/LiveAppBackgrounds.tsx';
           let ui = fs.readFileSync(uiPath, 'utf8');
-          ui = ui.replace(
-            '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
-            '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
-          );
+          if (!ui.includes('blurRadius={6}')) {
+            ui = ui.replace(
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
+            );
+          }
           fs.writeFileSync(uiPath, ui);
           NODE
 
