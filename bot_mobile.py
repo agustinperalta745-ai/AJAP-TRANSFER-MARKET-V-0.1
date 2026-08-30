@@ -13,6 +13,9 @@ os.environ.setdefault("AJPA_MOBILE_GUILD_ID", "1541577795426324571")
 import mobile_auth_patch  # noqa: E402
 import mobile_write_api  # noqa: E402
 import mobile_write_release_compat  # noqa: E402
+# Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
+# final per-guild runtime before Discord connects.
+import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
 
 # Keep OAuth-compatible /api/v1/me and add paired, authenticated write routes.
