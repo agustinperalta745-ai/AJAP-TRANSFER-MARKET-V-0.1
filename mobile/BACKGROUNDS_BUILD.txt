@@ -1,1 +1,1 @@
-AJPA menu backgrounds applied and visible in BotParityAppV2: inicio, mi club, mercado, libres y perfil.
+AJPA menu backgrounds now use the supplied football photos in Inicio, Mi Club, Mercado, Libres and Perfil.
