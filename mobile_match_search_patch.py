@@ -241,9 +241,9 @@ def create_search(conn: sqlite3.Connection, session: dict, payload: dict) -> dic
 
 def join_search(conn: sqlite3.Connection, session: dict, search_id: int) -> dict:
     _ensure_schema(conn)
-    _reconcile_completed(conn)
     club = mobile_write_api._require_club(conn, session)
     conn.execute("BEGIN IMMEDIATE")
+    _reconcile_completed(conn)
     row = conn.execute(
         "SELECT * FROM mobile_match_searches WHERE id=? LIMIT 1",
         (int(search_id),),
