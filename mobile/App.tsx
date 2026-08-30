@@ -6,7 +6,7 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import ClubOperationalApp from './src/ClubOperationalApp';
+import BotParityApp from './src/BotParityApp';
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
           backgroundColor="#02060a"
           translucent={false}
         />
-        <ClubOperationalApp />
+        <BotParityApp />
       </SafeAreaView>
     </SafeAreaProvider>
   );
