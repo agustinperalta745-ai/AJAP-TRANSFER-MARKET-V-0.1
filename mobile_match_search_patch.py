@@ -21,6 +21,7 @@ import mobile_write_api
 
 OPEN = "OPEN"
 MATCHED = "MATCHED"
+COMPLETED = "COMPLETED"
 CANCELLED = "CANCELLED"
 
 
@@ -29,7 +30,6 @@ def _norm_team(value: str) -> str:
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
     text = text.casefold().replace("&", " and ")
     text = re.sub(r"[^a-z0-9]+", " ", text).strip()
-    # Mobile JSON names and the result bot have a few historical suffix variants.
     aliases = {
         "sevilla fc": "sevilla",
         "villarreal cf": "villarreal",
@@ -56,6 +56,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             opponent_club TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             matched_at DATETIME,
+            completed_at DATETIME,
             cancelled_at DATETIME
         );
         CREATE INDEX IF NOT EXISTS idx_mobile_match_search_status
@@ -65,6 +66,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             WHERE status='OPEN';
         """
     )
+    cols = mobile_write_api._columns(conn, "mobile_match_searches")
+    if "completed_at" not in cols:
+        conn.execute("ALTER TABLE mobile_match_searches ADD COLUMN completed_at DATETIME")
 
 
 def _already_played(conn: sqlite3.Connection, club_a: str, club_b: str) -> bool:
@@ -85,6 +89,27 @@ def _already_played(conn: sqlite3.Connection, club_a: str, club_b: str) -> bool:
     return False
 
 
+def _reconcile_completed(conn: sqlite3.Connection) -> None:
+    """Close matched searches once the result bot records that exact fixture."""
+    rows = conn.execute(
+        """
+        SELECT id, creator_club, opponent_club
+        FROM mobile_match_searches
+        WHERE status='MATCHED' AND opponent_club IS NOT NULL
+        """
+    ).fetchall()
+    for row in rows:
+        if _already_played(conn, str(row["creator_club"]), str(row["opponent_club"])):
+            conn.execute(
+                """
+                UPDATE mobile_match_searches
+                SET status='COMPLETED', completed_at=CURRENT_TIMESTAMP
+                WHERE id=? AND status='MATCHED'
+                """,
+                (int(row["id"]),),
+            )
+
+
 def _active_search_for_club(conn: sqlite3.Connection, club: str):
     return conn.execute(
         """
@@ -97,6 +122,7 @@ def _active_search_for_club(conn: sqlite3.Connection, club: str):
 
 
 def _matched_search_for_club(conn: sqlite3.Connection, club: str):
+    _reconcile_completed(conn)
     return conn.execute(
         """
         SELECT * FROM mobile_match_searches
@@ -133,12 +159,12 @@ def _optional_session(headers, conn: sqlite3.Connection):
 
 def searches_payload(conn: sqlite3.Connection, session: dict | None) -> dict:
     _ensure_schema(conn)
+    _reconcile_completed(conn)
     viewer_club = None
     if session:
-        viewer_club = mobile_auth_club = mobile_write_api.mobile_auth.resolve_club_readonly(
+        viewer_club = mobile_write_api.mobile_auth.resolve_club_readonly(
             conn, int(session["user_id"])
         )
-        viewer_club = mobile_auth_club
 
     rows = conn.execute(
         """
@@ -173,7 +199,6 @@ def searches_payload(conn: sqlite3.Connection, session: dict | None) -> dict:
             "can_join": bool(can_join),
             "blocked_reason": reason,
         }
-        # Credentials are private until a rival has joined. Only both parties see them.
         if is_owner or is_opponent:
             item["room_access"] = {
                 "pes_lobby": str(row["pes_lobby"]),
@@ -187,6 +212,7 @@ def searches_payload(conn: sqlite3.Connection, session: dict | None) -> dict:
 
 def create_search(conn: sqlite3.Connection, session: dict, payload: dict) -> dict:
     _ensure_schema(conn)
+    _reconcile_completed(conn)
     club = mobile_write_api._require_club(conn, session)
     lobby = str(payload.get("pes_lobby") or "").strip()
     room = str(payload.get("room_name") or "").strip()
@@ -215,6 +241,7 @@ def create_search(conn: sqlite3.Connection, session: dict, payload: dict) -> dic
 
 def join_search(conn: sqlite3.Connection, session: dict, search_id: int) -> dict:
     _ensure_schema(conn)
+    _reconcile_completed(conn)
     club = mobile_write_api._require_club(conn, session)
     conn.execute("BEGIN IMMEDIATE")
     row = conn.execute(
@@ -229,7 +256,7 @@ def join_search(conn: sqlite3.Connection, session: dict, search_id: int) -> dict
     if not can_join:
         raise mobile_write_api.ApiFailure(reason or "No podés unirte a esta búsqueda.", HTTPStatus.FORBIDDEN)
 
-    conn.execute(
+    cur = conn.execute(
         """
         UPDATE mobile_match_searches
         SET status='MATCHED', opponent_user_id=?, opponent_club=?, matched_at=CURRENT_TIMESTAMP
@@ -237,7 +264,7 @@ def join_search(conn: sqlite3.Connection, session: dict, search_id: int) -> dict
         """,
         (int(session["user_id"]), club, int(search_id)),
     )
-    if conn.total_changes <= 0:
+    if int(cur.rowcount or 0) != 1:
         raise mobile_write_api.ApiFailure("Otro equipo tomó esta búsqueda antes.", HTTPStatus.CONFLICT)
 
     return {
@@ -265,8 +292,8 @@ def cancel_search(conn: sqlite3.Connection, session: dict, search_id: int) -> di
         raise mobile_write_api.ApiFailure("La búsqueda no existe.", HTTPStatus.NOT_FOUND)
     if _norm_team(row["creator_club"]) != _norm_team(club):
         raise mobile_write_api.ApiFailure("Solo el club que creó la búsqueda puede cancelarla.", HTTPStatus.FORBIDDEN)
-    if str(row["status"]) != OPEN:
-        raise mobile_write_api.ApiFailure("La búsqueda ya no está abierta.", HTTPStatus.CONFLICT)
+    if str(row["status"]) not in {OPEN, MATCHED}:
+        raise mobile_write_api.ApiFailure("La búsqueda ya está cerrada.", HTTPStatus.CONFLICT)
     conn.execute(
         "UPDATE mobile_match_searches SET status='CANCELLED', cancelled_at=CURRENT_TIMESTAMP WHERE id=?",
         (int(search_id),),
@@ -291,7 +318,9 @@ def apply_mobile_match_search_patch() -> None:
                 mobile_write_api.ensure_schema(conn)
                 _ensure_schema(conn)
                 session = _optional_session(self.headers, conn)
-                self._json(searches_payload(conn, session))
+                payload = searches_payload(conn, session)
+                conn.commit()
+                self._json(payload)
                 return
         except Exception as exc:
             print(f"AJPA match-search GET error: {type(exc).__name__}: {exc}")
