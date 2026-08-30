@@ -2,14 +2,21 @@
   "expo": {
     "name": "AJPA Transfer Market",
     "slug": "ajpa-transfer-market",
-    "version": "0.1.0",
+    "version": "0.2.0",
+    "scheme": "discord-1541608838032265238",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "android": {
       "package": "com.ajpa.transfermarket"
     },
     "ios": {
-      "bundleIdentifier": "com.ajpa.transfermarket"
-    }
+      "bundleIdentifier": "com.ajpa.transfermarket",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }
