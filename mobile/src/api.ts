@@ -46,6 +46,24 @@ export type LeagueSnapshot = {
   free_agents: MarketItem[];
 };
 
+export type DiscordUser = {
+  id: string;
+  username: string;
+  global_name: string | null;
+  avatar: string | null;
+};
+
+export type MeProfile = {
+  authenticated: true;
+  read_only: true;
+  user: DiscordUser;
+  in_guild: boolean;
+  is_staff: boolean;
+  club: string | null;
+  balance: number | null;
+  roster_count: number;
+};
+
 export type ApiError = {
   message: string;
   status?: number;
@@ -65,10 +83,14 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   });
 
   if (!response.ok) {
-    throw {
-      message: `API request failed: ${response.status}`,
-      status: response.status,
-    } satisfies ApiError;
+    let message = `API request failed: ${response.status}`;
+    try {
+      const body = await response.json() as { message?: string };
+      if (body?.message) message = body.message;
+    } catch {
+      // Keep generic HTTP message.
+    }
+    throw { message, status: response.status } satisfies ApiError;
   }
 
   return response.json() as Promise<T>;
@@ -83,4 +105,10 @@ export async function fetchRoster(club: string): Promise<RosterPlayer[]> {
     `/api/v1/clubs/${encodeURIComponent(club)}/roster`,
   );
   return result.players;
+}
+
+export function fetchMe(accessToken: string): Promise<MeProfile> {
+  return apiRequest<MeProfile>('/api/v1/me', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }
