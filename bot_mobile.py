@@ -1,20 +1,17 @@
-"""Optional AJPA startup that serves Discord + the read-only mobile API.
-
-Production can keep using ``python bot.py`` unchanged. For a mobile-enabled
-preview/deployment use ``python bot_mobile.py`` and the API will bind to the
-Railway PORT while the existing Discord bot keeps its normal startup path.
-"""
+"""AJPA startup that serves Discord + the read-only mobile API."""
 
 import os
 
-# sitecustomize is loaded automatically by Python, but importing it explicitly
-# documents that DB_PATH must be resolved before the read-only server starts.
+# sitecustomize resolves the guild-aware persistent DB_PATH before the API starts.
 import sitecustomize  # noqa: F401
 
 os.environ.setdefault("AJPA_MOBILE_API_ENABLED", "1")
 
+import mobile_auth_patch  # noqa: E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
 
+# Add authenticated /api/v1/me while keeping every market endpoint read-only.
+mobile_auth_patch.apply_mobile_auth_patch()
 start_mobile_read_api()
 
 # Keep every existing bot guard/patch/startup exactly as production uses it.
