@@ -39,6 +39,36 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare polished visuals and launcher icon
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const branding = fs.readFileSync('src/branding.ts', 'utf8');
+          const logo = branding.match(/AJPA_LOGO_DATA_URI\s*=\s*['"]data:image\/(?:png|jpeg);base64,([^'"]+)/);
+          if (!logo) throw new Error('AJPA logo data was not found');
+          fs.writeFileSync('icon.png', Buffer.from(logo[1], 'base64'));
+
+          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+          app.expo.icon = './icon.png';
+          app.expo.android = {
+            ...app.expo.android,
+            adaptiveIcon: {
+              foregroundImage: './icon.png',
+              backgroundColor: '#02060a'
+            }
+          };
+          fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
+
+          const uiPath = 'src/LiveAppBackgrounds.tsx';
+          let ui = fs.readFileSync(uiPath, 'utf8');
+          ui = ui.replace(
+            '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
+            '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
+          );
+          fs.writeFileSync(uiPath, ui);
+          NODE
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
         env:
