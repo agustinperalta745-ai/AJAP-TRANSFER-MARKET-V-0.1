@@ -1,0 +1,96 @@
+name: Apply AJPA menu backgrounds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-mobile-backgrounds.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-backgrounds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply menu backgrounds to mobile UI
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('mobile/src/LiveApp.tsx')
+          s = p.read_text()
+
+          if 'ImageBackground,' not in s:
+              s = s.replace('  Image,\n', '  Image,\n  ImageBackground,\n')
+
+          imports = """import { AJPA_LOGO_DATA_URI } from './branding';
+import { BG_INICIO } from './bg_inicio';
+import { BG_EQUIPOS } from './bg_equipos';
+import { BG_MERCADO } from './bg_mercado';
+import { BG_LIBRES } from './bg_libres';
+import { BG_PERFIL } from './bg_perfil';
+"""
+          s = s.replace("import { AJPA_LOGO_DATA_URI } from './branding';\n", imports)
+
+          map_block = """  const screenBackground = {
+    inicio: BG_INICIO,
+    equipos: BG_EQUIPOS,
+    mercado: BG_MERCADO,
+    libres: BG_LIBRES,
+    perfil: BG_PERFIL,
+  }[tab];
+
+"""
+          marker = "  const tabs: { id: Tab; label: string; icon: string }[] = [\n"
+          if 'const screenBackground' not in s:
+              s = s.replace(marker, map_block + marker)
+
+          old_main = '      <View style={styles.main}>{body}</View>\n'
+          new_main = """      <View style={styles.main}>
+        <ImageBackground
+          source={{ uri: screenBackground }}
+          style={styles.screenBackground}
+          imageStyle={styles.screenBackgroundImage}
+          resizeMode="cover"
+        >
+          <View style={styles.screenShade}>{body}</View>
+        </ImageBackground>
+      </View>
+"""
+          s = s.replace(old_main, new_main)
+
+          old_style = "  main: { flex: 1, backgroundColor: C.bg },\n"
+          new_style = """  main: { flex: 1, backgroundColor: C.bg },
+  screenBackground: { flex: 1 },
+  screenBackgroundImage: { opacity: 0.78 },
+  screenShade: { flex: 1, backgroundColor: 'rgba(2,6,10,0.42)' },
+"""
+          if 'screenBackgroundImage:' not in s:
+              s = s.replace(old_style, new_style)
+
+          replacements = {
+              "backgroundColor: '#03080d'": "backgroundColor: 'rgba(3,8,13,0.94)'",
+              "backgroundColor: '#071018'": "backgroundColor: 'rgba(7,16,24,0.88)'",
+              "backgroundColor: '#071019'": "backgroundColor: 'rgba(7,16,25,0.88)'",
+              "backgroundColor: C.panel": "backgroundColor: 'rgba(7,16,25,0.90)'",
+              "backgroundColor: '#08121c'": "backgroundColor: 'rgba(8,18,28,0.90)'",
+          }
+          for old, new in replacements.items():
+              s = s.replace(old, new)
+
+          p.write_text(s)
+      - name: Commit applied backgrounds
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add mobile/src/LiveApp.tsx
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Apply menu background images to AJPA mobile app"
+            git push
+          fi
