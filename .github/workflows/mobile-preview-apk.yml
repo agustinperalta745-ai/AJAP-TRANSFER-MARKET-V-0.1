@@ -39,30 +39,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Prepare polished visuals and launcher icon
+      - name: Prepare polished visuals
         run: |
           node <<'NODE'
           const fs = require('fs');
-
-          const branding = fs.readFileSync('src/branding.ts', 'utf8');
-          const logo = branding.match(/AJPA_LOGO_DATA_URI\s*=\s*['"]data:image\/(png|jpeg);base64,([^'"]+)/);
-          if (!logo) throw new Error('AJPA logo data was not found');
-
-          const ext = logo[1] === 'jpeg' ? 'jpg' : 'png';
-          const iconPath = `icon.${ext}`;
-          fs.writeFileSync(iconPath, Buffer.from(logo[2], 'base64'));
-
-          const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-          app.expo.icon = `./${iconPath}`;
-          app.expo.android = {
-            ...app.expo.android,
-            adaptiveIcon: {
-              foregroundImage: `./${iconPath}`,
-              backgroundColor: '#02060a'
-            }
-          };
-          fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
-
           const uiPath = 'src/LiveAppBackgrounds.tsx';
           let ui = fs.readFileSync(uiPath, 'utf8');
           if (!ui.includes('blurRadius={6}')) {
