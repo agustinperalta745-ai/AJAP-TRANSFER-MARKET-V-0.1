@@ -1,3 +1,5 @@
+import { clearStoredSession } from './session';
+
 const configuredUrl = (process.env.EXPO_PUBLIC_API_URL ?? '').trim();
 
 export const API_URL = configuredUrl.replace(/\/+$/, '');
@@ -162,6 +164,7 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
 
 export async function fetchMe(): Promise<MobileProfile> {
   if (!sessionToken) {
+    await clearStoredSession();
     throw { message: 'La app todavía no está vinculada.', status: 401 } satisfies ApiError;
   }
 
@@ -173,8 +176,10 @@ export async function fetchMe(): Promise<MobileProfile> {
       // Never turn an invalid/expired token into a fake profile. The previous
       // behavior returned an anonymous object, which the UI rendered as
       // "VINCULADO · OPERACIONES HABILITADAS" even though no valid session
-      // existed. Clear the in-memory token and let the screen show Vincular.
+      // existed. Clear both the active and persisted tokens so the app starts
+      // cleanly on the Vincular screen next time too.
       sessionToken = '';
+      await clearStoredSession();
     }
     throw error;
   }
