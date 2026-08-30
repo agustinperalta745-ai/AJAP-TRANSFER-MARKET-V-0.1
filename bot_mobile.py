@@ -15,6 +15,7 @@ import mobile_write_api  # noqa: E402
 import mobile_write_release_compat  # noqa: E402
 import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
+import mobile_match_search_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
 # final per-guild runtime before Discord connects.
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
@@ -27,6 +28,9 @@ mobile_write_api.apply_mobile_write_patch()
 # Adds real Liga/history reads plus narrowly scoped Staff mobile endpoints.
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
 mobile_transport_patch.apply_mobile_transport_patch()
+# Public Buscar Partido board + authenticated create/join/cancel operations.
+# Joining consults the official league_matches table populated by the result bot.
+mobile_match_search_patch.apply_mobile_match_search_patch()
 start_mobile_read_api()
 
 # Keep every existing bot guard/patch/startup exactly as production uses it.
