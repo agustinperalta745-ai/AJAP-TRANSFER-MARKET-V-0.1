@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "AJPA Transfer Market",
+    "slug": "ajpa-transfer-market",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.ajpa.transfermarket"
+    },
+    "ios": {
+      "bundleIdentifier": "com.ajpa.transfermarket"
+    }
+  }
+}
