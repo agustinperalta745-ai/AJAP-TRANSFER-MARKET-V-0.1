@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Apply Discord menu parity
+        run: node scripts/apply-discord-menu-parity.mjs
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
