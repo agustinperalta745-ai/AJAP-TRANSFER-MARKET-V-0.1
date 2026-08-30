@@ -3,8 +3,9 @@
 import admin_visibility_patch
 import clausulazo_patch as clauses
 import data_consistency_patch
-# Import early so AS Monaco wraps guild isolation before run_bot captures it.
+# Import early so AS Monaco/Feyenoord wrap guild isolation before run_bot captures it.
 import monaco_roster_patch  # noqa: F401
+import feyenoord_roster_patch  # noqa: F401
 
 
 APP = None
