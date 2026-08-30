@@ -1,0 +1,57 @@
+name: Import AS Monaco roster
+
+on:
+  push:
+    paths:
+      - ".github/workflows/import-monaco.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import-monaco:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download and validate Monaco JSON
+        env:
+          MONACO_URL: "https://cdn.discordapp.com/attachments/1541817856008650844/1543600707259605012/Monaco.json?ex=6a9575af&is=6a94242f&hm=bc87969aeab7a2bc00a70f117fcb63f79214af46d9cb42905bb4aa87c7f6fe14"
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          curl --fail --location --retry 3 --retry-delay 2 "$MONACO_URL" -o /tmp/Monaco.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = Path('/tmp/Monaco.json')
+          payload = json.loads(source.read_text(encoding='utf-8'))
+          team = str(payload.get('equipo', '')).strip()
+          players = payload.get('jugadores')
+          if team != 'AS Monaco':
+              raise SystemExit(f'Equipo inesperado: {team!r}')
+          if not isinstance(players, list) or not players:
+              raise SystemExit('Monaco no contiene una lista válida de jugadores')
+          Path('data/Monaco.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'AS Monaco validado: {len(players)} jugadores')
+          PY
+
+      - name: Commit Monaco roster
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/Monaco.json
+          if git diff --cached --quiet; then
+            echo "Monaco.json ya estaba actualizado"
+            exit 0
+          fi
+          git commit -m "Add AS Monaco roster JSON"
+          git push origin HEAD:main
