@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageBackground,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,6 +22,11 @@ import {
   fetchSnapshot,
 } from './api';
 import { AJPA_LOGO_DATA_URI } from './branding';
+import { BG_INICIO } from './bg_inicio';
+import { BG_EQUIPOS } from './bg_equipos';
+import { BG_MERCADO } from './bg_mercado';
+import { BG_LIBRES } from './bg_libres';
+import { BG_PERFIL } from './bg_perfil';
 
 type Tab = 'inicio' | 'equipos' | 'mercado' | 'libres' | 'perfil';
 
@@ -322,6 +328,14 @@ export default function LiveApp() {
     );
   })();
 
+  const screenBackground = {
+  inicio: BG_INICIO,
+  equipos: BG_EQUIPOS,
+  mercado: BG_MERCADO,
+  libres: BG_LIBRES,
+  perfil: BG_PERFIL,
+}[tab];
+
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'inicio', label: 'Inicio', icon: '⌂' },
     { id: 'equipos', label: 'Mi Club', icon: '♢' },
@@ -340,7 +354,16 @@ export default function LiveApp() {
         </View>
         <View style={styles.readPill}><Text style={styles.readPillText}>LECTURA</Text></View>
       </View>
-      <View style={styles.main}>{body}</View>
+      <View style={styles.main}>
+  <ImageBackground
+    source={{ uri: screenBackground }}
+    style={styles.screenBackground}
+    imageStyle={styles.screenBackgroundImage}
+    resizeMode="cover"
+  >
+    <View style={styles.screenShade}>{body}</View>
+  </ImageBackground>
+</View>
       {snapshot ? (
         <View style={styles.bottomNav}>
           {tabs.map((item) => {
@@ -365,7 +388,10 @@ export default function LiveApp() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
   main: { flex: 1, backgroundColor: C.bg },
-  topBar: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#13202c', backgroundColor: '#03080d' },
+screenBackground: { flex: 1 },
+screenBackgroundImage: { opacity: 0.78 },
+screenShade: { flex: 1, backgroundColor: 'rgba(2,6,10,0.42)' },
+  topBar: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#13202c', backgroundColor: 'rgba(3,8,13,0.94)' },
   topBrand: { color: C.white, fontWeight: '900', fontSize: 22, letterSpacing: 1.5, lineHeight: 24 },
   topBrandSub: { color: C.blue, fontWeight: '900', fontSize: 9, letterSpacing: 2.1 },
   readPill: { backgroundColor: '#0b1b2a', borderWidth: 1, borderColor: '#173553', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
@@ -383,7 +409,7 @@ const styles = StyleSheet.create({
   heroTitle: { color: C.white, fontSize: 24, fontWeight: '900', lineHeight: 27 },
   heroTitleBlue: { color: C.blue, fontSize: 24, fontWeight: '900', lineHeight: 27 },
   heroLogo: { width: 118, height: 118, borderRadius: 59, borderWidth: 2, borderColor: C.blue, marginLeft: 8, zIndex: 2 },
-  statsStrip: { flexDirection: 'row', borderRadius: 20, borderWidth: 1, borderColor: '#1b2b3a', backgroundColor: '#071018', overflow: 'hidden' },
+  statsStrip: { flexDirection: 'row', borderRadius: 20, borderWidth: 1, borderColor: '#1b2b3a', backgroundColor: 'rgba(7,16,24,0.88)', overflow: 'hidden' },
   statBox: { flex: 1, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 3, borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: '#263747' },
   statIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: '#0b1d2d', alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   statIconText: { color: C.blue, fontWeight: '900', fontSize: 17 },
@@ -395,7 +421,7 @@ const styles = StyleSheet.create({
   stateDotClosed: { backgroundColor: C.danger },
   marketStateText: { color: C.white, fontWeight: '800', fontSize: 12 },
   seasonText: { color: C.muted, marginLeft: 'auto', fontSize: 11 },
-  menuCard: { minHeight: 112, borderRadius: 20, borderWidth: 1, borderColor: '#1c2b39', backgroundColor: '#071019', padding: 15, flexDirection: 'row', alignItems: 'center' },
+  menuCard: { minHeight: 112, borderRadius: 20, borderWidth: 1, borderColor: '#1c2b39', backgroundColor: 'rgba(7,16,25,0.88)', padding: 15, flexDirection: 'row', alignItems: 'center' },
   pressed: { opacity: 0.78, transform: [{ scale: 0.995 }] },
   menuIconWrap: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: '#29425a', backgroundColor: '#091725', alignItems: 'center', justifyContent: 'center' },
   menuIcon: { color: C.blue, fontSize: 28, fontWeight: '900' },
@@ -405,7 +431,7 @@ const styles = StyleSheet.create({
   menuDescription: { color: C.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
   chevron: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#263a4c', alignItems: 'center', justifyContent: 'center' },
   chevronText: { color: C.white, fontSize: 28, marginTop: -3 },
-  card: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 14 },
+  card: { backgroundColor: 'rgba(7,16,25,0.90)', borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 14 },
   muted: { color: C.muted, fontSize: 13, marginTop: 3 },
   screenHeader: { marginBottom: 8 },
   screenEyebrow: { color: C.blue, fontWeight: '900', fontSize: 10, letterSpacing: 1.8, marginBottom: 4 },
@@ -425,11 +451,11 @@ const styles = StyleSheet.create({
   detail: { color: '#b7c2cc', fontSize: 13, marginTop: 5, lineHeight: 18 },
   marketValue: { color: C.muted, fontSize: 11, marginTop: 8 },
   clubChips: { gap: 8, paddingBottom: 5 },
-  chip: { backgroundColor: '#071019', borderWidth: 1, borderColor: '#1d3142', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9 },
+  chip: { backgroundColor: 'rgba(7,16,25,0.88)', borderWidth: 1, borderColor: '#1d3142', borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9 },
   chipActive: { backgroundColor: '#0c2b48', borderColor: C.blue },
   chipText: { color: C.muted, fontSize: 12, fontWeight: '700' },
   chipTextActive: { color: '#d5eaff' },
-  clubSummary: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#08121c', borderRadius: 20, borderWidth: 1, borderColor: '#20384c', padding: 14 },
+  clubSummary: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(8,18,28,0.90)', borderRadius: 20, borderWidth: 1, borderColor: '#20384c', padding: 14 },
   clubSummaryIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#0b2133', alignItems: 'center', justifyContent: 'center' },
   clubSummaryInitial: { color: C.blueSoft, fontWeight: '900', fontSize: 16 },
   clubSummaryMain: { flex: 1, marginLeft: 12 },
@@ -445,7 +471,7 @@ const styles = StyleSheet.create({
   profileLogo: { width: 112, height: 112, borderRadius: 56, borderWidth: 2, borderColor: C.blue, marginBottom: 14 },
   profileLabel: { color: C.muted, fontWeight: '900', fontSize: 10, letterSpacing: 1.4 },
   profileValue: { color: C.white, fontWeight: '900', fontSize: 17, marginTop: 4 },
-  bottomNav: { height: 78, flexDirection: 'row', backgroundColor: '#03080d', borderTopWidth: 1, borderTopColor: '#172534', paddingHorizontal: 4 },
+  bottomNav: { height: 78, flexDirection: 'row', backgroundColor: 'rgba(3,8,13,0.94)', borderTopWidth: 1, borderTopColor: '#172534', paddingHorizontal: 4 },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   navItemMarket: { marginTop: -15 },
   navIconWrap: { width: 36, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
