@@ -18,6 +18,7 @@ import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
+import mobile_resignation_api_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
 # final per-guild runtime before Discord connects.
@@ -38,10 +39,14 @@ mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
 # Staff Mercado parity: pending operations, clausulazo review and safe undo.
 mobile_staff_api_patch.apply_mobile_staff_api_patch()
-mobile_transport_patch.apply_mobile_transport_patch()
 # Public Buscar Partido board + authenticated create/join/cancel operations.
 # Joining consults the official league_matches table populated by the result bot.
 mobile_match_search_patch.apply_mobile_match_search_patch()
+# Real club resignation: frees only the manager assignment and keeps roster/economy.
+mobile_resignation_api_patch.apply_mobile_resignation_api_patch()
+# IMPORTANT: transport is last so the reliable GET tunnel captures every mutation
+# route installed above instead of bypassing later wrappers.
+mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
 
 # Keep every existing bot guard/patch/startup exactly as production uses it.
