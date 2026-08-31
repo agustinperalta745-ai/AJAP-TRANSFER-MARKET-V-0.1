@@ -27,6 +27,9 @@ import team_assignment as teams
 _ORIGINAL_ACTIVE_TEAMS = None
 _ORIGINAL_OFFICIAL_NAME = None
 DATA_DIR = Path(__file__).resolve().parent / "data"
+# Clubs retired from the current AJPA competition. Their historical roster/data
+# may remain on disk/SQLite, but they must never be reactivated or selectable.
+RETIRED_SOURCE_TEAMS = {"torino"}
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -102,6 +105,9 @@ def _json_source_team_names():
         raw = str(payload.get("equipo", "") or "").strip()
         players = payload.get("jugadores")
         key = raw.casefold()
+        if key in RETIRED_SOURCE_TEAMS:
+            print(f"AJAP catálogo: equipo retirado omitido -> {raw}")
+            continue
         if not raw or not isinstance(players, list) or not players or key in seen:
             continue
         seen.add(key)
