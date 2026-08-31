@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/mobile-app-foundation
+      - fix/mobile-clausulazo-badges
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-preview-apk.yml'
