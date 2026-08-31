@@ -3,11 +3,14 @@ import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
 // Keep the crests bundled in the APK whenever Android can compile the PNG safely.
-// Three legacy PNG encodings (Monaco, Lazio and Tottenham) crash AAPT2, so those
-// stay remote temporarily. Feyenoord remains fully local so it always renders.
+// Monaco, Lazio and Tottenham stay remote because their legacy encodings crash AAPT2.
+// Manchester City is intentionally loaded from main so we can use the newly uploaded
+// high-quality transparent crest without bundling it into the APK.
 const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fix/mobile-clausulazo-badges/mobile/assets/teams';
-const BADGE_VERSION = '20260831-hq4-hybrid';
+const RAW_MAIN = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
+const BADGE_VERSION = '20260831-hq5-mancity-remote';
 const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
+const remoteMain = (file: string): ImageSourcePropType => ({ uri: `${RAW_MAIN}/${file}?v=${BADGE_VERSION}` });
 
 const ASSETS = {
   ajax: require('../assets/teams/ajax.png'),
@@ -22,7 +25,7 @@ const ASSETS = {
   fulham: require('../assets/teams/fulham.png'),
   galatasaray: require('../assets/teams/galatasaray.png'),
   lazio: remote('lazio.png'),
-  manchester_city: require('../assets/teams/manchester_city.png'),
+  manchester_city: remoteMain('manchester_city.png'),
   middlesbrough: require('../assets/teams/middlesbrough.png'),
   olympique_lyon: require('../assets/teams/olympique_lyon.png'),
   olympique_marseille: require('../assets/teams/olympique_marseille.png'),
