@@ -1,0 +1,47 @@
+name: Publish APK Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/publish-apk-release.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download successful build 112 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-preview
+          path: apk
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 33443054657
+
+      - name: Verify APK
+        run: |
+          test -f apk/AJPA-Transfer-Market-preview.apk
+          ls -lh apk/AJPA-Transfer-Market-preview.apk
+
+      - name: Publish direct-download GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG='ajpa-preview-latest'
+          APK='apk/AJPA-Transfer-Market-preview.apk'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$APK" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target main \
+              --title 'AJPA Transfer Market — APK actualizado' \
+              --notes 'APK Android build 112. Incluye timer de búsqueda de partido, emparejamiento automático y visualización de resultado final.'
+          fi
