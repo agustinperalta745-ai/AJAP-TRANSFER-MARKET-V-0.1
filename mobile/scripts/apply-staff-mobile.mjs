@@ -20,10 +20,13 @@ mustReplace(
   'pantallas Staff del mercado',
 );
 
+// Clausulazo puede insertar estados entre assignments y loading. Anclar solo a
+// assignments hace que este parche siga funcionando aunque cambie el orden de
+// los estados generados por otros parches del workflow.
 mustReplace(
-  `  const [assignments, setAssignments] = useState<AdminAssignment[]>([]);\n  const [loading, setLoading] = useState(true);`,
-  `  const [assignments, setAssignments] = useState<AdminAssignment[]>([]);\n  const [staffOperations, setStaffOperations] = useState<StaffOperation[]>([]);\n  const [staffClauses, setStaffClauses] = useState<StaffClause[]>([]);\n  const [staffReversible, setStaffReversible] = useState<StaffReversible[]>([]);\n  const [loading, setLoading] = useState(true);`,
-  'estados Staff operativos',
+  `  const [assignments, setAssignments] = useState<AdminAssignment[]>([]);`,
+  `  const [assignments, setAssignments] = useState<AdminAssignment[]>([]);\n  const [staffOperations, setStaffOperations] = useState<StaffOperation[]>([]);\n  const [staffClauses, setStaffClauses] = useState<StaffClause[]>([]);\n  const [staffReversible, setStaffReversible] = useState<StaffReversible[]>([]);`,
+  'estado assignments para insertar estados Staff operativos',
 );
 
 const openMarker = `  const openScreen = async (next: Screen) => {`;
