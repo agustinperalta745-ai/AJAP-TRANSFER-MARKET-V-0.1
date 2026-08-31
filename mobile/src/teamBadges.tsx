@@ -2,9 +2,11 @@ import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
-// All crests are loaded remotely from main so Android AAPT2 never compiles them as bundled resources.
+// Keep GitHub as a fallback only. The visible crest is resolved from Wikipedia's
+// page-image API so every club gets a clean rendered thumbnail instead of the
+// black-background source files that were uploaded to the repository.
 const RAW_MAIN = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
-const BADGE_VERSION = '20260831-all-remote';
+const BADGE_VERSION = '20260831-wiki-clean-v1';
 const remoteMain = (file: string): ImageSourcePropType => ({ uri: `${RAW_MAIN}/${file}?v=${BADGE_VERSION}` });
 
 const ASSETS = {
@@ -83,6 +85,54 @@ const BADGES: Record<string, ImageSourcePropType> = {
   'real zaragoza': ASSETS.zaragoza,
 };
 
+const WIKIPEDIA_TITLES: Record<string, string> = {
+  ajax: 'AFC Ajax',
+  monaco: 'AS Monaco FC',
+  'as monaco': 'AS Monaco FC',
+  'aston villa': 'Aston Villa F.C.',
+  'atletico madrid': 'Atlético Madrid',
+  benfica: 'S.L. Benfica',
+  'real betis': 'Real Betis',
+  betis: 'Real Betis',
+  'bolton wanderers': 'Bolton Wanderers F.C.',
+  bolton: 'Bolton Wanderers F.C.',
+  everton: 'Everton F.C.',
+  feyenoord: 'Feyenoord',
+  fiorentina: 'ACF Fiorentina',
+  fulham: 'Fulham F.C.',
+  galatasaray: 'Galatasaray S.K. (football)',
+  lazio: 'S.S. Lazio',
+  'ss lazio': 'S.S. Lazio',
+  lyon: 'Olympique Lyonnais',
+  'olympique lyonnais': 'Olympique Lyonnais',
+  'olympique de lyon': 'Olympique Lyonnais',
+  'manchester city': 'Manchester City F.C.',
+  'man city': 'Manchester City F.C.',
+  marsella: 'Olympique de Marseille',
+  marseille: 'Olympique de Marseille',
+  'olympique de marsella': 'Olympique de Marseille',
+  'olympique de marseille': 'Olympique de Marseille',
+  middlesbrough: 'Middlesbrough F.C.',
+  middle: 'Middlesbrough F.C.',
+  psg: 'Paris Saint-Germain F.C.',
+  'paris saint germain': 'Paris Saint-Germain F.C.',
+  porto: 'FC Porto',
+  'fc porto': 'FC Porto',
+  sevilla: 'Sevilla FC',
+  'sevilla fc': 'Sevilla FC',
+  torino: 'Torino FC',
+  'torino fc': 'Torino FC',
+  tottenham: 'Tottenham Hotspur F.C.',
+  'tottenham hotspur': 'Tottenham Hotspur F.C.',
+  villareal: 'Villarreal CF',
+  villarreal: 'Villarreal CF',
+  'villarreal cf': 'Villarreal CF',
+  'west ham': 'West Ham United F.C.',
+  'west ham united': 'West Ham United F.C.',
+  zaragoza: 'Real Zaragoza',
+  'real zaragoza': 'Real Zaragoza',
+};
+
 const normalizeClub = (club: string | null | undefined) =>
   String(club || '')
     .normalize('NFD')
@@ -92,6 +142,39 @@ const normalizeClub = (club: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const cleanBadgeCache: Record<string, string> = {};
+const badgeRequests: Record<string, Promise<string | null>> = {};
+
+async function resolveCleanBadgeUri(club: string | null | undefined): Promise<string | null> {
+  const key = normalizeClub(club);
+  const title = WIKIPEDIA_TITLES[key];
+  if (!title) return null;
+  if (cleanBadgeCache[key]) return cleanBadgeCache[key];
+  if (badgeRequests[key]) return badgeRequests[key];
+
+  badgeRequests[key] = (async () => {
+    try {
+      const api = `https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=512&titles=${encodeURIComponent(title)}`;
+      const response = await fetch(api, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const pages = payload?.query?.pages ? Object.values(payload.query.pages) as Array<any> : [];
+      const uri = pages[0]?.thumbnail?.source;
+      if (typeof uri === 'string' && uri.startsWith('http')) {
+        cleanBadgeCache[key] = uri;
+        return uri;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      delete badgeRequests[key];
+    }
+  })();
+
+  return badgeRequests[key];
+}
+
 export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
   const key = normalizeClub(club);
   if (!key || key === 'jugador libre') return null;
@@ -100,18 +183,46 @@ export function getTeamBadge(club: string | null | undefined): ImageSourcePropTy
 
 export function ClubBadge({
   club,
-  size = 48,
+  size = 72,
   style,
 }: {
   club: string | null | undefined;
   size?: number;
   style?: StyleProp<ImageStyle>;
 }) {
-  const source = getTeamBadge(club);
-  if (!source) return null;
+  const fallback = getTeamBadge(club);
+  const cacheKey = normalizeClub(club);
+  const [cleanUri, setCleanUri] = React.useState<string | null>(() => cleanBadgeCache[cacheKey] ?? null);
+  const [resolved, setResolved] = React.useState(() => Boolean(cleanBadgeCache[cacheKey]));
+
+  React.useEffect(() => {
+    let active = true;
+    const nextKey = normalizeClub(club);
+    const cached = cleanBadgeCache[nextKey];
+    if (cached) {
+      setCleanUri(cached);
+      setResolved(true);
+      return () => { active = false; };
+    }
+
+    setCleanUri(null);
+    setResolved(false);
+    resolveCleanBadgeUri(club).then(uri => {
+      if (!active) return;
+      setCleanUri(uri);
+      setResolved(true);
+    });
+    return () => { active = false; };
+  }, [club]);
+
+  if (!fallback && !cleanUri) return null;
+  if (!resolved && !cleanUri) {
+    return <View style={{ width: size, height: size, backgroundColor: 'transparent' }} />;
+  }
+
   return (
     <Image
-      source={source}
+      source={cleanUri ? { uri: cleanUri } : fallback!}
       resizeMode="contain"
       fadeDuration={0}
       accessibilityLabel={`Escudo de ${club}`}
@@ -123,7 +234,7 @@ export function ClubBadge({
 export function ClubMatchup({
   home,
   away,
-  size = 38,
+  size = 58,
 }: {
   home: string | null | undefined;
   away: string | null | undefined;
@@ -131,7 +242,7 @@ export function ClubMatchup({
 }) {
   if (!home && !away) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
       <ClubBadge club={home} size={size} />
       <Text style={{ color: '#8ac5ff', fontWeight: '900', fontSize: 11 }}>VS</Text>
       <ClubBadge club={away} size={size} />
