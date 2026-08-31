@@ -16,31 +16,38 @@ function readUserBackground(partNames, expectedSha256, label) {
   if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
     throw new Error(`AJPA fondos: ${label} no es un WebP válido`);
   }
-  return `data:image/webp;base64,${base64}`;
+  return bytes;
 }
 
-// Fondos elegidos por el usuario. Son las dos fotos originales aportadas en el chat,
-// recortadas únicamente al formato vertical de la app y embebidas dentro del APK.
-const figoBackground = readUserBackground(
+// Las fotos elegidas por el usuario se reconstruyen como archivos reales antes de
+// que Metro arme el APK. No se usan data: URI: en Android ese camino estaba
+// dejando el fondo invisible y podía tumbar la pantalla de Clausulazo.
+const figoBytes = readUserBackground(
   ['clausulazo-01.b64', 'clausulazo-02.b64', 'clausulazo-03.b64'],
   'c6f90e02759cd8381676d56080f480d1fab7704b3fd0e90be8792125f43e018c',
   'Clausulazo / Figo',
 );
-const matchBackground = readUserBackground(
+const matchBytes = readUserBackground(
   ['match-search-01.b64', 'match-search-02.b64', 'match-search-03.b64'],
   '18d39bb12c589620e447b02d17d28683123e633967b8038e3d575c4701c02106',
   'Buscar Partido / Zidane',
 );
 
+const generatedDir = new URL('../assets/generated/', import.meta.url);
+fs.mkdirSync(generatedDir, { recursive: true });
+fs.writeFileSync(new URL('clausulazo.webp', generatedDir), figoBytes);
+fs.writeFileSync(new URL('match-search.webp', generatedDir), matchBytes);
+
 fs.writeFileSync(
   new URL('../src/bg_clausulazo.ts', import.meta.url),
-  `export const BG_CLAUSULAZO = ${JSON.stringify(figoBackground)};\n`,
+  `export const BG_CLAUSULAZO = require('../assets/generated/clausulazo.webp');\n`,
 );
 fs.writeFileSync(
   new URL('../src/bg_match_search.ts', import.meta.url),
-  `export const BG_MATCH_SEARCH = ${JSON.stringify(matchBackground)};\n`,
+  `export const BG_MATCH_SEARCH = require('../assets/generated/match-search.webp');\n`,
 );
 
+// Buscar Partido: fondo Zidane como asset nativo, encima del color base y debajo del contenido.
 const matchPath = new URL('../src/MatchSearchShell.tsx', import.meta.url);
 let matchUi = fs.readFileSync(matchPath, 'utf8');
 if (!matchUi.includes('  ImageBackground,')) {
@@ -53,12 +60,16 @@ if (!matchUi.includes("import { BG_MATCH_SEARCH } from './bg_match_search';")) {
   if (!matchUi.includes(apiImport)) throw new Error('AJPA fondos: no encontré import de API en MatchSearchShell');
   matchUi = matchUi.replace(apiImport, `${apiImport}\nimport { BG_MATCH_SEARCH } from './bg_match_search';`);
 }
-if (!matchUi.includes('source={{ uri: BG_MATCH_SEARCH }}')) {
+if (!matchUi.includes('source={BG_MATCH_SEARCH}')) {
   const overlayMarker = '        <View style={s.overlay}>\n';
   if (!matchUi.includes(overlayMarker)) throw new Error('AJPA fondos: no encontré overlay de Buscar Partido');
-  const backgroundLayer = `          <ImageBackground\n            pointerEvents="none"\n            source={{ uri: BG_MATCH_SEARCH }}\n            style={StyleSheet.absoluteFillObject}\n            resizeMode="cover"\n          />\n          <View\n            pointerEvents="none"\n            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(2,6,10,0.42)' }]}\n          />\n`;
+  const backgroundLayer = `          <ImageBackground\n            pointerEvents="none"\n            source={BG_MATCH_SEARCH}\n            style={StyleSheet.absoluteFillObject}\n            resizeMode="cover"\n          />\n          <View\n            pointerEvents="none"\n            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(2,6,10,0.24)' }]}\n          />\n`;
   matchUi = matchUi.replace(overlayMarker, overlayMarker + backgroundLayer);
 }
+matchUi = matchUi.replace(
+  `overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: C.bg, zIndex: 50 },`,
+  `overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent', zIndex: 50 },`,
+);
 fs.writeFileSync(matchPath, matchUi);
 
 const uiPath = new URL('../src/BotParityAppV2.tsx', import.meta.url);
@@ -77,8 +88,8 @@ function replaceStyle(name, body) {
   return true;
 }
 
-// Clausulazo used ClubBadge even though team badges are intentionally disabled in
-// this APK. The reference only explodes at runtime when the screen/list is rendered.
+// Clausulazo: no depender de ClubBadge. Los escudos están deshabilitados en este APK
+// y esa referencia fue la causa histórica del crash al renderizar la pantalla.
 ui = ui.replace(
   /<ClubBadge club=\{clausulazoTarget\.club\} size=\{82\} \/>/g,
   `<View style={[s.clausulazoOvr, s.clausulazoOvrLarge]}><Text style={s.clausulazoOvrValue}>{clausulazoTarget.rating ?? '—'}</Text><Text style={s.clausulazoOvrLabel}>OVR</Text></View>`,
@@ -88,21 +99,24 @@ ui = ui.replace(
   `<View style={s.clausulazoOvr}><Text style={s.clausulazoOvrValue}>{player.rating ?? '—'}</Text><Text style={s.clausulazoOvrLabel}>OVR</Text></View>`,
 );
 
-if (ui.includes('<ClubBadge') && ui.includes('const clausulazoScreen = (')) {
-  const start = ui.indexOf('  const clausulazoScreen = (');
-  const end = ui.indexOf('  const publishScreen = (', start);
-  if (end > start && ui.slice(start, end).includes('<ClubBadge')) {
-    throw new Error('AJPA runtime visual fix: quedó un ClubBadge dentro de Clausulazo');
-  }
+const clauseStartForGuard = ui.indexOf('  const clausulazoScreen = (');
+const clauseEndForGuard = clauseStartForGuard >= 0 ? ui.indexOf('  const publishScreen = (', clauseStartForGuard) : -1;
+if (clauseStartForGuard < 0 || clauseEndForGuard <= clauseStartForGuard) {
+  throw new Error('AJPA runtime visual fix: Clausulazo no quedó definido antes del build');
+}
+if (ui.slice(clauseStartForGuard, clauseEndForGuard).includes('<ClubBadge')) {
+  throw new Error('AJPA runtime visual fix: quedó un ClubBadge dentro de Clausulazo');
+}
+if (!ui.includes(`else if (screen === 'clausulazo') body = clausulazoScreen;`)) {
+  throw new Error('AJPA runtime visual fix: Clausulazo no está conectado al router de pantallas');
 }
 
-// Bundle the user-selected Figo visual inside the APK. No external hotlink/network dependency.
+// Fondo Figo como asset nativo.
 mustReplace(
   `import { BG_PERFIL } from './bg_perfil';`,
   `import { BG_PERFIL } from './bg_perfil';\nimport { BG_CLAUSULAZO } from './bg_clausulazo';`,
   'import del fondo Clausulazo',
 );
-
 const remoteFigo = `    if (screen === 'clausulazo') return 'https://img.vavel.com/b/figo%20traspaso.jpg';`;
 if (ui.includes(remoteFigo)) {
   ui = ui.replace(remoteFigo, `    if (screen === 'clausulazo') return BG_CLAUSULAZO;`);
@@ -112,8 +126,17 @@ if (ui.includes(remoteFigo)) {
   ui = ui.replace(marker, `${marker}    if (screen === 'clausulazo') return BG_CLAUSULAZO;\n`);
 }
 
-// Let the background participate in the glass look instead of hiding behind an
-// almost opaque layer. Clausulazo gets its own slightly lighter shade.
+// El resto de fondos siguen siendo URL; Clausulazo ahora devuelve un asset require().
+if (ui.includes(`source={{ uri: screenBackground }}`)) {
+  ui = ui.replace(
+    `source={{ uri: screenBackground }}`,
+    `source={typeof screenBackground === 'string' ? { uri: screenBackground } : screenBackground}`,
+  );
+}
+if (!ui.includes(`source={typeof screenBackground === 'string' ? { uri: screenBackground } : screenBackground}`)) {
+  throw new Error('AJPA runtime visual fix: ImageBackground principal no acepta el asset nativo de Clausulazo');
+}
+
 if (ui.includes(`<View style={s.screenShade}>{body}</View>`)) {
   ui = ui.replace(
     `<View style={s.screenShade}>{body}</View>`,
@@ -123,8 +146,7 @@ if (ui.includes(`<View style={s.screenShade}>{body}</View>`)) {
 replaceStyle('screenBackgroundImage', `opacity: 0.96`);
 replaceStyle('screenShade', `flex: 1, backgroundColor: 'rgba(2,6,10,0.20)'`);
 
-// Make the final Android build visibly match the approved neon/glass concept.
-// elevation is the important Android shadow primitive; the iOS shadow values stay too.
+// Glass/neon visible en Android.
 replaceStyle('featureTile', `width: '48.4%', minHeight: 184, borderRadius: 24, borderWidth: 1.6, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.68)', padding: 15, shadowColor: '#168cff', shadowOpacity: 0.42, shadowRadius: 17, shadowOffset: { width: 0, height: 7 }, elevation: 13`);
 replaceStyle('quickAction', `flexGrow: 1, flexBasis: '30%', minWidth: 96, minHeight: 66, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1.35, borderColor: '#168cff', backgroundColor: 'rgba(2,16,28,0.70)', paddingHorizontal: 11, paddingVertical: 10, shadowColor: '#168cff', shadowOpacity: 0.34, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 10`);
 replaceStyle('wideTile', `minHeight: 106, flexDirection: 'row', alignItems: 'center', borderRadius: 22, borderWidth: 1.55, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.68)', padding: 15, shadowColor: '#168cff', shadowOpacity: 0.38, shadowRadius: 15, shadowOffset: { width: 0, height: 6 }, elevation: 12`);
@@ -135,7 +157,7 @@ replaceStyle('editorCard', `backgroundColor: 'rgba(2,15,27,0.74)', borderWidth: 
 replaceStyle('marketControlCard', `flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 21, borderWidth: 1.45, padding: 15, backgroundColor: 'rgba(2,15,27,0.70)', shadowColor: '#168cff', shadowOpacity: 0.32, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 10`);
 replaceStyle('topAction', `minHeight: 38, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1.35, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.80)', alignItems: 'center', justifyContent: 'center', shadowColor: '#168cff', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8`);
 
-// Give Clausulazo a distinct red danger glow while preserving the shared glass layout.
+// Clausulazo con tarjetas rojas sobre Figo.
 const clauseStart = ui.indexOf('  const clausulazoScreen = (');
 const clauseEnd = clauseStart >= 0 ? ui.indexOf('  const publishScreen = (', clauseStart) : -1;
 if (clauseStart >= 0 && clauseEnd > clauseStart) {
@@ -151,9 +173,9 @@ const stylePos = ui.lastIndexOf(styleClose);
 if (stylePos < 0) throw new Error('AJPA runtime visual fix: no encontré cierre de estilos');
 if (!ui.includes('  clausulazoShade: {')) {
   const extra = String.raw`
-  clausulazoShade: { backgroundColor: 'rgba(4,1,3,0.13)' },
-  clausulazoCard: { borderColor: '#e14b59', backgroundColor: 'rgba(24,5,10,0.66)', shadowColor: '#ff3347', shadowOpacity: 0.40, shadowRadius: 15, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
-  clausulazoSummaryCard: { borderColor: '#b83b48', backgroundColor: 'rgba(24,5,10,0.72)', shadowColor: '#ff3347', shadowOpacity: 0.30, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 10 },
+  clausulazoShade: { backgroundColor: 'rgba(4,1,3,0.10)' },
+  clausulazoCard: { borderColor: '#e14b59', backgroundColor: 'rgba(24,5,10,0.62)', shadowColor: '#ff3347', shadowOpacity: 0.40, shadowRadius: 15, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
+  clausulazoSummaryCard: { borderColor: '#b83b48', backgroundColor: 'rgba(24,5,10,0.68)', shadowColor: '#ff3347', shadowOpacity: 0.30, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 10 },
   clausulazoOvr: { width: 58, height: 58, borderRadius: 18, borderWidth: 1.4, borderColor: '#e14b59', backgroundColor: 'rgba(30,5,10,0.82)', alignItems: 'center', justifyContent: 'center', shadowColor: '#ff3347', shadowOpacity: 0.34, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 9 },
   clausulazoOvrLarge: { width: 82, height: 82, borderRadius: 24 },
   clausulazoOvrValue: { color: C.white, fontSize: 20, lineHeight: 22, fontWeight: '900' },
@@ -163,4 +185,4 @@ if (!ui.includes('  clausulazoShade: {')) {
 }
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA runtime visual fix: crash-safe + Figo en Clausulazo + Zidane en Buscar Partido + glass/neon');
+console.log('AJPA runtime visual fix: assets nativos + Clausulazo crash-safe + Figo/Zidane visibles');
