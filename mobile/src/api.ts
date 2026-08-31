@@ -178,10 +178,18 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     throw { message: 'API no configurada todavía.' } satisfies ApiError;
   }
 
+  // Android/Railway has intermittently reset POST requests even when GET works.
+  // Every AJPA mutation handler already exposes the same operation over PUT, so
+  // use one deterministic PUT request instead of POST + retry (which could
+  // duplicate a mutation if the POST reached the server but its response died).
+  const requestedMethod = String(init?.method ?? 'GET').toUpperCase();
+  const transportMethod = requestedMethod === 'POST' ? 'PUT' : requestedMethod;
+
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
+      method: transportMethod,
       headers: {
         'Content-Type': 'application/json',
         ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
