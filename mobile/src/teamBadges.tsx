@@ -3,7 +3,8 @@ import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
 const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
-const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}` });
+const BADGE_VERSION = '20260831-hq2';
+const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
 
 const BADGES: Record<string, ImageSourcePropType> = {
   ajax: remote('ajax.png'),
@@ -70,7 +71,7 @@ export function getTeamBadge(club: string | null | undefined): ImageSourcePropTy
 
 export function ClubBadge({
   club,
-  size = 42,
+  size = 48,
   style,
 }: {
   club: string | null | undefined;
@@ -83,8 +84,9 @@ export function ClubBadge({
     <Image
       source={source}
       resizeMode="contain"
+      fadeDuration={0}
       accessibilityLabel={`Escudo de ${club}`}
-      style={[{ width: size, height: size }, style]}
+      style={[{ width: size, height: size, backgroundColor: 'transparent' }, style]}
     />
   );
 }
@@ -92,7 +94,7 @@ export function ClubBadge({
 export function ClubMatchup({
   home,
   away,
-  size = 34,
+  size = 38,
 }: {
   home: string | null | undefined;
   away: string | null | undefined;
