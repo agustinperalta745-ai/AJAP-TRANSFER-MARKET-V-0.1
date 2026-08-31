@@ -2,11 +2,16 @@ import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
-// Keep every crest bundled inside the APK. Remote raw.githubusercontent URLs
-// were leaving blank spaces on Android when the image request failed.
+// Keep the crests bundled in the APK whenever Android can compile the PNG safely.
+// Three legacy PNG encodings (Monaco, Lazio and Tottenham) crash AAPT2, so those
+// stay remote temporarily. Feyenoord remains fully local so it always renders.
+const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fix/mobile-clausulazo-badges/mobile/assets/teams';
+const BADGE_VERSION = '20260831-hq4-hybrid';
+const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
+
 const ASSETS = {
   ajax: require('../assets/teams/ajax.png'),
-  as_monaco: require('../assets/teams/as_monaco.png'),
+  as_monaco: remote('as_monaco.png'),
   aston_villa: require('../assets/teams/aston_villa.png'),
   atletico_madrid: require('../assets/teams/atletico_madrid.png'),
   benfica: require('../assets/teams/benfica.png'),
@@ -16,7 +21,7 @@ const ASSETS = {
   fiorentina: require('../assets/teams/fiorentina.png'),
   fulham: require('../assets/teams/fulham.png'),
   galatasaray: require('../assets/teams/galatasaray.png'),
-  lazio: require('../assets/teams/lazio.png'),
+  lazio: remote('lazio.png'),
   manchester_city: require('../assets/teams/manchester_city.png'),
   middlesbrough: require('../assets/teams/middlesbrough.png'),
   olympique_lyon: require('../assets/teams/olympique_lyon.png'),
@@ -26,7 +31,7 @@ const ASSETS = {
   real_betis: require('../assets/teams/real_betis.png'),
   sevilla: require('../assets/teams/sevilla.png'),
   torino: require('../assets/teams/torino.png'),
-  tottenham_hotspur: require('../assets/teams/tottenham_hotspur.png'),
+  tottenham_hotspur: remote('tottenham_hotspur.png'),
   villarreal: require('../assets/teams/villarreal.png'),
   west_ham_united: require('../assets/teams/west_ham_united.png'),
   zaragoza: require('../assets/teams/zaragoza.png'),
