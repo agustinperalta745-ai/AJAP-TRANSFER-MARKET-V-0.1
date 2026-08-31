@@ -44,6 +44,29 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare AJPA launcher icon
+        run: |
+          mkdir -p assets
+          cat \
+            icon_chunks/00.txt \
+            icon_chunks/01.txt \
+            icon_chunks/02.txt \
+            icon_chunks/03a.txt \
+            icon_chunks/03b.txt \
+            icon_chunks/03c.txt \
+            icon_chunks/03d.txt \
+            icon_chunks/03e.txt \
+            | tr -d '\n\r' \
+            | base64 --decode > assets/ajpa-app-icon.png
+          python - <<'PY'
+          from pathlib import Path
+          icon = Path('assets/ajpa-app-icon.png')
+          data = icon.read_bytes()
+          if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+              raise SystemExit('AJPA launcher icon is not a valid PNG')
+          print(f'AJPA launcher icon ready: {len(data)} bytes')
+          PY
+
       - name: Verify live AJPA API and mutation tunnel
         run: |
           python - <<'PY'
