@@ -5,8 +5,13 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/ajpa-app-icon.png",
     "android": {
-      "package": "com.ajpa.transfermarket"
+      "package": "com.ajpa.transfermarket",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/ajpa-app-icon.png",
+        "backgroundColor": "#000000"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.ajpa.transfermarket"
