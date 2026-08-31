@@ -45,6 +45,9 @@ jobs:
       - name: Apply team badges
         run: node scripts/apply-team-badges.mjs
 
+      - name: Apply operational Clausulazo
+        run: node scripts/apply-clausulazo-mobile.mjs
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
