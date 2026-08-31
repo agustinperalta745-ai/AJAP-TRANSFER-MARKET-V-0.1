@@ -35,13 +35,13 @@ replaceOnce(
 
 replaceOnce(
   `  const mutate = async (work: () => Promise<unknown>, success: string) => {`,
-  `  const clausulazoPlayers = clausulazoQuery.trim()\n    ? (clausulazoData?.players ?? []).filter((player) =>\n        \`${'${player.name} ${player.club} ${player.position}'}\`.toLowerCase().includes(clausulazoQuery.trim().toLowerCase()),\n      )\n    : [];\n\n  const mutate = async (work: () => Promise<unknown>, success: string) => {`,
+  `  const clausulazoPlayers = clausulazoQuery.trim()\n    ? (clausulazoData?.players ?? []).filter((player) =>\n        \`\${player.name} \${player.club} \${player.position}\`.toLowerCase().includes(clausulazoQuery.trim().toLowerCase()),\n      )\n    : [];\n\n  const mutate = async (work: () => Promise<unknown>, success: string) => {`,
   'filtro de Clausulazo',
 );
 
 replaceOnce(
   `  if (loading) {`,
-  `  const submitClausulazo = (target: ClausulazoPlayer) => {\n    if (!clausulazoData?.available || !target.available) {\n      Alert.alert('Clausulazo bloqueado', target.blocked_reason || clausulazoData?.blocked_reason || 'La operación no está disponible.');\n      return;\n    }\n    Alert.alert(\n      'Confirmar clausulazo',\n      \`Vas a ejecutar la cláusula de ${'${target.name}'} (${ '${target.club}' }) por ${'${money(target.clause)}'}. El importe queda reservado hasta que Staff apruebe o rechace la operación.\`,\n      [\n        { text: 'Cancelar', style: 'cancel' },\n        {\n          text: 'EJECUTAR',\n          style: 'destructive',\n          onPress: () => void mutate(\n            async () => {\n              const result = await executeClausulazo(target.id);\n              setClausulazoTarget(null);\n              setClausulazoQuery('');\n              try { setClausulazoData(await fetchClausulazo()); } catch {}\n              return result;\n            },\n            \`Clausulazo de ${'${target.name}'} enviado a revisión del Staff.\`,\n          ),\n        },\n      ],\n    );\n  };\n\n  if (loading) {`,
+  `  const submitClausulazo = (target: ClausulazoPlayer) => {\n    if (!clausulazoData?.available || !target.available) {\n      Alert.alert('Clausulazo bloqueado', target.blocked_reason || clausulazoData?.blocked_reason || 'La operación no está disponible.');\n      return;\n    }\n    Alert.alert(\n      'Confirmar clausulazo',\n      \`Vas a ejecutar la cláusula de \${target.name} (\${target.club}) por \${money(target.clause)}. El importe queda reservado hasta que Staff apruebe o rechace la operación.\`,\n      [\n        { text: 'Cancelar', style: 'cancel' },\n        {\n          text: 'EJECUTAR',\n          style: 'destructive',\n          onPress: () => void mutate(\n            async () => {\n              const result = await executeClausulazo(target.id);\n              setClausulazoTarget(null);\n              setClausulazoQuery('');\n              try { setClausulazoData(await fetchClausulazo()); } catch {}\n              return result;\n            },\n            \`Clausulazo de \${target.name} enviado a revisión del Staff.\`,\n          ),\n        },\n      ],\n    );\n  };\n\n  if (loading) {`,
   'submit Clausulazo',
 );
 
@@ -129,7 +129,7 @@ const screen = String.raw`  const clausulazoScreen = (
 
           {!clausulazoTarget && clausulazoPlayers.slice(0, 60).map((player) => (
             <Pressable
-              key={`${player.club}-${player.id}`}
+              key={player.club + '-' + player.id}
               disabled={!player.available}
               onPress={() => setClausulazoTarget(player)}
               style={({ pressed }) => [s.card, !player.available && s.disabled, pressed && player.available && { opacity: 0.72 }]}
