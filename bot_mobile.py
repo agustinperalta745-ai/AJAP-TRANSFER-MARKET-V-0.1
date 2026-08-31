@@ -16,6 +16,7 @@ import mobile_clausulazo_api_patch  # noqa: E402
 import mobile_write_release_compat  # noqa: E402
 import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
+import mobile_staff_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
@@ -35,6 +36,8 @@ mobile_write_api.apply_mobile_write_patch()
 mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 # Adds real Liga/history reads plus narrowly scoped Staff mobile endpoints.
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
+# Staff Mercado parity: pending operations, clausulazo review and safe undo.
+mobile_staff_api_patch.apply_mobile_staff_api_patch()
 mobile_transport_patch.apply_mobile_transport_patch()
 # Public Buscar Partido board + authenticated create/join/cancel operations.
 # Joining consults the official league_matches table populated by the result bot.
