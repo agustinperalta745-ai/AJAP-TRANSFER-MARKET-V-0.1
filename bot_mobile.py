@@ -19,6 +19,7 @@ import mobile_parity_api_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
+import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
@@ -45,6 +46,9 @@ mobile_staff_economy_api_patch.apply_mobile_staff_economy_api_patch()
 # Public Buscar Partido board + authenticated create/join/cancel operations.
 # Joining consults the official league_matches table populated by the result bot.
 mobile_match_search_patch.apply_mobile_match_search_patch()
+# If a matched fixture never gets an official detected result, remove the stale
+# card after the configured grace period instead of blocking both clubs forever.
+mobile_match_result_timeout_patch.apply_mobile_match_result_timeout_patch()
 # Real club resignation: frees only the manager assignment and keeps roster/economy.
 mobile_resignation_api_patch.apply_mobile_resignation_api_patch()
 # IMPORTANT: transport is last so the reliable GET tunnel captures every mutation
