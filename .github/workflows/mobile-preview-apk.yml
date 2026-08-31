@@ -54,35 +54,43 @@ jobs:
 
           base = os.environ['EXPO_PUBLIC_API_URL'].rstrip('/')
           health = base + '/health'
-          mutation = base + '/api/v1/publications'
+          mutations = [
+              (base + '/api/v1/publications', '%7B%7D', 'market mutation'),
+              (
+                  base + '/api/v1/admin/economy/adjust',
+                  '%7B%22club%22%3A%22probe%22%2C%22amount%22%3A1%2C%22mode%22%3A%22ADD%22%7D',
+                  'Staff economy mutation',
+              ),
+          ]
           last = None
 
           # Wait for Railway to expose the same revision before compiling an APK.
-          # A tunneled unauthenticated publication MUST reach the write stack and
-          # answer 401. 404/405 means the old read-only transport is still live.
+          # Every tunneled unauthenticated mutation MUST reach the write stack and
+          # answer 401. 404/405 means an older API revision is still live.
           for attempt in range(36):
               try:
                   with urllib.request.urlopen(health, timeout=10) as response:
                       if not (200 <= response.status < 300):
                           raise RuntimeError(f'health HTTP {response.status}')
 
-                  req = urllib.request.Request(
-                      mutation,
-                      method='GET',
-                      headers={
-                          'X-AJPA-Method': 'POST',
-                          'X-AJPA-Body': '%7B%7D',
-                      },
-                  )
-                  try:
-                      urllib.request.urlopen(req, timeout=10)
-                      last = RuntimeError('mutation tunnel accepted an unauthenticated request')
-                  except urllib.error.HTTPError as exc:
-                      body = exc.read().decode('utf-8', errors='replace')
-                      if exc.code == 401:
-                          print(f'AJPA mutation tunnel OK: HTTP 401 as expected | {body}')
-                          break
-                      last = RuntimeError(f'mutation tunnel HTTP {exc.code}: {body}')
+                  for mutation, body_header, label in mutations:
+                      req = urllib.request.Request(
+                          mutation,
+                          method='GET',
+                          headers={
+                              'X-AJPA-Method': 'POST',
+                              'X-AJPA-Body': body_header,
+                          },
+                      )
+                      try:
+                          urllib.request.urlopen(req, timeout=10)
+                          raise RuntimeError(f'{label} accepted an unauthenticated request')
+                      except urllib.error.HTTPError as exc:
+                          body = exc.read().decode('utf-8', errors='replace')
+                          if exc.code != 401:
+                              raise RuntimeError(f'{label} HTTP {exc.code}: {body}') from exc
+                          print(f'AJPA {label} OK: HTTP 401 as expected | {body}')
+                  break
               except Exception as exc:
                   last = exc
 
@@ -104,6 +112,9 @@ jobs:
 
       - name: Apply operational Staff market
         run: node scripts/apply-staff-mobile.mjs
+
+      - name: Apply operational Staff economy
+        run: node scripts/apply-staff-economy-mobile.mjs
 
       - name: Apply operational club resignation
         run: node scripts/apply-resignation-mobile.mjs
