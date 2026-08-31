@@ -48,6 +48,43 @@ export type RosterPlayer = {
   market_value: number | null;
 };
 
+export type ClausulazoPlayer = {
+  id: number;
+  name: string;
+  position: string;
+  club: string;
+  rating: number | null;
+  market_value: number;
+  clause: number;
+  available: boolean;
+  blocked_reason: string | null;
+};
+
+export type ClausulazoData = {
+  club: string;
+  balance: number;
+  roster_count: number;
+  committed_roster: number;
+  market_open: boolean;
+  cycle_id: number | null;
+  clause: number;
+  available: boolean;
+  blocked_reason: string | null;
+  players: ClausulazoPlayer[];
+};
+
+export type ClausulazoResult = {
+  ok: boolean;
+  request_id: number;
+  status: string;
+  player: string;
+  seller_club: string;
+  buyer_club: string;
+  amount: number;
+  balance_after: number;
+  message: string;
+};
+
 export type LeagueSnapshot = {
   read_only: boolean;
   status: LeagueStatus;
@@ -241,6 +278,17 @@ export async function fetchMe(): Promise<MobileProfile> {
 
 export function fetchMyOffers(): Promise<MyOffers> {
   return apiRequest<MyOffers>('/api/v1/my/offers');
+}
+
+export function fetchClausulazo(): Promise<ClausulazoData> {
+  return apiRequest<ClausulazoData>('/api/v1/clausulazo');
+}
+
+export function executeClausulazo(playerId: number): Promise<ClausulazoResult> {
+  return apiRequest<ClausulazoResult>('/api/v1/clausulazo', {
+    method: 'POST',
+    body: JSON.stringify({ player_id: playerId }),
+  });
 }
 
 export function publishPlayer(payload: {
