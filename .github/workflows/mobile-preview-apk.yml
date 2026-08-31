@@ -49,6 +49,9 @@ jobs:
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
 
+      - name: Apply Clausulazo Figo background
+        run: node scripts/apply-clausulazo-background.mjs
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
