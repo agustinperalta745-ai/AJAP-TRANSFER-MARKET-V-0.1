@@ -73,17 +73,17 @@ const staffScreens = String.raw`  const adminOperationsScreen = (
           <View style={s.actionRow}>
             {item.status === 'PENDIENTE_ADMIN' ? <Button label="APROBAR" kind="green" disabled={busy} onPress={() => staffMutate(
               () => staffOperationAction(item.id, 'approve'),
-              `Operación #${item.id} aprobada.`,
+              'Operación #' + item.id + ' aprobada.',
               async () => setStaffOperations(await fetchStaffOperations()),
             )} /> : null}
             {item.status === 'APROBADA' ? <Button label="CARGADO EN PES" kind="green" disabled={busy} onPress={() => staffMutate(
               () => staffOperationAction(item.id, 'pes'),
-              `Operación #${item.id} aplicada y marcada como cargada en PES.`,
+              'Operación #' + item.id + ' aplicada y marcada como cargada en PES.',
               async () => setStaffOperations(await fetchStaffOperations()),
             )} /> : null}
             <Button label="RECHAZAR" kind="red" disabled={busy} onPress={() => staffMutate(
               () => staffOperationAction(item.id, 'reject'),
-              `Operación #${item.id} rechazada.`,
+              'Operación #' + item.id + ' rechazada.',
               async () => setStaffOperations(await fetchStaffOperations()),
             )} />
           </View>
@@ -105,12 +105,12 @@ const staffScreens = String.raw`  const adminOperationsScreen = (
           <View style={s.actionRow}>
             <Button label="APROBAR" kind="green" disabled={busy} onPress={() => staffMutate(
               () => staffClauseAction(item.id, 'approve'),
-              `Clausulazo #${item.id} aprobado. Quedó pendiente de cargar en PES.`,
+              'Clausulazo #' + item.id + ' aprobado. Quedó pendiente de cargar en PES.',
               async () => setStaffClauses(await fetchStaffClauses()),
             )} />
             <Button label="RECHAZAR" kind="red" disabled={busy} onPress={() => staffMutate(
               () => staffClauseAction(item.id, 'reject'),
-              `Clausulazo #${item.id} rechazado y reserva devuelta.`,
+              'Clausulazo #' + item.id + ' rechazado y reserva devuelta.',
               async () => setStaffClauses(await fetchStaffClauses()),
             )} />
           </View>
@@ -131,12 +131,12 @@ const staffScreens = String.raw`  const adminOperationsScreen = (
           <View style={s.actionRow}>
             <Button label="DESHACER PASE" kind="red" disabled={busy} onPress={() => Alert.alert(
               'Confirmar reversión',
-              `¿Deshacer #${item.id} y devolver ${item.players.join(' + ')} a ${item.seller}?`,
+              '¿Deshacer #' + item.id + ' y devolver ' + item.players.join(' + ') + ' a ' + item.seller + '?',
               [
                 { text: 'CANCELAR', style: 'cancel' },
                 { text: 'DESHACER', style: 'destructive', onPress: () => staffMutate(
                   () => undoStaffTransfer(item.id),
-                  `Operación #${item.id} revertida.`,
+                  'Operación #' + item.id + ' revertida.',
                   async () => setStaffReversible(await fetchStaffReversible()),
                 ) },
               ],
