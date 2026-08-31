@@ -35,7 +35,7 @@ if (!ui.includes('const resignScreen = (')) {
             disabled={busy || !profile?.club}
             onPress={() => Alert.alert(
               'Renunciar al Club',
-              `¿Confirmás que querés renunciar a ${profile?.club ?? 'tu club'}?`,
+              '¿Confirmás que querés renunciar a ' + (profile?.club ?? 'tu club') + '?',
               [
                 { text: 'Cancelar', style: 'cancel' },
                 {
