@@ -49,6 +49,22 @@ jobs:
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
 
+      - name: Apply Clausulazo Figo background
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const uiPath = 'src/BotParityAppV2.tsx';
+          let ui = fs.readFileSync(uiPath, 'utf8');
+          const figo = 'https://img.vavel.com/b/figo%20traspaso.jpg';
+          const from = `  const screenBackground = (() => {\n    if (screen === 'profile') return BG_PERFIL;`;
+          const to = `  const screenBackground = (() => {\n    if (screen === 'clausulazo') return '${figo}';\n    if (screen === 'profile') return BG_PERFIL;`;
+          if (!ui.includes(`screen === 'clausulazo') return '${figo}'`)) {
+            if (!ui.includes(from)) throw new Error('No se encontró selector de fondo para Clausulazo');
+            ui = ui.replace(from, to);
+          }
+          fs.writeFileSync(uiPath, ui);
+          NODE
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
