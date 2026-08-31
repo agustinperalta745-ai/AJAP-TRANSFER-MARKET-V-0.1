@@ -6,7 +6,7 @@ import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 // Problematic PNGs stay remote so AAPT2 does not try to compile them as Android resources.
 const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fix/mobile-clausulazo-badges/mobile/assets/teams';
 const RAW_MAIN = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
-const BADGE_VERSION = '20260831-hq6-more-remote';
+const BADGE_VERSION = '20260831-hq7-more-remote';
 const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
 const remoteMain = (file: string): ImageSourcePropType => ({ uri: `${RAW_MAIN}/${file}?v=${BADGE_VERSION}` });
 
@@ -18,20 +18,20 @@ const ASSETS = {
   benfica: remoteMain('benfica.png'),
   bolton_wanderers: require('../assets/teams/bolton_wanderers.png'),
   everton: require('../assets/teams/everton.png'),
-  feyenoord: require('../assets/teams/feyenoord.png'),
+  feyenoord: remoteMain('feyenoord.png'),
   fiorentina: require('../assets/teams/fiorentina.png'),
   fulham: require('../assets/teams/fulham.png'),
   galatasaray: require('../assets/teams/galatasaray.png'),
   lazio: remote('lazio.png'),
   manchester_city: remoteMain('manchester_city.png'),
-  middlesbrough: require('../assets/teams/middlesbrough.png'),
+  middlesbrough: remoteMain('middlesbrough.png'),
   olympique_lyon: require('../assets/teams/olympique_lyon.png'),
   olympique_marseille: require('../assets/teams/olympique_marseille.png'),
   porto: require('../assets/teams/porto.png'),
   psg: require('../assets/teams/psg.png'),
   real_betis: require('../assets/teams/real_betis.png'),
   sevilla: require('../assets/teams/sevilla.png'),
-  torino: require('../assets/teams/torino.png'),
+  torino: remoteMain('torino.png'),
   tottenham_hotspur: remote('tottenham_hotspur.png'),
   villarreal: remoteMain('villarreal.png'),
   west_ham_united: require('../assets/teams/west_ham_united.png'),
