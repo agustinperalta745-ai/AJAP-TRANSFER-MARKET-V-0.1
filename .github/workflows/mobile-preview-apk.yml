@@ -119,6 +119,9 @@ jobs:
       - name: Apply operational club resignation
         run: node scripts/apply-resignation-mobile.mjs
 
+      - name: Apply organized menus and panel style
+        run: node scripts/apply-organized-menu-style.mjs
+
       - name: Apply Clausulazo Figo background
         run: |
           node <<'NODE'
