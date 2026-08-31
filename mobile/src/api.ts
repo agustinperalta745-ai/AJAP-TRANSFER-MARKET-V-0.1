@@ -178,21 +178,31 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     throw { message: 'API no configurada todavía.' } satisfies ApiError;
   }
 
-  // Android/Railway has intermittently reset POST requests even when GET works.
-  // Every AJPA mutation handler already exposes the same operation over PUT, so
-  // use one deterministic PUT request instead of POST + retry (which could
-  // duplicate a mutation if the POST reached the server but its response died).
   const requestedMethod = String(init?.method ?? 'GET').toUpperCase();
-  const transportMethod = requestedMethod === 'POST' ? 'PUT' : requestedMethod;
+  const isMutation = !['GET', 'HEAD'].includes(requestedMethod);
+  const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+
+  // GET is the transport that has proven stable from the Android APK to Railway.
+  // Mutations keep their original route, bearer token and JSON payload, but the
+  // transport verb is GET and the backend reconstructs the original mutation
+  // before running the same authenticated handler/business rules.
+  const transportHeaders: Record<string, string> = isMutation
+    ? {
+        'X-AJPA-Method': requestedMethod,
+        'X-AJPA-Body': encodeURIComponent(rawBody || '{}'),
+      }
+    : {};
 
   let response: Response;
   try {
+    const { body: _ignoredBody, ...restInit } = init ?? {};
     response = await fetch(`${API_URL}${path}`, {
-      ...init,
-      method: transportMethod,
+      ...restInit,
+      method: isMutation ? 'GET' : requestedMethod,
       headers: {
         'Content-Type': 'application/json',
         ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        ...transportHeaders,
         ...(init?.headers ?? {}),
       },
     });
@@ -247,11 +257,6 @@ export async function pairDevice(code: string): Promise<{ token: string; profile
   const previous = sessionToken;
   sessionToken = '';
   try {
-    // Pair exactly once. The previous POST-then-GET fallback could consume the
-    // one-time code on POST even when Android lost the response; the retry then
-    // correctly saw the same code as already used. The hardened backend exposes
-    // the same exchange over GET with the code in a private request header, so
-    // use that single path and never double-submit a one-time code.
     return await apiRequest<{ token: string; profile: MobileProfile }>('/api/v1/auth/pair', {
       method: 'GET',
       headers: { 'X-AJPA-Pair-Code': code },
@@ -272,11 +277,6 @@ export async function fetchMe(): Promise<MobileProfile> {
   } catch (error) {
     const requestError = error as ApiError;
     if (requestError?.status === 401) {
-      // Never turn an invalid/expired token into a fake profile. The previous
-      // behavior returned an anonymous object, which the UI rendered as
-      // "VINCULADO · OPERACIONES HABILITADAS" even though no valid session
-      // existed. Clear both the active and persisted tokens so the app starts
-      // cleanly on the Vincular screen next time too.
       sessionToken = '';
       await clearStoredSession();
     }
@@ -339,4 +339,11 @@ export function signFreeAgent(publicationId: number) {
 
 export function releasePlayer(playerId: number) {
   return apiRequest(`/api/v1/players/${playerId}/release`, { method: 'POST', body: '{}' });
+}
+
+export function resignClub() {
+  return apiRequest<{ ok: boolean; club: string; message: string }>('/api/v1/me/resign', {
+    method: 'POST',
+    body: '{}',
+  });
 }
