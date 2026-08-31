@@ -125,6 +125,9 @@ jobs:
       - name: Apply approved personalized layout
         run: node scripts/apply-approved-screen-layout.mjs
 
+      - name: Preserve Clausulazo screen after layout
+        run: node scripts/restore-clausulazo-screen.mjs
+
       - name: Apply runtime crash and visual fixes
         run: node scripts/apply-runtime-visual-fixes.mjs
 
