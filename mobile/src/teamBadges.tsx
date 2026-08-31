@@ -3,12 +3,10 @@ import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
 // Keep the crests bundled in the APK whenever Android can compile the PNG safely.
-// Monaco, Lazio and Tottenham stay remote because their legacy encodings crash AAPT2.
-// Manchester City is intentionally loaded from main so we can use the newly uploaded
-// high-quality transparent crest without bundling it into the APK.
+// Problematic PNGs stay remote so AAPT2 does not try to compile them as Android resources.
 const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fix/mobile-clausulazo-badges/mobile/assets/teams';
 const RAW_MAIN = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
-const BADGE_VERSION = '20260831-hq5-mancity-remote';
+const BADGE_VERSION = '20260831-hq6-more-remote';
 const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
 const remoteMain = (file: string): ImageSourcePropType => ({ uri: `${RAW_MAIN}/${file}?v=${BADGE_VERSION}` });
 
@@ -17,7 +15,7 @@ const ASSETS = {
   as_monaco: remote('as_monaco.png'),
   aston_villa: require('../assets/teams/aston_villa.png'),
   atletico_madrid: require('../assets/teams/atletico_madrid.png'),
-  benfica: require('../assets/teams/benfica.png'),
+  benfica: remoteMain('benfica.png'),
   bolton_wanderers: require('../assets/teams/bolton_wanderers.png'),
   everton: require('../assets/teams/everton.png'),
   feyenoord: require('../assets/teams/feyenoord.png'),
@@ -35,9 +33,9 @@ const ASSETS = {
   sevilla: require('../assets/teams/sevilla.png'),
   torino: require('../assets/teams/torino.png'),
   tottenham_hotspur: remote('tottenham_hotspur.png'),
-  villarreal: require('../assets/teams/villarreal.png'),
+  villarreal: remoteMain('villarreal.png'),
   west_ham_united: require('../assets/teams/west_ham_united.png'),
-  zaragoza: require('../assets/teams/zaragoza.png'),
+  zaragoza: remoteMain('zaragoza.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 const BADGES: Record<string, ImageSourcePropType> = {
