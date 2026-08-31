@@ -2,39 +2,36 @@ import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
-// Keep the crests bundled in the APK whenever Android can compile the PNG safely.
-// Problematic PNGs stay remote so AAPT2 does not try to compile them as Android resources.
-const RAW = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fix/mobile-clausulazo-badges/mobile/assets/teams';
+// All crests are loaded remotely from main so Android AAPT2 never compiles them as bundled resources.
 const RAW_MAIN = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/main/mobile/assets/teams';
-const BADGE_VERSION = '20260831-hq7-more-remote';
-const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}?v=${BADGE_VERSION}` });
+const BADGE_VERSION = '20260831-all-remote';
 const remoteMain = (file: string): ImageSourcePropType => ({ uri: `${RAW_MAIN}/${file}?v=${BADGE_VERSION}` });
 
 const ASSETS = {
-  ajax: require('../assets/teams/ajax.png'),
-  as_monaco: remote('as_monaco.png'),
-  aston_villa: require('../assets/teams/aston_villa.png'),
-  atletico_madrid: require('../assets/teams/atletico_madrid.png'),
+  ajax: remoteMain('ajax.png'),
+  as_monaco: remoteMain('as_monaco.png'),
+  aston_villa: remoteMain('aston_villa.png'),
+  atletico_madrid: remoteMain('atletico_madrid.png'),
   benfica: remoteMain('benfica.png'),
-  bolton_wanderers: require('../assets/teams/bolton_wanderers.png'),
-  everton: require('../assets/teams/everton.png'),
+  bolton_wanderers: remoteMain('bolton_wanderers.png'),
+  everton: remoteMain('everton.png'),
   feyenoord: remoteMain('feyenoord.png'),
-  fiorentina: require('../assets/teams/fiorentina.png'),
-  fulham: require('../assets/teams/fulham.png'),
-  galatasaray: require('../assets/teams/galatasaray.png'),
-  lazio: remote('lazio.png'),
+  fiorentina: remoteMain('fiorentina.png'),
+  fulham: remoteMain('fulham.png'),
+  galatasaray: remoteMain('galatasaray.png'),
+  lazio: remoteMain('lazio.png'),
   manchester_city: remoteMain('manchester_city.png'),
   middlesbrough: remoteMain('middlesbrough.png'),
-  olympique_lyon: require('../assets/teams/olympique_lyon.png'),
-  olympique_marseille: require('../assets/teams/olympique_marseille.png'),
-  porto: require('../assets/teams/porto.png'),
-  psg: require('../assets/teams/psg.png'),
-  real_betis: require('../assets/teams/real_betis.png'),
-  sevilla: require('../assets/teams/sevilla.png'),
+  olympique_lyon: remoteMain('olympique_lyon.png'),
+  olympique_marseille: remoteMain('olympique_marseille.png'),
+  porto: remoteMain('porto.png'),
+  psg: remoteMain('psg.png'),
+  real_betis: remoteMain('real_betis.png'),
+  sevilla: remoteMain('sevilla.png'),
   torino: remoteMain('torino.png'),
-  tottenham_hotspur: remote('tottenham_hotspur.png'),
+  tottenham_hotspur: remoteMain('tottenham_hotspur.png'),
   villarreal: remoteMain('villarreal.png'),
-  west_ham_united: require('../assets/teams/west_ham_united.png'),
+  west_ham_united: remoteMain('west_ham_united.png'),
   zaragoza: remoteMain('zaragoza.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
