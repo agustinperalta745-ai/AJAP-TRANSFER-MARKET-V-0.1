@@ -1,4 +1,65 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
+
+function readUserBackground(partNames, expectedSha256, label) {
+  const base64 = partNames
+    .map((name) => fs.readFileSync(new URL(`../assets/background-parts/${name}`, import.meta.url), 'utf8').trim())
+    .join('');
+  if (!base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) {
+    throw new Error(`AJPA fondos: base64 inválido para ${label}`);
+  }
+  const bytes = Buffer.from(base64, 'base64');
+  const actual = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (actual !== expectedSha256) {
+    throw new Error(`AJPA fondos: hash incorrecto para ${label}: ${actual}`);
+  }
+  if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF' || bytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
+    throw new Error(`AJPA fondos: ${label} no es un WebP válido`);
+  }
+  return `data:image/webp;base64,${base64}`;
+}
+
+// Fondos elegidos por el usuario. Son las dos fotos originales aportadas en el chat,
+// recortadas únicamente al formato vertical de la app y embebidas dentro del APK.
+const figoBackground = readUserBackground(
+  ['clausulazo-01.b64', 'clausulazo-02.b64', 'clausulazo-03.b64'],
+  'c6f90e02759cd8381676d56080f480d1fab7704b3fd0e90be8792125f43e018c',
+  'Clausulazo / Figo',
+);
+const matchBackground = readUserBackground(
+  ['match-search-01.b64', 'match-search-02.b64', 'match-search-03.b64'],
+  '18d39bb12c589620e447b02d17d28683123e633967b8038e3d575c4701c02106',
+  'Buscar Partido / Zidane',
+);
+
+fs.writeFileSync(
+  new URL('../src/bg_clausulazo.ts', import.meta.url),
+  `export const BG_CLAUSULAZO = ${JSON.stringify(figoBackground)};\n`,
+);
+fs.writeFileSync(
+  new URL('../src/bg_match_search.ts', import.meta.url),
+  `export const BG_MATCH_SEARCH = ${JSON.stringify(matchBackground)};\n`,
+);
+
+const matchPath = new URL('../src/MatchSearchShell.tsx', import.meta.url);
+let matchUi = fs.readFileSync(matchPath, 'utf8');
+if (!matchUi.includes('  ImageBackground,')) {
+  const importMarker = '  Alert,\n  Pressable,';
+  if (!matchUi.includes(importMarker)) throw new Error('AJPA fondos: no encontré imports de MatchSearchShell');
+  matchUi = matchUi.replace(importMarker, '  Alert,\n  ImageBackground,\n  Pressable,');
+}
+if (!matchUi.includes("import { BG_MATCH_SEARCH } from './bg_match_search';")) {
+  const apiImport = "import { apiRequest } from './api';";
+  if (!matchUi.includes(apiImport)) throw new Error('AJPA fondos: no encontré import de API en MatchSearchShell');
+  matchUi = matchUi.replace(apiImport, `${apiImport}\nimport { BG_MATCH_SEARCH } from './bg_match_search';`);
+}
+if (!matchUi.includes('source={{ uri: BG_MATCH_SEARCH }}')) {
+  const overlayMarker = '        <View style={s.overlay}>\n';
+  if (!matchUi.includes(overlayMarker)) throw new Error('AJPA fondos: no encontré overlay de Buscar Partido');
+  const backgroundLayer = `          <ImageBackground\n            pointerEvents="none"\n            source={{ uri: BG_MATCH_SEARCH }}\n            style={StyleSheet.absoluteFillObject}\n            resizeMode="cover"\n          />\n          <View\n            pointerEvents="none"\n            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(2,6,10,0.42)' }]}\n          />\n`;
+  matchUi = matchUi.replace(overlayMarker, overlayMarker + backgroundLayer);
+}
+fs.writeFileSync(matchPath, matchUi);
 
 const uiPath = new URL('../src/BotParityAppV2.tsx', import.meta.url);
 let ui = fs.readFileSync(uiPath, 'utf8');
@@ -35,7 +96,7 @@ if (ui.includes('<ClubBadge') && ui.includes('const clausulazoScreen = (')) {
   }
 }
 
-// Bundle the Figo visual inside the APK. No external hotlink/network dependency.
+// Bundle the user-selected Figo visual inside the APK. No external hotlink/network dependency.
 mustReplace(
   `import { BG_PERFIL } from './bg_perfil';`,
   `import { BG_PERFIL } from './bg_perfil';\nimport { BG_CLAUSULAZO } from './bg_clausulazo';`,
@@ -102,4 +163,4 @@ if (!ui.includes('  clausulazoShade: {')) {
 }
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA runtime visual fix: Clausulazo crash-safe + fondo embebido + glass/neon reforzado');
+console.log('AJPA runtime visual fix: crash-safe + Figo en Clausulazo + Zidane en Buscar Partido + glass/neon');
