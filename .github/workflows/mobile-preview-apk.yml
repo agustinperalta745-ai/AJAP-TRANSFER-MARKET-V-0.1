@@ -122,6 +122,9 @@ jobs:
       - name: Apply organized menus and panel style
         run: node scripts/apply-organized-menu-style.mjs
 
+      - name: Apply premium navigation and glass effects
+        run: node scripts/apply-premium-navigation-style.mjs
+
       - name: Apply Clausulazo Figo background
         run: |
           node <<'NODE'
