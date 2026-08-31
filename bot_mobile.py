@@ -12,6 +12,7 @@ os.environ.setdefault("AJPA_MOBILE_GUILD_ID", "1541577795426324571")
 
 import mobile_auth_patch  # noqa: E402
 import mobile_write_api  # noqa: E402
+import mobile_clausulazo_api_patch  # noqa: E402
 import mobile_write_release_compat  # noqa: E402
 import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
@@ -30,6 +31,8 @@ league_team_catalog_patch.apply_league_team_catalog_patch()
 mobile_write_release_compat.apply()
 mobile_auth_patch.apply_mobile_auth_patch()
 mobile_write_api.apply_mobile_write_patch()
+# Real mobile clausulazo requests; Staff approval/rejection remains shared with Discord.
+mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 # Adds real Liga/history reads plus narrowly scoped Staff mobile endpoints.
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
 mobile_transport_patch.apply_mobile_transport_patch()
