@@ -31,6 +31,16 @@ export type StaffReversible = {
   players: string[];
 };
 
+export type StaffEconomyAdjustment = {
+  ok: boolean;
+  club: string;
+  mode: 'ADD' | 'REMOVE';
+  amount: number;
+  delta: number;
+  balance_before: number;
+  balance_after: number;
+};
+
 export async function fetchStaffOperations(): Promise<StaffOperation[]> {
   const result = await apiRequest<{ items: StaffOperation[] }>('/api/v1/admin/operations');
   return result.items;
@@ -64,5 +74,12 @@ export function undoStaffTransfer(id: number) {
   return apiRequest<{ ok: boolean; reverted: number }>(`/api/v1/admin/reversible/${id}/undo`, {
     method: 'POST',
     body: '{}',
+  });
+}
+
+export function adjustStaffEconomy(club: string, amount: number, mode: 'ADD' | 'REMOVE') {
+  return apiRequest<StaffEconomyAdjustment>('/api/v1/admin/economy/adjust', {
+    method: 'POST',
+    body: JSON.stringify({ club, amount, mode }),
   });
 }
