@@ -60,8 +60,11 @@ mustReplace(
   'placeholder de deshacer pase',
 );
 
-const screenMarker = `  const assignmentsScreen = (`;
-if (!ui.includes(screenMarker)) throw new Error('AJPA Staff mobile patch: no encontré assignmentsScreen');
+// Estas pantallas deben quedar inmediatamente después de adminMarketScreen.
+// El parche visual organizado usa ese orden para reemplazar Mercado sin tragarse
+// Planteles/Economía/Gestión durante el build.
+const screenMarker = `  const adminRostersScreen = (`;
+if (!ui.includes(screenMarker)) throw new Error('AJPA Staff mobile patch: no encontré adminRostersScreen');
 
 const staffScreens = String.raw`  const adminOperationsScreen = (
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
