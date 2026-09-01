@@ -18,6 +18,7 @@ import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
+import mobile_club_profiles_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
 import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
@@ -43,6 +44,8 @@ mobile_parity_api_patch.apply_mobile_parity_api_patch()
 mobile_staff_api_patch.apply_mobile_staff_api_patch()
 # Staff Economia parity: audited Dar/Quitar dinero using the same Discord ledger.
 mobile_staff_economy_api_patch.apply_mobile_staff_economy_api_patch()
+# Public club profiles plus Staff-maintained titles/stars and audited prize income.
+mobile_club_profiles_api_patch.apply_mobile_club_profiles_api_patch()
 # Public Buscar Partido board + authenticated create/join/cancel operations.
 # Joining consults the official league_matches table populated by the result bot.
 mobile_match_search_patch.apply_mobile_match_search_patch()
