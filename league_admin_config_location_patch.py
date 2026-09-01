@@ -78,8 +78,22 @@ def _save_season_format(guild_id: int, value: str) -> None:
 
 
 def _allowed_legs_from_conn(conn: sqlite3.Connection) -> int:
+    """Leer el formato sin mutar/commitear una transacción activa del matchmaker."""
     try:
-        _ensure_season_schema_conn(conn)
+        tables = {
+            str(row["name"] if isinstance(row, sqlite3.Row) else row[0])
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        if "league_config" not in tables:
+            return 1
+        cols = {
+            str(row["name"] if isinstance(row, sqlite3.Row) else row[1])
+            for row in conn.execute("PRAGMA table_info(league_config)").fetchall()
+        }
+        if "season_format" not in cols:
+            return 1
         row = conn.execute(
             "SELECT season_format FROM league_config ORDER BY updated_at DESC LIMIT 1"
         ).fetchone()
