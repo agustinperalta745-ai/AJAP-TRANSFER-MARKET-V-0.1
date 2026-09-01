@@ -4,7 +4,7 @@ import zlib from 'node:zlib';
 
 const chunkDir = 'assets/team_badges_hq256_chunks';
 const outputDir = 'assets/team_badge_hq256';
-const expectedArchiveSha = '8a631f103fc5d7debcfead09d31ee70ef6a0c1a33ce730f8992c81902463ccf8';
+const expectedArchiveSha = 'a8715a1829cfd34754e4d1488826ec4d3df8290ec40e6c2dca31f58b056ba9cc';
 
 const expectedFiles = [
   'ajax.png',
