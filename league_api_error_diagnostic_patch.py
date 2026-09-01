@@ -93,7 +93,3 @@ import league_result_admin_cleanup_ack_patch  # noqa: F401,E402
 # Limpieza automática SOLO del caso Betis inequívoco conocido: un único partido
 # anterior al arreglo que explica exactamente los 3 puntos de prueba.
 import league_known_test_cleanup_patch  # noqa: F401,E402
-
-# Goleadores escritos en lenguaje natural se conservan tras la confirmación rival
-# y aparecen detallados por equipo en cada tarjeta Staff de GES Liga.
-import league_ges_scorer_details_patch  # noqa: F401,E402
