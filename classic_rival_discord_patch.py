@@ -270,6 +270,25 @@ class ClassicHubView(discord.ui.View):
         refresh = discord.ui.Button(label="Actualizar", emoji="🔄", style=discord.ButtonStyle.secondary, row=3)
         refresh.callback = self._refresh
         self.add_item(refresh)
+        back = discord.ui.Button(label="Volver a Mi club", emoji="⬅️", style=discord.ButtonStyle.secondary, row=3)
+        back.callback = self._back
+        self.add_item(back)
+
+    async def _back(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("⛔ Este menú no te pertenece.", ephemeral=True)
+            return
+        import my_club_menu_patch as my_club
+
+        token = my_club._guild_context(interaction)
+        try:
+            # Reuse the current main menu's real club callback, including its
+            # roster callback and the final Treasury/classic dashboard.
+            menu = APP.MercadoView()
+            hub = next(item for item in menu.children if getattr(item, "custom_id", None) == "ajap_manager_my_club")
+            await hub.callback(interaction)
+        finally:
+            my_club._reset_guild_context(token)
 
     async def _refresh(self, interaction: discord.Interaction):
         if interaction.user.id != self.owner_id:
@@ -304,8 +323,8 @@ class ClassicHubView(discord.ui.View):
                 conn.commit()
             await interaction.response.edit_message(
                 content=f"🔓 Se liberó el clásico **{result['club']} vs {result['opponent']}**.",
-                embed=None,
-                view=None,
+                embed=_embed(interaction.guild, interaction.user.id),
+                view=ClassicHubView(interaction.user.id),
             )
         except mobile_write_api.ApiFailure as exc:
             await interaction.response.send_message(f"⚠️ {exc.message}", ephemeral=True)
@@ -327,90 +346,6 @@ async def classic_command(interaction: discord.Interaction):
         await interaction.response.send_message(f"⚠️ {exc.message}", ephemeral=True)
 
 
-def _patch_mi_club_view():
-    # Mi club currently renders the final OVR view from lyon_test_seed. Patch that
-    # concrete runtime class (after navigation has already wrapped it) so the user
-    # can open the classic flow without typing any command.
-    import lyon_test_seed as lyon
-
-    old = lyon.PlantelOVRView
-    if getattr(old, "_ajpa_classic_rival_button", False):
-        APP.PlantelOVRView = old
-        return
-
-    class ClassicMiClubView(old):
-        def __init__(self, club: str):
-            super().__init__(club)
-            if any(getattr(item, "custom_id", None) == "mi_club_clasico" for item in self.children):
-                return
-            button = discord.ui.Button(
-                label="Elegir clásico",
-                emoji="🔥",
-                style=discord.ButtonStyle.secondary,
-                custom_id="mi_club_clasico",
-                row=2,
-            )
-            button.callback = self._classic
-            self.add_item(button)
-
-        async def _classic(self, interaction: discord.Interaction):
-            await classic_command(interaction)
-
-    ClassicMiClubView.__name__ = "PlantelOVRView"
-    ClassicMiClubView._ajpa_classic_rival_button = True
-    lyon.PlantelOVRView = ClassicMiClubView
-    APP.PlantelOVRView = ClassicMiClubView
-
-    # Keep the legacy ClubView aligned too, in case another path renders it.
-    legacy = getattr(APP, "ClubView", None)
-    if legacy is not None and not getattr(legacy, "_ajpa_classic_rival_button", False):
-        class ClassicLegacyClubView(legacy):
-            def __init__(self):
-                super().__init__()
-                if any(getattr(item, "custom_id", None) == "mi_club_clasico_legacy" for item in self.children):
-                    return
-                button = discord.ui.Button(
-                    label="Elegir clásico",
-                    emoji="🔥",
-                    style=discord.ButtonStyle.secondary,
-                    custom_id="mi_club_clasico_legacy",
-                )
-                button.callback = self._classic
-                self.add_item(button)
-
-            async def _classic(self, interaction: discord.Interaction):
-                await classic_command(interaction)
-
-        ClassicLegacyClubView.__name__ = "ClubView"
-        ClassicLegacyClubView._ajpa_classic_rival_button = True
-        APP.ClubView = ClassicLegacyClubView
-
-
-def _patch_market_view():
-    old = APP.MercadoView
-
-    class ClassicMercadoView(old):
-        def __init__(self):
-            super().__init__()
-            if any(getattr(item, "custom_id", None) == "mercado_clasico" for item in self.children):
-                return
-            button = discord.ui.Button(
-                label="Clásico rival",
-                emoji="🔥",
-                style=discord.ButtonStyle.secondary,
-                custom_id="mercado_clasico",
-                row=3,
-            )
-            button.callback = self._classic
-            self.add_item(button)
-
-        async def _classic(self, interaction: discord.Interaction):
-            await classic_command(interaction)
-
-    ClassicMercadoView.__name__ = "MercadoView"
-    APP.MercadoView = ClassicMercadoView
-
-
 def apply_classic_rival_discord_patch(runtime, bot) -> None:
     global APP, BOT
     if getattr(bot, "_ajpa_classic_rival_discord_patch", False):
@@ -420,9 +355,7 @@ def apply_classic_rival_discord_patch(runtime, bot) -> None:
     with APP.db() as conn:
         classic.ensure_schema(conn)
         conn.commit()
-    _patch_mi_club_view()
-    _patch_market_view()
     if bot.tree.get_command("clasico") is None:
         bot.tree.command(name="clasico", description="Elegí, respondé o consultá tu clásico rival")(classic_command)
     bot._ajpa_classic_rival_discord_patch = True
-    print("AJPA Discord: clásico rival activo en Mi club, menú principal y Mobile")
+    print("AJPA Discord: clásico rival activo en Mi club y Mobile")
