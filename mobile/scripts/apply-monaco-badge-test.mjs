@@ -86,16 +86,25 @@ injectAll(
 );
 
 function ensureOverflow(name) {
-  const re = new RegExp(`(  ${name}: \\{[^\\n]*?)(\\s*\\},)`);
+  // Los estilos generados son de una sola línea y algunos contienen objetos
+  // anidados (shadowOffset). La expresión debe tomar el cierre FINAL de la línea;
+  // de lo contrario overflow terminaba dentro de shadowOffset y TypeScript fallaba.
+  const re = new RegExp(`^(  ${name}: \\{.*)(\\},)$`, 'm');
   const match = ui.match(re);
   if (!match) throw new Error(`Monaco badge test: no encontré estilo ${name}`);
-  if (!match[1].includes('overflow:')) {
-    ui = ui.replace(re, `$1, overflow: 'hidden'$2`);
+  if (!match[1].includes("overflow: 'hidden'")) {
+    ui = ui.replace(re, `$1, overflow: 'hidden' $2`);
   }
 }
 ensureOverflow('heroIconWrap');
 ensureOverflow('featureIconWrap');
 ensureOverflow('wideIconWrap');
+
+// TypeScript no conserva el narrowing de un estado nullable dentro de callbacks JSX.
+// Mantener optional chaining evita falsos positivos sin cambiar la lógica de mercado.
+ui = ui.split('disabled={!snapshot.status.market_open || !profile?.club}').join(
+  'disabled={!snapshot?.status.market_open || !profile?.club}',
+);
 
 const styleClose = '\n});';
 const stylePos = ui.lastIndexOf(styleClose);
@@ -115,4 +124,16 @@ if (!ui.includes('<ClubBadge club={club} size={62} />')) throw new Error('Monaco
 if (!ui.includes('<IconSurfaceDepth')) throw new Error('Profundidad interna no quedó aplicada');
 
 fs.writeFileSync(uiPath, ui);
-console.log(`Monaco HD listo: ${width}x${height}, SHA-256 verificado + profundidad interna aplicada.`);
+
+// React Native tipa ImageBackground de forma más estricta que View y no acepta
+// pointerEvents como prop directa en esta versión. La capa está detrás del contenido,
+// así que retirar esa prop mantiene el fondo y desbloquea el chequeo de tipos.
+const matchPath = 'src/MatchSearchShell.tsx';
+let matchUi = fs.readFileSync(matchPath, 'utf8');
+matchUi = matchUi.replace(
+  `          <ImageBackground\n            pointerEvents="none"\n            source={BG_MATCH_SEARCH}`,
+  `          <ImageBackground\n            source={BG_MATCH_SEARCH}`,
+);
+fs.writeFileSync(matchPath, matchUi);
+
+console.log(`Monaco HD listo: ${width}x${height}, SHA-256 verificado + profundidad interna aplicada + build TS saneado.`);
