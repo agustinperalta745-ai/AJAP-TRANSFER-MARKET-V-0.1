@@ -86,9 +86,9 @@ jobs:
         run: |
           test "$(find assets/team_badge_hq256 -maxdepth 1 -type f -name '*.png' | wc -l)" -eq 22
           ! grep -qi "torino" src/teamBadges.tsx
-          grep -q "assets/teams/zaragoza.png" src/teamBadges.tsx
+          grep -q "real-zaragoza-logo-footylogos.png" src/teamBadges.tsx
           grep -q "team_badge_test/as_monaco_hd.png" src/teamBadges.tsx
-          echo 'HQ badge policy OK: 22 nuevos + Monaco HD + Zaragoza actual; Torino excluido.'
+          echo 'HQ badge policy OK: 22 nuevos + Monaco HD + Zaragoza válido; Torino excluido.'
 
       - name: TypeScript check
         run: npx tsc --noEmit
