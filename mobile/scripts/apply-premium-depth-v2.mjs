@@ -11,7 +11,7 @@ if (!base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) {
 }
 const leagueBytes = Buffer.from(base64, 'base64');
 const leagueSha = crypto.createHash('sha256').update(leagueBytes).digest('hex');
-if (leagueSha !== '8402ae12fc1f174c1a400565dc67bb77390983f2be6e21f1675d35a8b93061ef') {
+if (leagueSha !== '74ac4a9ee9507f500ea7df092c2ee03bcdc6483ed2bcfd9060b0a3e346514d37') {
   throw new Error(`AJPA depth v2: hash incorrecto del fondo Liga: ${leagueSha}`);
 }
 if (leagueBytes.subarray(0, 4).toString('ascii') !== 'RIFF' || leagueBytes.subarray(8, 12).toString('ascii') !== 'WEBP') {
