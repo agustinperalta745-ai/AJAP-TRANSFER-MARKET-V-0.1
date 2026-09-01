@@ -1,4 +1,47 @@
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+
+// Los PNG históricos de algunos clubes contienen chunks/perfiles que AAPT2
+// rechaza aunque Metro pueda leerlos. Los regrabamos como RGBA estándar antes
+// del prebuild. Así preservamos los 24 escudos reales en vez de caer al 🛡️.
+execFileSync('python', ['-m', 'pip', 'install', '--quiet', 'Pillow'], { stdio: 'inherit' });
+const sanitizer = String.raw`
+from pathlib import Path
+from PIL import Image, ImageDraw
+
+root = Path('assets/teams')
+if not root.exists():
+    raise SystemExit('Team badges: no existe assets/teams')
+
+files = sorted(root.glob('*.png'))
+if not files:
+    raise SystemExit('Team badges: no hay PNG para sanear')
+
+for path in files:
+    with Image.open(path) as src:
+        src.load()
+        img = src.convert('RGBA')
+
+    # Ajax necesita conservar su campo blanco: en la tarjeta oscura el PNG
+    # transparente hacía desaparecer esa parte del escudo.
+    if path.stem == 'ajax':
+        w, h = img.size
+        base = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(base)
+        inset = max(1, int(min(w, h) * 0.035))
+        draw.ellipse((inset, inset, w - inset - 1, h - inset - 1), fill=(255, 255, 255, 255))
+        base.alpha_composite(img)
+        img = base
+
+    # Guardado limpio, sin perfiles ICC ni metadatos problemáticos.
+    img.save(path, format='PNG', optimize=False, compress_level=6)
+    with Image.open(path) as check:
+        check.verify()
+    print(f'Badge saneado: {path.name} | {img.size[0]}x{img.size[1]} RGBA')
+
+print(f'Escudos saneados: {len(files)}')
+`;
+execFileSync('python', ['-c', sanitizer], { stdio: 'inherit' });
 
 const uiPath = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiPath, 'utf8');
@@ -28,4 +71,4 @@ if (!ui.includes('<ClubBadge club={selectedClubProfile.club} size={78} />')) {
 }
 
 fs.writeFileSync(uiPath, ui);
-console.log('Perfiles de equipo: escudos reales restaurados.');
+console.log('Perfiles de equipo: escudos reales restaurados + PNGs compatibles con Android.');
