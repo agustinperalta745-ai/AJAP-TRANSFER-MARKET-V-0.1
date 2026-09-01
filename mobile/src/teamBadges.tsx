@@ -3,37 +3,44 @@ import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 import { ATLETICO_BADGE_DATA_URI } from './atleticoBadge';
 
-// Capa HQ real: los escudos normales se descargan a 1024px durante la build,
-// se validan como PNG transparentes y quedan EMBEBIDOS en el APK. No usamos
-// assets/teams/*.png porque esas miniaturas son las que provocaron pixelado y
-// fondos negros. Monaco conserva su export vectorial validado; Atletico usa el
-// render 512x512 del EPS original enviado para AJPA.
+// Snapshot exacto anterior a la regresión de escudos. IMPORTANTE: nunca apuntar
+// estos archivos a /main porque los saneados posteriores reemplazaron algunos
+// PNG por miniaturas degradadas/con fondo. Al fijar el commit, recuperamos los
+// mismos assets que mostraba el APK bueno y quedan inmunes a cambios futuros.
+const GOOD_BADGE_COMMIT = '23835b53e061c77fe6af1fdaeec0ebd564bcb1b6';
+const RAW = `https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/${GOOD_BADGE_COMMIT}/mobile/assets/teams`;
+const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}` });
+
+// Excepciones realmente HQ:
+// - Ajax: PNG >=512px con transparencia y blanco interior, preparado en CI.
+// - Monaco: export vectorial validado que ya estaba aprobado.
+// - Atletico: render 512px transparente del EPS original enviado para AJPA.
 const ASSETS = {
-  ajax: require('../assets/teams_hq/ajax.png'),
+  ajax: require('../assets/team_badge_ajax_hq/ajax.png'),
   as_monaco: require('../assets/team_badge_test/as_monaco_hd.png'),
-  aston_villa: require('../assets/teams_hq/aston_villa.png'),
+  aston_villa: remote('aston_villa.png'),
   atletico_madrid: { uri: ATLETICO_BADGE_DATA_URI } as ImageSourcePropType,
-  benfica: require('../assets/teams_hq/benfica.png'),
-  bolton_wanderers: require('../assets/teams_hq/bolton_wanderers.png'),
-  everton: require('../assets/teams_hq/everton.png'),
-  feyenoord: require('../assets/teams_hq/feyenoord.png'),
-  fiorentina: require('../assets/teams_hq/fiorentina.png'),
-  fulham: require('../assets/teams_hq/fulham.png'),
-  galatasaray: require('../assets/teams_hq/galatasaray.png'),
-  lazio: require('../assets/teams_hq/lazio.png'),
-  manchester_city: require('../assets/teams_hq/manchester_city.png'),
-  middlesbrough: require('../assets/teams_hq/middlesbrough.png'),
-  olympique_lyon: require('../assets/teams_hq/olympique_lyon.png'),
-  olympique_marseille: require('../assets/teams_hq/olympique_marseille.png'),
-  porto: require('../assets/teams_hq/porto.png'),
-  psg: require('../assets/teams_hq/psg.png'),
-  real_betis: require('../assets/teams_hq/real_betis.png'),
-  sevilla: require('../assets/teams_hq/sevilla.png'),
-  torino: require('../assets/teams_hq/torino.png'),
-  tottenham_hotspur: require('../assets/teams_hq/tottenham_hotspur.png'),
-  villarreal: require('../assets/teams_hq/villarreal.png'),
-  west_ham_united: require('../assets/teams_hq/west_ham_united.png'),
-  zaragoza: require('../assets/teams_hq/zaragoza.png'),
+  benfica: remote('benfica.png'),
+  bolton_wanderers: remote('bolton_wanderers.png'),
+  everton: remote('everton.png'),
+  feyenoord: remote('feyenoord.png'),
+  fiorentina: remote('fiorentina.png'),
+  fulham: remote('fulham.png'),
+  galatasaray: remote('galatasaray.png'),
+  lazio: remote('lazio.png'),
+  manchester_city: remote('manchester_city.png'),
+  middlesbrough: remote('middlesbrough.png'),
+  olympique_lyon: remote('olympique_lyon.png'),
+  olympique_marseille: remote('olympique_marseille.png'),
+  porto: remote('porto.png'),
+  psg: remote('psg.png'),
+  real_betis: remote('real_betis.png'),
+  sevilla: remote('sevilla.png'),
+  torino: remote('torino.png'),
+  tottenham_hotspur: remote('tottenham_hotspur.png'),
+  villarreal: remote('villarreal.png'),
+  west_ham_united: remote('west_ham_united.png'),
+  zaragoza: remote('zaragoza.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 const normalizeClub = (club: string | null | undefined) =>
