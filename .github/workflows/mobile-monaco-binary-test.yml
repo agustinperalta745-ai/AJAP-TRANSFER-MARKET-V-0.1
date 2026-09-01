@@ -64,6 +64,9 @@ jobs:
       - name: Apply Discord menu parity
         run: node scripts/apply-discord-menu-parity.mjs
 
+      - name: Apply team badges across app
+        run: node scripts/apply-team-badges.mjs
+
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
 
