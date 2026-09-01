@@ -85,3 +85,7 @@ import league_manual_review_parity_patch  # noqa: F401,E402
 # Si visión no reconoce todos los goleadores, Staff puede cargarlos desde la misma
 # tarjeta resuelta. El botón es persistente y valida plantilla + total del marcador.
 import league_manual_scorer_entry_patch  # noqa: F401,E402
+
+# Repara el partido histórico Everton 2-3 Real Zaragoza que se había cargado
+# manualmente antes de que existiera la recuperación/carga manual de goleadores.
+import league_zaragoza_everton_scorers_backfill_patch  # noqa: F401,E402
