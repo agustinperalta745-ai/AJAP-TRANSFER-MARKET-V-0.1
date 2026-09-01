@@ -77,3 +77,11 @@ print("AJAP Liga diagnóstico API activo: errores HTTP seguros visibles para Sta
 # Herramienta Staff para cargar/corregir goleadores de resultados ya persistidos,
 # incluidos los partidos que fueron resueltos mediante carga manual.
 import league_manual_scorers_patch  # noqa: F401,E402
+
+# El flujo textual también entiende goleadores escritos entre paréntesis y mensajes
+# mixtos (relato + captura), y repara el Everton 1-1 Villarreal ya cargado.
+import league_text_scorer_repair_patch  # noqa: F401,E402
+
+# Staff puede retirar un resultado de prueba concreto y recalcular la Liga sin
+# borrar el resto de la competición.
+import league_result_admin_cleanup_patch  # noqa: F401,E402
