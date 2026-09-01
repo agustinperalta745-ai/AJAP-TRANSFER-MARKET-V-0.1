@@ -76,3 +76,8 @@ import team_role_identity_patch  # noqa: F401,E402
 # Cola Staff para pasar resultados oficiales a GES Liga. Se importa después de la
 # capa de escudos para que la placa use los emojis definitivos de cada club.
 import league_ges_result_queue_patch  # noqa: F401,E402
+
+# La carga manual de un resultado debe recorrer la misma salida que un resultado
+# automático: goleadores desde la captura + tarjeta pendiente para GES.
+# Se importa después de GES para reutilizar su wrapper de finalización oficial.
+import league_manual_review_parity_patch  # noqa: F401,E402
