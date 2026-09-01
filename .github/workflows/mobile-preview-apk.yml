@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare transparent HQ team badges
+        run: node scripts/prepare-hq-team-badges.mjs
+
       - name: Prepare AJPA launcher icon
         run: |
           mkdir -p assets
@@ -144,7 +147,7 @@ jobs:
         run: node scripts/apply-discord-menu-parity.mjs
 
       - name: Team badges controlled test
-        run: echo 'AJPA Mobile usa mapa completo de escudos locales y Monaco HD'
+        run: echo 'AJPA Mobile usa PNG HQ transparentes embebidos + Monaco vector + Atletico EPS'
 
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
