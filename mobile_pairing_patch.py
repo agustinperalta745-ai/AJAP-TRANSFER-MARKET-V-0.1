@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import discord
 
+# Final Discord-facing brand guard. Historical modules may still contain the
+# old AJAP typo internally, but users must always see the canonical AJPA name.
+import brand_identity_patch  # noqa: F401
 import mobile_write_api
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
