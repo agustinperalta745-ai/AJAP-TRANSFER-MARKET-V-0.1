@@ -81,6 +81,8 @@ import league_manual_scorers_patch  # noqa: F401,E402
 # El flujo textual también entiende goleadores escritos entre paréntesis y mensajes
 # mixtos (relato + captura), y repara el Everton 1-1 Villarreal ya cargado.
 import league_text_scorer_repair_patch  # noqa: F401,E402
+# La reparación anterior queda acotada al partido ya existente previo al arreglo.
+import league_known_scorer_repair_guard_patch  # noqa: F401,E402
 
 # Staff puede retirar un resultado de prueba concreto y recalcular la Liga sin
 # borrar el resto de la competición.
