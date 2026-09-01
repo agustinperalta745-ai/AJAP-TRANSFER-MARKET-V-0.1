@@ -2,9 +2,10 @@ import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
-// Prueba controlada: solo AS Monaco usa un PNG saneado y embebido en el APK.
-// El resto de los clubes sigue sin escudo hasta validar que Android lo procesa bien.
-const MONACO_BADGE: ImageSourcePropType = require('../assets/team_badge_test/as_monaco_128.png');
+// Prueba controlada: solo AS Monaco usa por ahora un PNG HD generado desde el
+// vector original. El archivo se reconstruye de forma determinista durante el
+// build para no degradarlo ni aplicar compresión adicional.
+const MONACO_BADGE: ImageSourcePropType = require('../assets/team_badge_test/as_monaco_hd.png');
 
 const normalizeClub = (club: string | null | undefined) =>
   String(club || '')
@@ -35,6 +36,7 @@ export function ClubBadge({
     <Image
       source={source}
       resizeMode="contain"
+      fadeDuration={0}
       style={[{ width: size, height: size }, style]}
       accessibilityLabel={`Escudo de ${String(club || 'AS Monaco')}`}
     />
