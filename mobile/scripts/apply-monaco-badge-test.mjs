@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 const uiPath = 'src/BotParityAppV2.tsx';
-const chunkDir = 'assets/team_badge_hd256_chunks';
+const chunkDir = 'assets/team_badge_hd3k_chunks';
 const badgePath = 'assets/team_badge_test/as_monaco_hd.png';
 const expectedSha = '7c5f6a3de64725801f500e6a1895a736c26733909b88d73ed6b083ae38ef2e75';
 
