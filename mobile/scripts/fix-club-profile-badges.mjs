@@ -3,11 +3,11 @@ import { execFileSync } from 'node:child_process';
 
 // Los PNG históricos de algunos clubes contienen chunks/perfiles que AAPT2
 // rechaza aunque Metro pueda leerlos. Los regrabamos como RGBA estándar antes
-// del prebuild. Así preservamos los 24 escudos reales en vez de caer al 🛡️.
+// del prebuild. Así preservamos los escudos reales en vez de caer al 🛡️.
 execFileSync('python', ['-m', 'pip', 'install', '--quiet', 'Pillow'], { stdio: 'inherit' });
 const sanitizer = String.raw`
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
 root = Path('assets/teams')
 if not root.exists():
@@ -17,10 +17,20 @@ files = sorted(root.glob('*.png'))
 if not files:
     raise SystemExit('Team badges: no hay PNG para sanear')
 
+sanitized = 0
 for path in files:
-    with Image.open(path) as src:
-        src.load()
-        img = src.convert('RGBA')
+    # Este archivo histórico de Mónaco está roto y ya no se usa. La app toma
+    # assets/team_badge_test/as_monaco_hd.png, reconstruido y validado después.
+    if path.stem == 'as_monaco':
+        print('Badge obsoleto omitido: as_monaco.png (se usa Monaco HD)')
+        continue
+
+    try:
+        with Image.open(path) as src:
+            src.load()
+            img = src.convert('RGBA')
+    except UnidentifiedImageError as exc:
+        raise SystemExit(f'Team badge inválido que sí se usa: {path.name}') from exc
 
     # Ajax necesita conservar su campo blanco: en la tarjeta oscura el PNG
     # transparente hacía desaparecer esa parte del escudo.
@@ -37,9 +47,10 @@ for path in files:
     img.save(path, format='PNG', optimize=False, compress_level=6)
     with Image.open(path) as check:
         check.verify()
+    sanitized += 1
     print(f'Badge saneado: {path.name} | {img.size[0]}x{img.size[1]} RGBA')
 
-print(f'Escudos saneados: {len(files)}')
+print(f'Escudos saneados: {sanitized}')
 `;
 execFileSync('python', ['-c', sanitizer], { stdio: 'inherit' });
 
