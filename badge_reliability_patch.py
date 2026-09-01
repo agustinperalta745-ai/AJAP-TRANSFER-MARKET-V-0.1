@@ -81,3 +81,7 @@ import league_ges_result_queue_patch  # noqa: F401,E402
 # automático: goleadores desde la captura + tarjeta pendiente para GES.
 # Se importa después de GES para reutilizar su wrapper de finalización oficial.
 import league_manual_review_parity_patch  # noqa: F401,E402
+
+# Si visión no reconoce todos los goleadores, Staff puede cargarlos desde la misma
+# tarjeta resuelta. El botón es persistente y valida plantilla + total del marcador.
+import league_manual_scorer_entry_patch  # noqa: F401,E402
