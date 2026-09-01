@@ -200,13 +200,12 @@ jobs:
       - name: Apply premium depth v2 and Liga background
         run: node scripts/apply-premium-depth-v2.mjs
 
-      - name: Prepare sanitized Monaco badge test
+      - name: Validate sanitized Monaco badge test
         run: |
-          mkdir -p assets/team_badge_test
-          tr -d '\n\r' < assets/team_badge_test/as_monaco_128.b64 | base64 --decode > assets/team_badge_test/as_monaco_128.png
           python - <<'PY'
           from pathlib import Path
           import struct
+          import zlib
 
           badge = Path('assets/team_badge_test/as_monaco_128.png')
           data = badge.read_bytes()
@@ -219,7 +218,23 @@ jobs:
               raise SystemExit(f'Monaco test badge: tamaño inesperado {width}x{height}')
           if bit_depth != 8 or color_type != 6:
               raise SystemExit(f'Monaco test badge: se esperaba RGBA 8-bit, recibido depth={bit_depth} type={color_type}')
-          print(f'Monaco PNG OK: {width}x{height}, RGBA 8-bit, {len(data)} bytes')
+
+          pos = 8
+          saw_iend = False
+          while pos + 12 <= len(data):
+              length = struct.unpack('>I', data[pos:pos+4])[0]
+              ctype = data[pos+4:pos+8]
+              chunk = data[pos+8:pos+8+length]
+              crc = struct.unpack('>I', data[pos+8+length:pos+12+length])[0]
+              if (zlib.crc32(ctype + chunk) & 0xffffffff) != crc:
+                  raise SystemExit(f'Monaco test badge: CRC inválido en {ctype!r}')
+              pos += 12 + length
+              if ctype == b'IEND':
+                  saw_iend = True
+                  break
+          if not saw_iend or pos != len(data):
+              raise SystemExit('Monaco test badge: PNG truncado o con bytes extra')
+          print(f'Monaco PNG OK: {width}x{height}, RGBA 8-bit, CRC OK, {len(data)} bytes')
           PY
 
       - name: Apply Monaco badge test
