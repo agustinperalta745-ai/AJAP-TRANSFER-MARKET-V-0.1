@@ -19,6 +19,7 @@ import mobile_parity_api_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
 import mobile_club_profiles_api_patch  # noqa: E402
+import mobile_club_profiles_runtime_fix  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
 import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
@@ -46,6 +47,9 @@ mobile_staff_api_patch.apply_mobile_staff_api_patch()
 mobile_staff_economy_api_patch.apply_mobile_staff_economy_api_patch()
 # Public club profiles plus Staff-maintained titles/stars and audited prize income.
 mobile_club_profiles_api_patch.apply_mobile_club_profiles_api_patch()
+# Never let a profile HTTP request import/start the Discord runtime. The API-only
+# Railway worker must answer profiles, titles, stars, treasury and prizes directly.
+mobile_club_profiles_runtime_fix.apply_mobile_club_profiles_runtime_fix()
 # Public Buscar Partido board + authenticated create/join/cancel operations.
 # Joining consults the official league_matches table populated by the result bot.
 mobile_match_search_patch.apply_mobile_match_search_patch()
