@@ -85,3 +85,7 @@ import league_text_scorer_repair_patch  # noqa: F401,E402
 # Staff puede retirar un resultado de prueba concreto y recalcular la Liga sin
 # borrar el resto de la competición.
 import league_result_admin_cleanup_patch  # noqa: F401,E402
+
+# Limpieza automática SOLO del caso Betis inequívoco conocido: un único partido
+# anterior al arreglo que explica exactamente los 3 puntos de prueba.
+import league_known_test_cleanup_patch  # noqa: F401,E402
