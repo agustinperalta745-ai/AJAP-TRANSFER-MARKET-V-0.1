@@ -81,6 +81,7 @@ jobs:
           node scripts/apply-premium-depth-v2.mjs
           node scripts/apply-monaco-badge-test.mjs
           node scripts/apply-all-hq-team-badges.mjs
+          node scripts/apply-profile-team-badges.mjs
 
       - name: Validate badge policy
         run: |
@@ -88,7 +89,9 @@ jobs:
           ! grep -qi "torino" src/teamBadges.tsx
           grep -q "real-zaragoza-logo-footylogos.png" src/teamBadges.tsx
           grep -q "team_badge_test/as_monaco_hd.png" src/teamBadges.tsx
-          echo 'HQ badge policy OK: 22 nuevos + Monaco HD + Zaragoza válido; Torino excluido.'
+          grep -q "<ClubBadge club={club.club} size={62}" src/BotParityAppV2.tsx
+          grep -q "<ClubBadge club={selectedClubProfile.club} size={62}" src/BotParityAppV2.tsx
+          echo 'HQ badge policy OK: escudos reales en Inicio, lista de equipos y perfil público.'
 
       - name: TypeScript check
         run: npx tsc --noEmit
