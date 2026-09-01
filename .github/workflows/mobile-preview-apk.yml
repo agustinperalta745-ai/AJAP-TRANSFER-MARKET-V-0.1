@@ -212,6 +212,9 @@ jobs:
       - name: Apply team colors and soft card gradients
         run: node scripts/apply-team-card-gradients.mjs
 
+      - name: Apply club and player card colors
+        run: node scripts/apply-club-player-card-colors.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 

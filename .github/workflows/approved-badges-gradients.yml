@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/preserve-approved-badges
+      - fix/club-player-card-colors
   workflow_dispatch:
 
 jobs:
@@ -83,6 +84,7 @@ jobs:
           node scripts/apply-all-hq-team-badges.mjs
           node scripts/apply-profile-team-badges.mjs
           node scripts/apply-team-card-gradients.mjs
+          node scripts/apply-club-player-card-colors.mjs
 
       - name: Validate badge policy
         run: |
@@ -111,7 +113,7 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-Escudos-Preservados.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-Colores-Equipos-Jugadores.apk
 
       - name: Download exact user-approved baseline
         uses: actions/download-artifact@v4
@@ -127,7 +129,7 @@ jobs:
           import zipfile, hashlib, collections, json
           from pathlib import Path
           original = Path('baseline/AJPA-Transfer-Market-HQ-Badges.apk')
-          current = Path('AJPA-Transfer-Market-Escudos-Preservados.apk')
+          current = Path('AJPA-Transfer-Market-Colores-Equipos-Jugadores.apk')
           assert hashlib.sha256(original.read_bytes()).hexdigest() == '008a8f3808f505410e07cb7dfeb60b0d9af82e081f8a1e3f9b211a73f0f47e57'
           def images(p):
               with zipfile.ZipFile(p) as z:
@@ -142,8 +144,8 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-Transfer-Market-Escudos-Preservados
+          name: AJPA-Transfer-Market-Colores-Equipos-Jugadores
           path: |
-            mobile/AJPA-Transfer-Market-Escudos-Preservados.apk
+            mobile/AJPA-Transfer-Market-Colores-Equipos-Jugadores.apk
             mobile/verification.json
           if-no-files-found: error

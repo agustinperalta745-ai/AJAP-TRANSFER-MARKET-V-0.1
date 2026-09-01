@@ -31,8 +31,8 @@ const THEMES: [RegExp, string, string][] = [
   [/west.*ham/, '#832748', '#83badb'],
   [/zaragoza/, '#2d64be', '#d5b65a'],
 ];
-export function teamCardTheme(club: string) {
-  const key = club.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export function teamCardTheme(club: string | null | undefined) {
+  const key = (club ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const entry = THEMES.find(([pattern]) => pattern.test(key));
   return { color: entry?.[1] ?? '#2d92ff', border: entry?.[2] ?? '#71c4ff' };
 }
@@ -41,7 +41,7 @@ export function SoftCardGlow({ color = '#2d92ff', opacity = 0.22 }: { color?: st
     <Image source={GLOW} resizeMode="stretch" fadeDuration={0} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', tintColor: color, opacity }]} />
   </View>;
 }
-export function TeamCardBackdrop({ club }: { club: string }) {
+export function TeamCardBackdrop({ club }: { club: string | null | undefined }) {
   return <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
     <SoftCardGlow color={teamCardTheme(club).color} opacity={0.95} />
     <View style={{ position: 'absolute', right: -8, top: -8, bottom: -8, justifyContent: 'center', opacity: 0.07 }}>
