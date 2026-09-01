@@ -169,6 +169,9 @@ jobs:
           fs.writeFileSync(uiPath, ui);
           NODE
 
+      - name: Apply club profiles, treasury and awards
+        run: node scripts/apply-club-profiles-awards.mjs
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
         env:
