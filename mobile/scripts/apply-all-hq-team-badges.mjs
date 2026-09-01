@@ -4,7 +4,17 @@ import zlib from 'node:zlib';
 
 const chunkDir = 'assets/team_badges_hq256_chunks';
 const outputDir = 'assets/team_badge_hq256';
-const expectedArchiveSha = 'a8715a1829cfd34754e4d1488826ec4d3df8290ec40e6c2dca31f58b056ba9cc';
+const expectedArchiveSha = '8a631f103fc5d7debcfead09d31ee70ef6a0c1a33ce730f8992c81902463ccf8';
+
+const expectedChunkBlobShas = new Map([
+  ['03.txt', '1ce6056238a51ca905729a9e4ce1312cc145d007'],
+  ['04.txt', 'f336805d890418c99bdab8b9a3d8fc46b30101ba'],
+  ['06.txt', '3a48f324c0d99d43c3b591bc11333abf655ee687'],
+  ['07.txt', '60486b59b858241ccc198576ea43fb53629a4d16'],
+  ['10.txt', 'ee048e5caf89e13bf97a52a3f25c23ee824b8322'],
+  ['15.txt', '33809c2eb24da67ba2779d6aed550bafe3c5c26d'],
+  ['16.txt', 'a053452e16edf6bb182a64bca814eafce679c9d2'],
+]);
 
 const expectedFiles = [
   'ajax.png',
@@ -32,6 +42,72 @@ const expectedFiles = [
   'west_ham_united.png',
 ];
 
+function gitBlobSha(text) {
+  const bytes = Buffer.from(text, 'utf8');
+  return crypto
+    .createHash('sha1')
+    .update(Buffer.from(`blob ${bytes.length}\0`, 'utf8'))
+    .update(bytes)
+    .digest('hex');
+}
+
+function repairChunk(name, raw) {
+  const targetSha = expectedChunkBlobShas.get(name);
+  const clean = raw.replace(/\s+/g, '');
+  if (!targetSha) return clean;
+
+  if (gitBlobSha(clean) === targetSha) return clean;
+
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  const targetLength = 12000;
+
+  // Los fragmentos se cargaron como texto base64. Si hubo un único carácter
+  // alterado durante la carga, recuperamos exactamente el original usando su
+  // Git blob SHA conocido. Esto evita aceptar silenciosamente un paquete dañado.
+  if (clean.length === targetLength) {
+    const buffer = Buffer.from(clean, 'ascii');
+    const header = Buffer.from(`blob ${buffer.length}\0`, 'utf8');
+    for (let i = 0; i < buffer.length; i += 1) {
+      const original = buffer[i];
+      for (const char of alphabet) {
+        const candidate = char.charCodeAt(0);
+        if (candidate === original) continue;
+        buffer[i] = candidate;
+        const sha = crypto.createHash('sha1').update(header).update(buffer).digest('hex');
+        if (sha === targetSha) {
+          console.log(`HQ badges: ${name} recuperado por sustitución en posición ${i}.`);
+          return buffer.toString('ascii');
+        }
+      }
+      buffer[i] = original;
+    }
+  }
+
+  if (clean.length === targetLength + 1) {
+    for (let i = 0; i < clean.length; i += 1) {
+      const candidate = clean.slice(0, i) + clean.slice(i + 1);
+      if (gitBlobSha(candidate) === targetSha) {
+        console.log(`HQ badges: ${name} recuperado eliminando un carácter extra en posición ${i}.`);
+        return candidate;
+      }
+    }
+  }
+
+  if (clean.length === targetLength - 1) {
+    for (let i = 0; i <= clean.length; i += 1) {
+      for (const char of alphabet) {
+        const candidate = clean.slice(0, i) + char + clean.slice(i);
+        if (gitBlobSha(candidate) === targetSha) {
+          console.log(`HQ badges: ${name} recuperado insertando un carácter en posición ${i}.`);
+          return candidate;
+        }
+      }
+    }
+  }
+
+  throw new Error(`HQ badges: no pude recuperar ${name}; el fragmento tiene más de una alteración`);
+}
+
 if (!fs.existsSync(chunkDir)) {
   throw new Error('HQ badges: no encontré el directorio de fragmentos');
 }
@@ -42,9 +118,8 @@ for (const name of chunkNames) {
 }
 
 const base64 = chunkNames
-  .map((name) => fs.readFileSync(`${chunkDir}/${name}`, 'utf8'))
-  .join('')
-  .replace(/\s+/g, '');
+  .map((name) => repairChunk(name, fs.readFileSync(`${chunkDir}/${name}`, 'utf8')))
+  .join('');
 if (!base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) throw new Error('HQ badges: base64 inválido');
 
 const archive = Buffer.from(base64, 'base64');
