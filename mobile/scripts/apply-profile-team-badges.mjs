@@ -3,25 +3,20 @@ import fs from 'node:fs';
 const uiPath = new URL('../src/BotParityAppV2.tsx', import.meta.url);
 let ui = fs.readFileSync(uiPath, 'utf8');
 
-const listShield = `<View style={s.heroIconWrap}><Text style={s.heroIcon}>🛡️</Text></View>\n            <View style={s.flex}>\n              <Text style={s.playerName}>{club.club}</Text>`;
-const listBadge = `<View style={s.heroIconWrap}><ClubBadge club={club.club} size={62} /></View>\n            <View style={s.flex}>\n              <Text style={s.playerName}>{club.club}</Text>`;
-
-const profileShield = `<View style={s.heroIconWrap}><Text style={s.heroIcon}>🛡️</Text></View>\n        <View style={s.flex}>\n          <Text style={s.heroClubName}>{selectedClubProfile.club}</Text>`;
-const profileBadge = `<View style={s.heroIconWrap}><ClubBadge club={selectedClubProfile.club} size={62} /></View>\n        <View style={s.flex}>\n          <Text style={s.heroClubName}>{selectedClubProfile.club}</Text>`;
-
-if (ui.includes(listShield)) {
-  ui = ui.replace(listShield, listBadge);
-}
-if (ui.includes(profileShield)) {
-  ui = ui.replace(profileShield, profileBadge);
+function replaceBadgeForContext(contextExpr, badgeExpr, label) {
+  const pattern = new RegExp(
+    String.raw`(<View style=\{s\.heroIconWrap\}>\s*(?:<IconSurfaceDepth \/>\s*)?)<Text style=\{s\.heroIcon\}>🛡️<\/Text>(\s*<\/View>\s*<View style=\{s\.flex\}>\s*<Text style=\{s\.[^}]+\}>\{${contextExpr}\}<\/Text>)`,
+  );
+  const replacement = `$1<ClubBadge club={${badgeExpr}} size={62} />$2`;
+  if (pattern.test(ui)) ui = ui.replace(pattern, replacement);
+  if (!ui.includes(`<ClubBadge club={${badgeExpr}} size={62} />`)) {
+    throw new Error(`AJPA profile badges patch: no se pudo aplicar el escudo real en ${label}`);
+  }
 }
 
-if (!ui.includes(listBadge)) {
-  throw new Error('AJPA profile badges patch: no se pudo aplicar el escudo real en la lista de equipos');
-}
-if (!ui.includes(profileBadge)) {
-  throw new Error('AJPA profile badges patch: no se pudo aplicar el escudo real en el perfil público');
-}
+replaceBadgeForContext('club\\.club', 'club.club', 'la lista de equipos');
+replaceBadgeForContext('selectedClubProfile\\.club', 'selectedClubProfile.club', 'el perfil público');
+
 if (!ui.includes(`import { ClubBadge`)) {
   throw new Error('AJPA profile badges patch: ClubBadge no está importado; revisar orden de transforms');
 }
