@@ -121,6 +121,29 @@ jobs:
       - name: Apply premium depth v2 and Liga background
         run: node scripts/apply-premium-depth-v2.mjs
 
+      - name: Normalize legacy club badge PNGs
+        run: |
+          python -m pip install --quiet pillow
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageFile
+
+          ImageFile.LOAD_TRUNCATED_IMAGES = True
+          badges = sorted(p for p in Path('assets/teams').glob('*.png') if p.name != 'as_monaco.png')
+          for path in badges:
+              try:
+                  with Image.open(path) as image:
+                      image.load()
+                      clean = image.convert('RGBA')
+                  temp = path.with_suffix('.clean.png')
+                  clean.save(temp, format='PNG', optimize=False)
+                  temp.replace(path)
+                  print(f'NORMALIZED {path.name}: {clean.width}x{clean.height} RGBA')
+              except Exception as exc:
+                  raise SystemExit(f'No pude normalizar {path}: {exc}') from exc
+          print(f'Escudos legacy normalizados: {len(badges)}')
+          PY
+
       - name: Validate all active club badge PNGs
         run: |
           python - <<'PY'
