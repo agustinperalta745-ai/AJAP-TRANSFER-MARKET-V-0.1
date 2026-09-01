@@ -89,3 +89,7 @@ import league_manual_scorer_entry_patch  # noqa: F401,E402
 # Repara el partido histórico Everton 2-3 Real Zaragoza que se había cargado
 # manualmente antes de que existiera la recuperación/carga manual de goleadores.
 import league_zaragoza_everton_scorers_backfill_patch  # noqa: F401,E402
+
+# Elimina el resultado de prueba Real Betis 2-0 Sevilla del servidor histórico.
+# Al salir de league_matches, los 3 puntos desaparecen tanto del bot como de Mobile.
+import league_betis_test_result_cleanup_patch  # noqa: F401,E402
