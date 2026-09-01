@@ -1,0 +1,117 @@
+name: Mobile HQ Badges Branch Check
+
+on:
+  push:
+    branches:
+      - feat/all-hq-team-badges
+  workflow_dispatch:
+
+jobs:
+  build-hq-badges-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare AJPA launcher icon
+        run: |
+          mkdir -p assets
+          cat \
+            icon_chunks/00.txt \
+            icon_chunks/01.txt \
+            icon_chunks/02.txt \
+            icon_chunks/03a.txt \
+            icon_chunks/03b.txt \
+            icon_chunks/03c.txt \
+            icon_chunks/03d.txt \
+            icon_chunks/03e.txt \
+            | tr -d '\n\r' \
+            | base64 --decode > assets/ajpa-app-icon.png
+
+      - name: Apply production mobile transforms
+        run: |
+          node scripts/apply-discord-menu-parity.mjs
+          node scripts/apply-clausulazo-mobile.mjs
+          node scripts/apply-staff-mobile.mjs
+          node scripts/apply-staff-economy-mobile.mjs
+          node scripts/apply-resignation-mobile.mjs
+          node scripts/apply-organized-menu-style.mjs
+          node scripts/apply-premium-navigation-style.mjs
+          node scripts/apply-approved-screen-layout.mjs
+          node scripts/restore-clausulazo-screen.mjs
+          node scripts/apply-runtime-visual-fixes.mjs
+          node <<'NODE'
+          const fs = require('fs');
+          const uiPath = 'src/LiveAppBackgrounds.tsx';
+          let ui = fs.readFileSync(uiPath, 'utf8');
+          if (!ui.includes('blurRadius={6}')) {
+            ui = ui.replace(
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
+            );
+          }
+          fs.writeFileSync(uiPath, ui);
+          NODE
+          node scripts/apply-club-profiles-awards.mjs
+          node scripts/apply-classic-rival-mobile.mjs
+          node scripts/prepare-local-section-backgrounds.mjs
+          node scripts/apply-premium-depth-v2.mjs
+          node scripts/apply-monaco-badge-test.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+
+      - name: Validate badge policy
+        run: |
+          test "$(find assets/team_badge_hq256 -maxdepth 1 -type f -name '*.png' | wc -l)" -eq 22
+          ! grep -qi "torino" src/teamBadges.tsx
+          grep -q "assets/teams/zaragoza.png" src/teamBadges.tsx
+          grep -q "team_badge_test/as_monaco_hd.png" src/teamBadges.tsx
+          echo 'HQ badge policy OK: 22 nuevos + Monaco HD + Zaragoza actual; Torino excluido.'
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Build standalone APK
+        run: ./gradlew assembleRelease
+        working-directory: mobile/android
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-HQ-Badges.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-HQ-Badges
+          path: mobile/AJPA-Transfer-Market-HQ-Badges.apk
+          if-no-files-found: error
