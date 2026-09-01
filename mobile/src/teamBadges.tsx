@@ -1,32 +1,64 @@
 import React from 'react';
+import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 
-// Escudos deshabilitados temporalmente en AJPA Mobile.
-// La app mantiene toda la funcionalidad sin depender de assets de clubes.
-export function getTeamBadge(_club: string | null | undefined): ImageSourcePropType | null {
+// Prueba controlada: solo AS Monaco usa un PNG saneado y embebido en el APK.
+// El resto de los clubes sigue sin escudo hasta validar que Android lo procesa bien.
+const MONACO_BADGE: ImageSourcePropType = require('../assets/team_badge_test/as_monaco_128.png');
+
+const normalizeClub = (club: string | null | undefined) =>
+  String(club || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
+  const key = normalizeClub(club);
+  if (key === 'as monaco' || key === 'monaco' || key === 'as monaco fc') return MONACO_BADGE;
   return null;
 }
 
 export function ClubBadge({
-  club: _club,
-  size: _size = 72,
-  style: _style,
+  club,
+  size = 72,
+  style,
 }: {
   club: string | null | undefined;
   size?: number;
   style?: StyleProp<ImageStyle>;
 }) {
-  return null;
+  const source = getTeamBadge(club);
+  if (!source) return null;
+  return (
+    <Image
+      source={source}
+      resizeMode="contain"
+      style={[{ width: size, height: size }, style]}
+      accessibilityLabel={`Escudo de ${String(club || 'AS Monaco')}`}
+    />
+  );
 }
 
 export function ClubMatchup({
-  home: _home,
-  away: _away,
-  size: _size = 58,
+  home,
+  away,
+  size = 58,
 }: {
   home: string | null | undefined;
   away: string | null | undefined;
   size?: number;
 }) {
-  return null;
+  const homeBadge = getTeamBadge(home);
+  const awayBadge = getTeamBadge(away);
+  if (!homeBadge && !awayBadge) return null;
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+      {homeBadge ? <ClubBadge club={home} size={size} /> : null}
+      <Text style={{ color: '#92a0ad', fontWeight: '800' }}>VS</Text>
+      {awayBadge ? <ClubBadge club={away} size={size} /> : null}
+    </View>
+  );
 }
