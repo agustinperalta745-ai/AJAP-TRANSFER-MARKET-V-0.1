@@ -172,6 +172,9 @@ jobs:
       - name: Apply club profiles, treasury and awards
         run: node scripts/apply-club-profiles-awards.mjs
 
+      - name: Apply premium depth v2 and Liga background
+        run: node scripts/apply-premium-depth-v2.mjs
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
         env:
