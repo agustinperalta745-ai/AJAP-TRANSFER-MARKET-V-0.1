@@ -1,4 +1,4 @@
-"""Discord command that securely pairs AJPA Mobile with the current manager."""
+"""Discord command and MI CLUB button for securely pairing AJPA Mobile."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import brand_identity_patch  # noqa: F401
 import mobile_write_api
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
+import my_club_menu_patch as my_club
 
 
 def apply_mobile_pairing_patch(runtime, bot) -> None:
@@ -23,7 +24,7 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     async def app_codigo(interaction: discord.Interaction):
         if not interaction.guild:
             await interaction.response.send_message(
-                "Usá este comando dentro del servidor de AJPA.", ephemeral=True
+                "Generá el código dentro del servidor de AJPA.", ephemeral=True
             )
             return
         try:
@@ -74,5 +75,32 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     classic_rival_discord_patch.apply_classic_rival_discord_patch(runtime, bot)
     classic_rival_myclub_button_patch.apply_classic_rival_myclub_button_patch(runtime, bot)
 
+    # Extend the final Treasury/classic view, preserving all existing controls.
+    base_view = my_club.MyClubSectionView
+
+    class MobilePairingMyClubSectionView(base_view):
+        def __init__(self, roster_callback):
+            super().__init__(roster_callback)
+            button = discord.ui.Button(
+                label="Vincular con la app",
+                emoji="📱",
+                style=discord.ButtonStyle.primary,
+                custom_id="ajpa_my_club_app_codigo",
+                row=2,
+            )
+            button.callback = self._generate_pair_code
+            self.add_item(button)
+
+        async def _generate_pair_code(self, interaction: discord.Interaction):
+            token = my_club._guild_context(interaction)
+            try:
+                # Share the command's storage, expiry and private response.
+                await app_codigo.callback(interaction)
+            finally:
+                my_club._reset_guild_context(token)
+
+    MobilePairingMyClubSectionView.__name__ = "MyClubSectionView"
+    my_club.MyClubSectionView = MobilePairingMyClubSectionView
+
     bot._ajpa_mobile_pairing_patch = True
-    print("AJPA Mobile: /app_codigo habilitado • clásico rival visible en MI CLUB y Discord")
+    print("AJPA Mobile: /app_codigo y botón Vincular con la app habilitados en MI CLUB")
