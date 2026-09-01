@@ -70,6 +70,7 @@ jobs:
       - name: Verify live AJPA API and mutation tunnel
         run: |
           python - <<'PY'
+          import json
           import os
           import time
           import urllib.error
@@ -77,12 +78,18 @@ jobs:
 
           base = os.environ['EXPO_PUBLIC_API_URL'].rstrip('/')
           health = base + '/health'
+          profiles = base + '/api/v1/clubs/profiles'
           mutations = [
               (base + '/api/v1/publications', '%7B%7D', 'market mutation'),
               (
                   base + '/api/v1/admin/economy/adjust',
                   '%7B%22club%22%3A%22probe%22%2C%22amount%22%3A1%2C%22mode%22%3A%22ADD%22%7D',
                   'Staff economy mutation',
+              ),
+              (
+                  base + '/api/v1/my/classic/request',
+                  '%7B%22target_club%22%3A%22probe%22%7D',
+                  'classic rival mutation',
               ),
           ]
           last = None
@@ -92,6 +99,18 @@ jobs:
                   with urllib.request.urlopen(health, timeout=10) as response:
                       if not (200 <= response.status < 300):
                           raise RuntimeError(f'health HTTP {response.status}')
+
+                  with urllib.request.urlopen(profiles, timeout=12) as response:
+                      if response.status != 200:
+                          raise RuntimeError(f'club profiles HTTP {response.status}')
+                      payload = json.loads(response.read().decode('utf-8'))
+                      if not isinstance(payload.get('clubs'), list):
+                          raise RuntimeError('club profiles payload missing clubs')
+                      for club in payload['clubs']:
+                          name = str((club.get('manager') or {}).get('name') or '')
+                          if name.startswith('Discord · '):
+                              raise RuntimeError(f'club profile still exposes Discord ID: {club.get("club")}')
+                      print(f'AJPA club profiles OK: {len(payload["clubs"])} clubs; no visible Discord IDs')
 
                   for mutation, body_header, label in mutations:
                       req = urllib.request.Request(
@@ -118,7 +137,7 @@ jobs:
               if attempt < 35:
                   time.sleep(10)
           else:
-              raise SystemExit(f'AJPA mutation tunnel not ready: {last}')
+              raise SystemExit(f'AJPA API not ready: {last}')
           PY
 
       - name: Apply Discord menu parity
@@ -171,6 +190,9 @@ jobs:
 
       - name: Apply club profiles, treasury and awards
         run: node scripts/apply-club-profiles-awards.mjs
+
+      - name: Apply classic rival system
+        run: node scripts/apply-classic-rival-mobile.mjs
 
       - name: Prepare local Liga and Mercado backgrounds
         run: node scripts/prepare-local-section-backgrounds.mjs
