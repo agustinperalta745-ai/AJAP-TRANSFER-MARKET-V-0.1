@@ -97,3 +97,7 @@ import league_betis_test_result_cleanup_patch  # noqa: F401,E402
 # Extiende la tarjeta GES sin adelantar su carga: interpreta goleadores escritos en
 # lenguaje natural, los conserva tras confirmación rival y los muestra por equipo.
 import league_ges_scorer_details_patch  # noqa: F401,E402
+
+# Staff -> Asignaciones también permite asignar un club libre a un usuario que
+# todavía no eligió equipo. Se carga acá, después del catálogo JSON y roles finales.
+import staff_assign_team_patch  # noqa: F401,E402
