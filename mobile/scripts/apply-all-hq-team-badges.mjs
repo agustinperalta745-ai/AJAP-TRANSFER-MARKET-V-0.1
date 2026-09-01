@@ -4,6 +4,7 @@ import zlib from 'node:zlib';
 
 const chunkDir = 'assets/team_badges_hq256_chunks';
 const outputDir = 'assets/team_badge_hq256';
+const zaragozaPath = 'assets/teams/zaragoza.png';
 const expectedArchiveSha = '8a631f103fc5d7debcfead09d31ee70ef6a0c1a33ce730f8992c81902463ccf8';
 
 const expectedChunkBlobShas = new Map([
@@ -108,6 +109,63 @@ function repairChunk(name, raw) {
   throw new Error(`HQ badges: no pude recuperar ${name}; el fragmento tiene más de una alteración`);
 }
 
+const crcTable = new Uint32Array(256);
+for (let n = 0; n < 256; n += 1) {
+  let c = n;
+  for (let k = 0; k < 8; k += 1) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+  crcTable[n] = c >>> 0;
+}
+
+function crc32(buffer) {
+  let crc = 0xffffffff;
+  for (const byte of buffer) crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function repairPngCrcs(filePath) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const png = Buffer.from(fs.readFileSync(filePath));
+  if (png.length < 24 || !png.subarray(0, 8).equals(signature)) {
+    throw new Error(`HQ badges: ${filePath} no es un PNG válido`);
+  }
+  if (png.subarray(12, 16).toString('ascii') !== 'IHDR') {
+    throw new Error(`HQ badges: ${filePath} no tiene IHDR válido`);
+  }
+
+  let offset = 8;
+  let repaired = 0;
+  let sawIend = false;
+  while (offset + 12 <= png.length) {
+    const length = png.readUInt32BE(offset);
+    const typeStart = offset + 4;
+    const dataStart = offset + 8;
+    const crcOffset = dataStart + length;
+    const nextOffset = crcOffset + 4;
+    if (nextOffset > png.length) throw new Error(`HQ badges: ${filePath} está truncado`);
+
+    const type = png.subarray(typeStart, dataStart).toString('ascii');
+    const expected = crc32(png.subarray(typeStart, crcOffset));
+    const current = png.readUInt32BE(crcOffset);
+    if (current !== expected) {
+      png.writeUInt32BE(expected, crcOffset);
+      repaired += 1;
+    }
+
+    offset = nextOffset;
+    if (type === 'IEND') {
+      sawIend = true;
+      break;
+    }
+  }
+  if (!sawIend) throw new Error(`HQ badges: ${filePath} no tiene IEND`);
+
+  if (repaired > 0) {
+    // Sólo corrige checksums CRC: no modifica ni reescala los píxeles del escudo.
+    fs.writeFileSync(filePath, png);
+    console.log(`HQ badges: Zaragoza actual preservado; CRC PNG reparado (${repaired} chunk).`);
+  }
+}
+
 if (!fs.existsSync(chunkDir)) {
   throw new Error('HQ badges: no encontré el directorio de fragmentos');
 }
@@ -169,6 +227,9 @@ for (const name of expectedFiles) {
   fs.writeFileSync(`${outputDir}/${name}`, badge);
   written += 1;
 }
+
+if (!fs.existsSync(zaragozaPath)) throw new Error('HQ badges: falta el escudo actual de Zaragoza');
+repairPngCrcs(zaragozaPath);
 
 if (written !== 22) throw new Error(`HQ badges: esperaba escribir 22 escudos y escribí ${written}`);
 console.log(`HQ badges listos: ${written} PNG 256x256 + Monaco HD preservado + Zaragoza existente preservado + Torino excluido.`);
