@@ -101,10 +101,9 @@ ensureOverflow('featureIconWrap');
 ensureOverflow('wideIconWrap');
 
 // TypeScript no conserva el narrowing de un estado nullable dentro de callbacks JSX.
-// Mantener optional chaining evita falsos positivos sin cambiar la lógica de mercado.
-ui = ui.split('disabled={!snapshot.status.market_open || !profile?.club}').join(
-  'disabled={!snapshot?.status.market_open || !profile?.club}',
-);
+// Aplicamos optional chaining a todas las lecturas del estado de mercado generado;
+// cuando snapshot todavía es null el resultado es undefined/falsy y la UI sigue segura.
+ui = ui.split('snapshot.status.market_open').join('snapshot?.status.market_open');
 
 const styleClose = '\n});';
 const stylePos = ui.lastIndexOf(styleClose);
