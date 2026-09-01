@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 const uiPath = 'src/BotParityAppV2.tsx';
-const chunkDir = 'assets/team_badge_hd_chunks';
+const chunkDir = 'assets/team_badge_hd256_chunks';
 const badgePath = 'assets/team_badge_test/as_monaco_hd.png';
-const expectedSha = '566de1aec010e88bff41ddae17bd6dde00735a5384806fce8d40e66672d3572a';
+const expectedSha = '7c5f6a3de64725801f500e6a1895a736c26733909b88d73ed6b083ae38ef2e75';
 
-// Reconstruimos el PNG HD directamente desde el render del vector original.
-// Así no dependemos de una miniatura ni de una recompresión del escudo.
+// Reconstruimos un PNG 256x256 desde el vector original. A 62dp cubre
+// incluso pantallas Android xxxhdpi (4x) sin ampliar una miniatura borrosa.
 if (!fs.existsSync(chunkDir)) {
   throw new Error('Monaco HD: no encontré los fragmentos del escudo');
 }
@@ -27,8 +27,8 @@ const width = badge.readUInt32BE(16);
 const height = badge.readUInt32BE(20);
 const bitDepth = badge[24];
 const colorType = badge[25];
-if (width !== 512 || height !== 512 || bitDepth !== 8 || colorType !== 6) {
-  throw new Error(`Monaco HD: se esperaba PNG RGBA 512x512 y llegó ${width}x${height}, depth=${bitDepth}, type=${colorType}`);
+if (width !== 256 || height !== 256 || bitDepth !== 8 || colorType !== 6) {
+  throw new Error(`Monaco HD: se esperaba PNG RGBA 256x256 y llegó ${width}x${height}, depth=${bitDepth}, type=${colorType}`);
 }
 fs.mkdirSync('assets/team_badge_test', { recursive: true });
 fs.writeFileSync(badgePath, badge);
