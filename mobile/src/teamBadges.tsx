@@ -138,7 +138,7 @@ export function getClubAssetKey(club: string | null | undefined): string | null 
 
 export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
   const key = getClubAssetKey(club);
-  return key ? BADGES[key] : null;
+  return key ? (BADGES[key] ?? null) : null;
 }
 
 export function getClubTheme(club: string | null | undefined): ClubTheme {
