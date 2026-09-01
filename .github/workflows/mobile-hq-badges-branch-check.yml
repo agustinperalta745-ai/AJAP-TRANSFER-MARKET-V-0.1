@@ -1,9 +1,9 @@
-name: Mobile HQ Badges Branch Check
+name: HQ2 Atletico and Ajax Only
 
 on:
   push:
     branches:
-      - feat/all-hq-team-badges
+      - fix/hq2-atletico-ajax-only
   workflow_dispatch:
 
 jobs:
@@ -110,11 +110,39 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-HQ-Badges.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-HQ2-Atletico-Ajax.apk
+
+      - name: Download exact user-approved baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-HQ-Badges
+          run-id: 33499208703
+          github-token: ${{ github.token }}
+          path: mobile/baseline
+
+      - name: Verify every packaged image remains byte-identical
+        run: |
+          python - <<'PY'
+          import zipfile, hashlib, collections, json
+          from pathlib import Path
+          original = Path('baseline/AJPA-Transfer-Market-HQ-Badges.apk')
+          current = Path('AJPA-Transfer-Market-HQ2-Atletico-Ajax.apk')
+          assert hashlib.sha256(original.read_bytes()).hexdigest() == '008a8f3808f505410e07cb7dfeb60b0d9af82e081f8a1e3f9b211a73f0f47e57'
+          def images(p):
+              with zipfile.ZipFile(p) as z:
+                  return collections.Counter(hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist() if n.lower().endswith(('.png','.webp','.jpg','.jpeg')))
+          before, after = images(original), images(current)
+          assert before == after, f'Packaged images changed: missing={before-after}, added={after-before}'
+          report = {'base_apk_sha256': hashlib.sha256(original.read_bytes()).hexdigest(), 'output_apk_sha256': hashlib.sha256(current.read_bytes()).hexdigest(), 'all_packaged_images_byte_identical': True, 'image_count': sum(before.values()), 'changes': ['Atletico de Madrid aliases', 'Ajax white circular field beneath original PNG']}
+          Path('verification.json').write_text(json.dumps(report, indent=2))
+          print(json.dumps(report, indent=2))
+          PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-Transfer-Market-HQ-Badges
-          path: mobile/AJPA-Transfer-Market-HQ-Badges.apk
+          name: AJPA-Transfer-Market-HQ2-Atletico-Ajax
+          path: |
+            mobile/AJPA-Transfer-Market-HQ2-Atletico-Ajax.apk
+            mobile/verification.json
           if-no-files-found: error

@@ -83,6 +83,8 @@ const ALIASES: Record<string, string> = {
   'aston villa': 'aston_villa',
   'west midlands village': 'aston_villa',
   'atletico madrid': 'atletico_madrid',
+  'atletico de madrid': 'atletico_madrid',
+  'at madrid': 'atletico_madrid',
   'club atletico de madrid': 'atletico_madrid',
   'benfica': 'benfica',
   'sl benfica': 'benfica',
@@ -165,6 +167,17 @@ export function ClubBadge({
 }) {
   const source = getTeamBadge(club);
   if (!source) return null;
+  // Preserve the original HD pixels; restore only Ajax's white circular field.
+  if (getClubAssetKey(club) === 'ajax') {
+    return (
+      <View style={[{ width: size, height: size }, style]}>
+        <View pointerEvents="none" style={{ position: 'absolute', left: '11.5%', top: '22%', width: '77%', height: '77%', borderRadius: size, backgroundColor: '#ffffff' }} />
+        <Image source={source} resizeMode="contain" fadeDuration={0}
+          style={{ width: '100%', height: '100%' }}
+          accessibilityLabel={`Escudo de ${String(club || 'club')}`} />
+      </View>
+    );
+  }
   return (
     <Image
       source={source}
