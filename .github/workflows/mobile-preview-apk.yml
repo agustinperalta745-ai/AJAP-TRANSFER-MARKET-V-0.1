@@ -144,7 +144,7 @@ jobs:
         run: node scripts/apply-discord-menu-parity.mjs
 
       - name: Team badges controlled test
-        run: echo 'AJPA Mobile prueba únicamente el PNG saneado de AS Monaco'
+        run: echo 'AJPA Mobile usa mapa completo de escudos locales y Monaco HD'
 
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
@@ -190,6 +190,9 @@ jobs:
 
       - name: Apply club profiles, treasury and awards
         run: node scripts/apply-club-profiles-awards.mjs
+
+      - name: Restore real club profile badges
+        run: node scripts/fix-club-profile-badges.mjs
 
       - name: Apply classic rival system
         run: node scripts/apply-classic-rival-mobile.mjs
