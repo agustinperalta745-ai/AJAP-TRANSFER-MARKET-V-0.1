@@ -34,8 +34,8 @@ function replaceStyle(name, body) {
   return true;
 }
 
-function injectAfter(opening, child, label) {
-  if (ui.includes(child)) return;
+function injectExact(opening, child, label) {
+  if (ui.includes(`${opening}\n${child}`)) return;
   if (!ui.includes(opening)) throw new Error(`AJPA depth v2: no encontré ${label}`);
   ui = ui.replace(opening, `${opening}\n${child}`);
 }
@@ -71,34 +71,17 @@ if (!ui.includes('function SurfaceDepth(')) {
   ui = ui.replace(componentMarker, component + componentMarker);
 }
 
-injectAfter(
-  `    >`,
-  `      <SurfaceDepth danger={danger} />`,
-  'apertura de FeatureTile',
-);
+const featureOpen = `    <Pressable\n      onPress={onPress}\n      style={({ pressed }) => [\n        s.featureTile,\n        danger && s.featureTileDanger,\n        pressed && { opacity: 0.72, transform: [{ scale: 0.985 }] },\n      ]}\n    >`;
+injectExact(featureOpen, `      <SurfaceDepth danger={danger} />`, 'FeatureTile');
 
-// La primera inyección anterior corresponde a FeatureTile. Hacemos las restantes
-// sobre aperturas únicas de cada componente para mantener el parche determinista.
 const quickOpen = `    <Pressable\n      onPress={onPress}\n      style={({ pressed }) => [s.quickAction, danger && s.quickActionDanger, pressed && { opacity: 0.72 }]}\n    >`;
-if (!ui.includes('style={({ pressed }) => [s.quickAction') || !ui.includes('<SurfaceDepth danger={danger} />')) {
-  throw new Error('AJPA depth v2: QuickAction no quedó disponible');
-}
-if (!ui.includes(`${quickOpen}\n      <SurfaceDepth danger={danger} />`)) {
-  if (!ui.includes(quickOpen)) throw new Error('AJPA depth v2: no encontré QuickAction');
-  ui = ui.replace(quickOpen, `${quickOpen}\n      <SurfaceDepth danger={danger} />`);
-}
+injectExact(quickOpen, `      <SurfaceDepth danger={danger} />`, 'QuickAction');
 
 const heroOpen = `<Pressable onPress={onPress} style={({ pressed }) => [s.heroClubCard, pressed && { opacity: 0.76 }]}>`;
-if (!ui.includes(`${heroOpen}\n      <SurfaceDepth strong />`)) {
-  if (!ui.includes(heroOpen)) throw new Error('AJPA depth v2: no encontré HeroClubCard');
-  ui = ui.replace(heroOpen, `${heroOpen}\n      <SurfaceDepth strong />`);
-}
+injectExact(heroOpen, `      <SurfaceDepth strong />`, 'HeroClubCard');
 
 const wideOpen = `    <Pressable\n      onPress={onPress}\n      style={({ pressed }) => [s.wideTile, danger && s.wideTileDanger, pressed && { opacity: 0.74, transform: [{ scale: 0.992 }] }]}\n    >`;
-if (!ui.includes(`${wideOpen}\n      <SurfaceDepth danger={danger} />`)) {
-  if (!ui.includes(wideOpen)) throw new Error('AJPA depth v2: no encontré WideTile');
-  ui = ui.replace(wideOpen, `${wideOpen}\n      <SurfaceDepth danger={danger} />`);
-}
+injectExact(wideOpen, `      <SurfaceDepth danger={danger} />`, 'WideTile');
 
 // Más profundidad y menos sensación de caja plana: borde superior luminoso,
 // base más oscura y contraste distinto para cada jerarquía.
@@ -144,6 +127,9 @@ if (!ui.includes('  surfaceGlow: {')) {
 
 if (!ui.includes("if (screen === 'league') return BG_LIGA;")) {
   throw new Error('AJPA depth v2: Liga no quedó conectada al fondo Maradona');
+}
+if (!ui.includes(`${featureOpen}\n      <SurfaceDepth danger={danger} />`)) {
+  throw new Error('AJPA depth v2: FeatureTile sin capa de profundidad');
 }
 if (!ui.includes('<SurfaceDepth strong />')) {
   throw new Error('AJPA depth v2: Hero sin capa de profundidad');
