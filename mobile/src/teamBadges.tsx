@@ -3,44 +3,40 @@ import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
 import { ATLETICO_BADGE_DATA_URI } from './atleticoBadge';
 
-// Snapshot exacto anterior a la regresión de escudos. IMPORTANTE: nunca apuntar
-// estos archivos a /main porque los saneados posteriores reemplazaron algunos
-// PNG por miniaturas degradadas/con fondo. Al fijar el commit, recuperamos los
-// mismos assets que mostraba el APK bueno y quedan inmunes a cambios futuros.
-const GOOD_BADGE_COMMIT = '23835b53e061c77fe6af1fdaeec0ebd564bcb1b6';
-const RAW = `https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/${GOOD_BADGE_COMMIT}/mobile/assets/teams`;
-const remote = (file: string): ImageSourcePropType => ({ uri: `${RAW}/${file}` });
+// RESTAURADO DEL BUILD BUENO (fa74b6e): el escudo visible se resuelve desde
+// Wikipedia pageimages a 512 px. Eso fue lo que dio la apariencia nítida y sin
+// fondos negros que ya estaba aprobada. El asset histórico queda SOLO como
+// respaldo y además está fijado al commit bueno para que main no pueda degradarlo.
+const RAW_GOOD = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fa74b6ea72536eb1b60acf864f4497826d2402db/mobile/assets/teams';
+const BADGE_VERSION = '20260901-wiki-clean-restored';
+const remoteGood = (file: string): ImageSourcePropType => ({ uri: `${RAW_GOOD}/${file}?v=${BADGE_VERSION}` });
 
-// Excepciones realmente HQ:
-// - Ajax: PNG >=512px con transparencia y blanco interior, preparado en CI.
-// - Monaco: export vectorial validado que ya estaba aprobado.
-// - Atletico: render 512px transparente del EPS original enviado para AJPA.
 const ASSETS = {
-  ajax: require('../assets/team_badge_ajax_hq/ajax.png'),
-  as_monaco: require('../assets/team_badge_test/as_monaco_hd.png'),
-  aston_villa: remote('aston_villa.png'),
+  ajax: remoteGood('ajax.png'),
+  as_monaco: remoteGood('as_monaco.png'),
+  aston_villa: remoteGood('aston_villa.png'),
   atletico_madrid: { uri: ATLETICO_BADGE_DATA_URI } as ImageSourcePropType,
-  benfica: remote('benfica.png'),
-  bolton_wanderers: remote('bolton_wanderers.png'),
-  everton: remote('everton.png'),
-  feyenoord: remote('feyenoord.png'),
-  fiorentina: remote('fiorentina.png'),
-  fulham: remote('fulham.png'),
-  galatasaray: remote('galatasaray.png'),
-  lazio: remote('lazio.png'),
-  manchester_city: remote('manchester_city.png'),
-  middlesbrough: remote('middlesbrough.png'),
-  olympique_lyon: remote('olympique_lyon.png'),
-  olympique_marseille: remote('olympique_marseille.png'),
-  porto: remote('porto.png'),
-  psg: remote('psg.png'),
-  real_betis: remote('real_betis.png'),
-  sevilla: remote('sevilla.png'),
-  torino: remote('torino.png'),
-  tottenham_hotspur: remote('tottenham_hotspur.png'),
-  villarreal: remote('villarreal.png'),
-  west_ham_united: remote('west_ham_united.png'),
-  zaragoza: remote('zaragoza.png'),
+  benfica: remoteGood('benfica.png'),
+  bolton_wanderers: remoteGood('bolton_wanderers.png'),
+  everton: remoteGood('everton.png'),
+  feyenoord: remoteGood('feyenoord.png'),
+  fiorentina: remoteGood('fiorentina.png'),
+  fulham: remoteGood('fulham.png'),
+  galatasaray: remoteGood('galatasaray.png'),
+  lazio: remoteGood('lazio.png'),
+  manchester_city: remoteGood('manchester_city.png'),
+  middlesbrough: remoteGood('middlesbrough.png'),
+  olympique_lyon: remoteGood('olympique_lyon.png'),
+  olympique_marseille: remoteGood('olympique_marseille.png'),
+  porto: remoteGood('porto.png'),
+  psg: remoteGood('psg.png'),
+  real_betis: remoteGood('real_betis.png'),
+  sevilla: remoteGood('sevilla.png'),
+  torino: remoteGood('torino.png'),
+  tottenham_hotspur: remoteGood('tottenham_hotspur.png'),
+  villarreal: remoteGood('villarreal.png'),
+  west_ham_united: remoteGood('west_ham_united.png'),
+  zaragoza: remoteGood('zaragoza.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 const normalizeClub = (club: string | null | undefined) =>
@@ -107,6 +103,97 @@ const BADGES: Record<string, ImageSourcePropType> = {
   'real zaragoza': ASSETS.zaragoza,
 };
 
+// EXACTAMENTE el resolver del build bueno. Atlético es la única excepción:
+// ya no consulta Wikipedia porque debe usar el PNG 512x512 producido desde el EPS.
+const WIKIPEDIA_TITLES: Record<string, string> = {
+  ajax: 'AFC Ajax',
+  monaco: 'AS Monaco FC',
+  'as monaco': 'AS Monaco FC',
+  'as monaco fc': 'AS Monaco FC',
+  'aston villa': 'Aston Villa F.C.',
+  benfica: 'S.L. Benfica',
+  'sl benfica': 'S.L. Benfica',
+  'real betis': 'Real Betis',
+  betis: 'Real Betis',
+  'bolton wanderers': 'Bolton Wanderers F.C.',
+  bolton: 'Bolton Wanderers F.C.',
+  everton: 'Everton F.C.',
+  feyenoord: 'Feyenoord',
+  fiorentina: 'ACF Fiorentina',
+  fulham: 'Fulham F.C.',
+  galatasaray: 'Galatasaray S.K. (football)',
+  lazio: 'S.S. Lazio',
+  'ss lazio': 'S.S. Lazio',
+  lyon: 'Olympique Lyonnais',
+  'olympique lyonnais': 'Olympique Lyonnais',
+  'olympique de lyon': 'Olympique Lyonnais',
+  'manchester city': 'Manchester City F.C.',
+  'man city': 'Manchester City F.C.',
+  marsella: 'Olympique de Marseille',
+  marseille: 'Olympique de Marseille',
+  'olympique de marsella': 'Olympique de Marseille',
+  'olympique de marseille': 'Olympique de Marseille',
+  middlesbrough: 'Middlesbrough F.C.',
+  middle: 'Middlesbrough F.C.',
+  psg: 'Paris Saint-Germain F.C.',
+  'paris saint germain': 'Paris Saint-Germain F.C.',
+  porto: 'FC Porto',
+  'fc porto': 'FC Porto',
+  sevilla: 'Sevilla FC',
+  'sevilla fc': 'Sevilla FC',
+  torino: 'Torino FC',
+  'torino fc': 'Torino FC',
+  tottenham: 'Tottenham Hotspur F.C.',
+  'tottenham hotspur': 'Tottenham Hotspur F.C.',
+  villareal: 'Villarreal CF',
+  villarreal: 'Villarreal CF',
+  'villarreal cf': 'Villarreal CF',
+  'west ham': 'West Ham United F.C.',
+  'west ham united': 'West Ham United F.C.',
+  zaragoza: 'Real Zaragoza',
+  'real zaragoza': 'Real Zaragoza',
+};
+
+const cleanBadgeCache: Record<string, string> = {};
+const badgeRequests: Record<string, Promise<string | null>> = {};
+
+const isAtleticoKey = (key: string) =>
+  key === 'atletico madrid' ||
+  key === 'atletico de madrid' ||
+  key === 'club atletico de madrid' ||
+  key === 'atletico de madrid fc' ||
+  key === 'at madrid';
+
+async function resolveCleanBadgeUri(club: string | null | undefined): Promise<string | null> {
+  const key = normalizeClub(club);
+  const title = WIKIPEDIA_TITLES[key];
+  if (!title) return null;
+  if (cleanBadgeCache[key]) return cleanBadgeCache[key];
+  if (badgeRequests[key]) return badgeRequests[key];
+
+  badgeRequests[key] = (async () => {
+    try {
+      const api = `https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=512&titles=${encodeURIComponent(title)}`;
+      const response = await fetch(api, { headers: { Accept: 'application/json' } });
+      if (!response.ok) return null;
+      const payload = await response.json();
+      const pages = payload?.query?.pages ? Object.values(payload.query.pages) as Array<any> : [];
+      const uri = pages[0]?.thumbnail?.source;
+      if (typeof uri === 'string' && uri.startsWith('http')) {
+        cleanBadgeCache[key] = uri;
+        return uri;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      delete badgeRequests[key];
+    }
+  })();
+
+  return badgeRequests[key];
+}
+
 export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
   const key = normalizeClub(club);
   if (!key || key === 'jugador libre') return null;
@@ -122,17 +209,75 @@ export function ClubBadge({
   size?: number;
   style?: StyleProp<ImageStyle>;
 }) {
-  const source = getTeamBadge(club);
-  if (!source) return null;
-  return (
+  const fallback = getTeamBadge(club);
+  const cacheKey = normalizeClub(club);
+  const pinnedLocal = isAtleticoKey(cacheKey);
+  const [cleanUri, setCleanUri] = React.useState<string | null>(() => cleanBadgeCache[cacheKey] ?? null);
+  const [resolved, setResolved] = React.useState(() => pinnedLocal || Boolean(cleanBadgeCache[cacheKey]));
+
+  React.useEffect(() => {
+    let active = true;
+    const nextKey = normalizeClub(club);
+
+    if (isAtleticoKey(nextKey)) {
+      setCleanUri(null);
+      setResolved(true);
+      return () => { active = false; };
+    }
+
+    const cached = cleanBadgeCache[nextKey];
+    if (cached) {
+      setCleanUri(cached);
+      setResolved(true);
+      return () => { active = false; };
+    }
+
+    setCleanUri(null);
+    setResolved(false);
+    resolveCleanBadgeUri(club).then(uri => {
+      if (!active) return;
+      setCleanUri(uri);
+      setResolved(true);
+    });
+    return () => { active = false; };
+  }, [club]);
+
+  if (!fallback && !cleanUri) return null;
+  if (!resolved && !cleanUri) {
+    return <View style={{ width: size, height: size, backgroundColor: 'transparent' }} />;
+  }
+
+  const image = (
     <Image
-      source={source}
+      source={cleanUri ? { uri: cleanUri } : fallback!}
       resizeMode="contain"
       fadeDuration={0}
       accessibilityLabel={`Escudo de ${String(club || 'club')}`}
       style={[{ width: size, height: size, backgroundColor: 'transparent' }, style]}
     />
   );
+
+  // Ajax necesita conservar el campo blanco que forma parte visual del escudo.
+  // Se añade SOLO detrás del Ajax y nunca como fondo rectangular de los demás.
+  if (cacheKey === 'ajax') {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: '#ffffff',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        {image}
+      </View>
+    );
+  }
+
+  return image;
 }
 
 export function ClubMatchup({
@@ -144,14 +289,12 @@ export function ClubMatchup({
   away: string | null | undefined;
   size?: number;
 }) {
-  const homeBadge = getTeamBadge(home);
-  const awayBadge = getTeamBadge(away);
-  if (!homeBadge && !awayBadge) return null;
+  if (!home && !away) return null;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-      {homeBadge ? <ClubBadge club={home} size={size} /> : null}
-      <Text style={{ color: '#92a0ad', fontWeight: '800' }}>VS</Text>
-      {awayBadge ? <ClubBadge club={away} size={size} /> : null}
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+      <ClubBadge club={home} size={size} />
+      <Text style={{ color: '#8ac5ff', fontWeight: '900', fontSize: 11 }}>VS</Text>
+      <ClubBadge club={away} size={size} />
     </View>
   );
 }
