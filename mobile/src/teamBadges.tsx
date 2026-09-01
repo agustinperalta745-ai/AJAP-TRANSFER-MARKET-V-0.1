@@ -1,36 +1,37 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
+import { ATLETICO_BADGE_DATA_URI } from './atleticoBadge';
 
-// Mapeo completo de escudos locales. Mónaco conserva el PNG HD reconstruido
-// durante el build; el resto usa los assets ya validados que venía mostrando
-// correctamente la app.
+// Los escudos generales se regeneran durante el build desde la lámina original
+// de mayor resolución, sin tocar ni recomprimir las miniaturas históricas.
+// Mónaco mantiene su PNG HD validado y Atlético usa el render 512 px del EPS.
 const ASSETS = {
-  ajax: require('../assets/teams/ajax.png'),
+  ajax: require('../assets/team_badge_hq/ajax.png'),
   as_monaco: require('../assets/team_badge_test/as_monaco_hd.png'),
-  aston_villa: require('../assets/teams/aston_villa.png'),
-  atletico_madrid: require('../assets/teams/atletico_madrid.png'),
-  benfica: require('../assets/teams/benfica.png'),
-  bolton_wanderers: require('../assets/teams/bolton_wanderers.png'),
-  everton: require('../assets/teams/everton.png'),
-  feyenoord: require('../assets/teams/feyenoord.png'),
-  fiorentina: require('../assets/teams/fiorentina.png'),
-  fulham: require('../assets/teams/fulham.png'),
-  galatasaray: require('../assets/teams/galatasaray.png'),
-  lazio: require('../assets/teams/lazio.png'),
-  manchester_city: require('../assets/teams/manchester_city.png'),
-  middlesbrough: require('../assets/teams/middlesbrough.png'),
-  olympique_lyon: require('../assets/teams/olympique_lyon.png'),
-  olympique_marseille: require('../assets/teams/olympique_marseille.png'),
-  porto: require('../assets/teams/porto.png'),
-  psg: require('../assets/teams/psg.png'),
-  real_betis: require('../assets/teams/real_betis.png'),
-  sevilla: require('../assets/teams/sevilla.png'),
-  torino: require('../assets/teams/torino.png'),
-  tottenham_hotspur: require('../assets/teams/tottenham_hotspur.png'),
-  villarreal: require('../assets/teams/villarreal.png'),
-  west_ham_united: require('../assets/teams/west_ham_united.png'),
-  zaragoza: require('../assets/teams/zaragoza.png'),
+  aston_villa: require('../assets/team_badge_hq/aston_villa.png'),
+  atletico_madrid: { uri: ATLETICO_BADGE_DATA_URI } as ImageSourcePropType,
+  benfica: require('../assets/team_badge_hq/benfica.png'),
+  bolton_wanderers: require('../assets/team_badge_hq/bolton_wanderers.png'),
+  everton: require('../assets/team_badge_hq/everton.png'),
+  feyenoord: require('../assets/team_badge_hq/feyenoord.png'),
+  fiorentina: require('../assets/team_badge_hq/fiorentina.png'),
+  fulham: require('../assets/team_badge_hq/fulham.png'),
+  galatasaray: require('../assets/team_badge_hq/galatasaray.png'),
+  lazio: require('../assets/team_badge_hq/lazio.png'),
+  manchester_city: require('../assets/team_badge_hq/manchester_city.png'),
+  middlesbrough: require('../assets/team_badge_hq/middlesbrough.png'),
+  olympique_lyon: require('../assets/team_badge_hq/olympique_lyon.png'),
+  olympique_marseille: require('../assets/team_badge_hq/olympique_marseille.png'),
+  porto: require('../assets/team_badge_hq/porto.png'),
+  psg: require('../assets/team_badge_hq/psg.png'),
+  real_betis: require('../assets/team_badge_hq/real_betis.png'),
+  sevilla: require('../assets/team_badge_hq/sevilla.png'),
+  torino: require('../assets/team_badge_hq/torino.png'),
+  tottenham_hotspur: require('../assets/team_badge_hq/tottenham_hotspur.png'),
+  villarreal: require('../assets/team_badge_hq/villarreal.png'),
+  west_ham_united: require('../assets/team_badge_hq/west_ham_united.png'),
+  zaragoza: require('../assets/team_badge_hq/zaragoza.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 const normalizeClub = (club: string | null | undefined) =>
@@ -52,6 +53,7 @@ const BADGES: Record<string, ImageSourcePropType> = {
   'atletico madrid': ASSETS.atletico_madrid,
   'atletico de madrid': ASSETS.atletico_madrid,
   'club atletico de madrid': ASSETS.atletico_madrid,
+  'atletico de madrid fc': ASSETS.atletico_madrid,
   'at madrid': ASSETS.atletico_madrid,
   benfica: ASSETS.benfica,
   'sl benfica': ASSETS.benfica,
@@ -113,18 +115,13 @@ export function ClubBadge({
 }) {
   const source = getTeamBadge(club);
   if (!source) return null;
-  const key = normalizeClub(club);
-  const ajaxWhiteField: ImageStyle | null = key === 'ajax'
-    ? { backgroundColor: '#ffffff', borderRadius: size / 2 }
-    : null;
-
   return (
     <Image
       source={source}
       resizeMode="contain"
       fadeDuration={0}
       accessibilityLabel={`Escudo de ${String(club || 'club')}`}
-      style={[{ width: size, height: size }, ajaxWhiteField, style]}
+      style={[{ width: size, height: size }, style]}
     />
   );
 }
