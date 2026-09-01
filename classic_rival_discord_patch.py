@@ -168,7 +168,7 @@ class ClassicTargetSelect(discord.ui.Select):
                     f"🔥 **{result['requester_club']} considera que sos su clásico rival.**\n\n"
                     f"⚠️ Si aceptás, **{result['requester_club']}** será el clásico rival fijo de **{result['target_club']}**. "
                     "Solo podrá liberarse si uno de los dos llega a tener **11 o más victorias de diferencia** en el historial entre ambos.\n\n"
-                    "Para responder entrá al servidor y usá **/clasico** o **Mercado → Clásico rival**.",
+                    "Para responder entrá al servidor y abrí **Mercado → Mi club → Elegir clásico**."
                 )
             await interaction.response.edit_message(embed=_embed(interaction.guild, interaction.user.id), view=ClassicHubView(interaction.user.id))
         except mobile_write_api.ApiFailure as exc:
@@ -232,7 +232,7 @@ class ClassicResponseView(discord.ui.View):
                 )
                 conn.commit()
             if notification:
-                await _dm(notification[0], notification[1] + "\n\nTambién podés verlo desde **/clasico** y AJPA Mobile.")
+                await _dm(notification[0], notification[1] + "\n\nTambién podés verlo desde **Mercado → Mi club → Elegir clásico** y AJPA Mobile.")
             if decision == "ACCEPT":
                 text = f"🔥 **{result['requester_club']} vs {result['target_club']}** ya es un clásico oficial de AJPA."
             else:
@@ -327,6 +327,65 @@ async def classic_command(interaction: discord.Interaction):
         await interaction.response.send_message(f"⚠️ {exc.message}", ephemeral=True)
 
 
+def _patch_mi_club_view():
+    # Mi club currently renders the final OVR view from lyon_test_seed. Patch that
+    # concrete runtime class (after navigation has already wrapped it) so the user
+    # can open the classic flow without typing any command.
+    import lyon_test_seed as lyon
+
+    old = lyon.PlantelOVRView
+    if getattr(old, "_ajpa_classic_rival_button", False):
+        APP.PlantelOVRView = old
+        return
+
+    class ClassicMiClubView(old):
+        def __init__(self, club: str):
+            super().__init__(club)
+            if any(getattr(item, "custom_id", None) == "mi_club_clasico" for item in self.children):
+                return
+            button = discord.ui.Button(
+                label="Elegir clásico",
+                emoji="🔥",
+                style=discord.ButtonStyle.secondary,
+                custom_id="mi_club_clasico",
+                row=2,
+            )
+            button.callback = self._classic
+            self.add_item(button)
+
+        async def _classic(self, interaction: discord.Interaction):
+            await classic_command(interaction)
+
+    ClassicMiClubView.__name__ = "PlantelOVRView"
+    ClassicMiClubView._ajpa_classic_rival_button = True
+    lyon.PlantelOVRView = ClassicMiClubView
+    APP.PlantelOVRView = ClassicMiClubView
+
+    # Keep the legacy ClubView aligned too, in case another path renders it.
+    legacy = getattr(APP, "ClubView", None)
+    if legacy is not None and not getattr(legacy, "_ajpa_classic_rival_button", False):
+        class ClassicLegacyClubView(legacy):
+            def __init__(self):
+                super().__init__()
+                if any(getattr(item, "custom_id", None) == "mi_club_clasico_legacy" for item in self.children):
+                    return
+                button = discord.ui.Button(
+                    label="Elegir clásico",
+                    emoji="🔥",
+                    style=discord.ButtonStyle.secondary,
+                    custom_id="mi_club_clasico_legacy",
+                )
+                button.callback = self._classic
+                self.add_item(button)
+
+            async def _classic(self, interaction: discord.Interaction):
+                await classic_command(interaction)
+
+        ClassicLegacyClubView.__name__ = "ClubView"
+        ClassicLegacyClubView._ajpa_classic_rival_button = True
+        APP.ClubView = ClassicLegacyClubView
+
+
 def _patch_market_view():
     old = APP.MercadoView
 
@@ -361,8 +420,9 @@ def apply_classic_rival_discord_patch(runtime, bot) -> None:
     with APP.db() as conn:
         classic.ensure_schema(conn)
         conn.commit()
+    _patch_mi_club_view()
     _patch_market_view()
     if bot.tree.get_command("clasico") is None:
         bot.tree.command(name="clasico", description="Elegí, respondé o consultá tu clásico rival")(classic_command)
     bot._ajpa_classic_rival_discord_patch = True
-    print("AJPA Discord: sistema de clásico rival activo y compartido con Mobile")
+    print("AJPA Discord: clásico rival activo en Mi club, menú principal y Mobile")
