@@ -146,16 +146,17 @@ if (ui.includes(`<View style={s.screenShade}>{body}</View>`)) {
 replaceStyle('screenBackgroundImage', `opacity: 0.96`);
 replaceStyle('screenShade', `flex: 1, backgroundColor: 'rgba(2,6,10,0.20)'`);
 
-// Glass/neon visible en Android.
-replaceStyle('featureTile', `width: '48.4%', minHeight: 184, borderRadius: 24, borderWidth: 1.6, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.68)', padding: 15, shadowColor: '#168cff', shadowOpacity: 0.42, shadowRadius: 17, shadowOffset: { width: 0, height: 7 }, elevation: 13`);
-replaceStyle('quickAction', `flexGrow: 1, flexBasis: '30%', minWidth: 96, minHeight: 66, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1.35, borderColor: '#168cff', backgroundColor: 'rgba(2,16,28,0.70)', paddingHorizontal: 11, paddingVertical: 10, shadowColor: '#168cff', shadowOpacity: 0.34, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 10`);
-replaceStyle('wideTile', `minHeight: 106, flexDirection: 'row', alignItems: 'center', borderRadius: 22, borderWidth: 1.55, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.68)', padding: 15, shadowColor: '#168cff', shadowOpacity: 0.38, shadowRadius: 15, shadowOffset: { width: 0, height: 6 }, elevation: 12`);
-replaceStyle('heroClubCard', `minHeight: 154, flexDirection: 'row', alignItems: 'center', borderRadius: 25, borderWidth: 1.65, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.67)', padding: 17, shadowColor: '#168cff', shadowOpacity: 0.43, shadowRadius: 18, shadowOffset: { width: 0, height: 7 }, elevation: 13`);
-replaceStyle('menuTile', `minHeight: 84, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(2,15,27,0.68)', borderWidth: 1.45, borderColor: '#168cff', borderRadius: 21, padding: 15, shadowColor: '#168cff', shadowOpacity: 0.33, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 10`);
-replaceStyle('card', `backgroundColor: 'rgba(2,15,27,0.69)', borderWidth: 1.35, borderColor: '#217fc1', borderRadius: 21, padding: 15, shadowColor: '#168cff', shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 9`);
-replaceStyle('editorCard', `backgroundColor: 'rgba(2,15,27,0.74)', borderWidth: 1.55, borderColor: '#168cff', borderRadius: 21, padding: 15, shadowColor: '#168cff', shadowOpacity: 0.36, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 11`);
-replaceStyle('marketControlCard', `flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 21, borderWidth: 1.45, padding: 15, backgroundColor: 'rgba(2,15,27,0.70)', shadowColor: '#168cff', shadowOpacity: 0.32, shadowRadius: 13, shadowOffset: { width: 0, height: 5 }, elevation: 10`);
-replaceStyle('topAction', `minHeight: 38, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1.35, borderColor: '#168cff', backgroundColor: 'rgba(2,15,27,0.80)', alignItems: 'center', justifyContent: 'center', shadowColor: '#168cff', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8`);
+// Vidrio oscuro más sólido para Android: conserva el fondo visible, elimina el
+// rectángulo/sombra interna que generaba elevation alta y mejora la lectura.
+replaceStyle('featureTile', `width: '48.4%', minHeight: 184, borderRadius: 24, borderWidth: 1.25, borderColor: 'rgba(45,146,255,0.82)', backgroundColor: 'rgba(3,15,25,0.92)', padding: 15, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.14, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 0`);
+replaceStyle('quickAction', `flexGrow: 1, flexBasis: '30%', minWidth: 96, minHeight: 66, flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderWidth: 1.15, borderColor: 'rgba(45,146,255,0.74)', backgroundColor: 'rgba(3,16,27,0.92)', paddingHorizontal: 11, paddingVertical: 10, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 0`);
+replaceStyle('wideTile', `minHeight: 106, flexDirection: 'row', alignItems: 'center', borderRadius: 22, borderWidth: 1.25, borderColor: 'rgba(45,146,255,0.80)', backgroundColor: 'rgba(3,15,25,0.93)', padding: 15, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.13, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 0`);
+replaceStyle('heroClubCard', `minHeight: 154, flexDirection: 'row', alignItems: 'center', borderRadius: 25, borderWidth: 1.3, borderColor: 'rgba(45,146,255,0.86)', backgroundColor: 'rgba(3,15,25,0.93)', padding: 17, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.15, shadowRadius: 11, shadowOffset: { width: 0, height: 4 }, elevation: 0`);
+replaceStyle('menuTile', `minHeight: 84, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(3,15,25,0.92)', borderWidth: 1.15, borderColor: 'rgba(45,146,255,0.72)', borderRadius: 21, padding: 15, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.11, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 0`);
+replaceStyle('card', `backgroundColor: 'rgba(3,15,25,0.93)', borderWidth: 1.15, borderColor: 'rgba(45,127,193,0.74)', borderRadius: 21, padding: 15, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.10, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 0`);
+replaceStyle('editorCard', `backgroundColor: 'rgba(3,15,25,0.94)', borderWidth: 1.2, borderColor: 'rgba(45,146,255,0.78)', borderRadius: 21, padding: 15, overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.12, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 0`);
+replaceStyle('marketControlCard', `flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 21, borderWidth: 1.15, padding: 15, backgroundColor: 'rgba(3,15,25,0.93)', overflow: 'hidden', shadowColor: '#168cff', shadowOpacity: 0.11, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 0`);
+replaceStyle('topAction', `minHeight: 38, paddingHorizontal: 11, borderRadius: 14, borderWidth: 1.15, borderColor: 'rgba(45,146,255,0.78)', backgroundColor: 'rgba(3,15,25,0.94)', alignItems: 'center', justifyContent: 'center', shadowColor: '#168cff', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 0`);
 
 // Clausulazo con tarjetas rojas sobre Figo.
 const clauseStart = ui.indexOf('  const clausulazoScreen = (');
@@ -185,4 +186,4 @@ if (!ui.includes('  clausulazoShade: {')) {
 }
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA runtime visual fix: assets nativos + Clausulazo crash-safe + Figo/Zidane visibles');
+console.log('AJPA runtime visual fix: fondos nativos + tarjetas oscuras sólidas sin sombra rectangular Android');
