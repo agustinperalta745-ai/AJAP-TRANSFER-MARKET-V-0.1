@@ -5,6 +5,64 @@ export type ClubManager = {
   name: string;
 };
 
+export type ClassicMatch = {
+  id: number;
+  home_team: string;
+  away_team: string;
+  home_goals: number;
+  away_goals: number;
+  created_at: string;
+};
+
+export type ClassicHistory = {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+  win_difference: number;
+  release_allowed: boolean;
+  last_matches: ClassicMatch[];
+};
+
+export type ClassicPublic = {
+  opponent: string;
+  opponent_manager: ClubManager;
+  accepted_at: string;
+  history: ClassicHistory;
+};
+
+export type ClassicRequest = {
+  id: number;
+  requester_club: string;
+  target_club: string;
+  requester_manager: ClubManager;
+  target_manager: ClubManager;
+  other_club: string;
+  status: string;
+  created_at: string;
+};
+
+export type ClassicCandidate = {
+  club: string;
+  manager: ClubManager;
+  available: boolean;
+  reason: string | null;
+};
+
+export type ClassicState = {
+  club: string;
+  classic: ClassicPublic | null;
+  incoming: ClassicRequest[];
+  outgoing: ClassicRequest | null;
+  available_clubs: ClassicCandidate[];
+  rule: {
+    release_win_difference: number;
+    text: string;
+  };
+};
+
 export type ClubTitle = {
   id: number;
   title: string;
@@ -19,6 +77,7 @@ export type ClubProfileSummary = {
   roster_count: number;
   titles_count: number;
   stars: number;
+  classic: ClassicPublic | null;
 };
 
 export type ClubPrize = {
@@ -67,6 +126,38 @@ export function fetchClubProfile(club: string): Promise<ClubProfile> {
 
 export function fetchMyTreasury(): Promise<TreasuryData> {
   return apiRequest<TreasuryData>('/api/v1/my/treasury');
+}
+
+export function fetchMyClassic(): Promise<ClassicState> {
+  return apiRequest<ClassicState>('/api/v1/my/classic');
+}
+
+export function requestClassic(targetClub: string) {
+  return apiRequest<{ ok: boolean; request_id: number; requester_club: string; target_club: string }>(
+    '/api/v1/my/classic/request',
+    { method: 'POST', body: JSON.stringify({ target_club: targetClub }) },
+  );
+}
+
+export function respondClassic(requestId: number, decision: 'ACCEPT' | 'REJECT') {
+  return apiRequest<{ ok: boolean; status: string; requester_club: string; target_club: string; classic_id?: number }>(
+    '/api/v1/my/classic/respond',
+    { method: 'POST', body: JSON.stringify({ request_id: requestId, decision }) },
+  );
+}
+
+export function cancelClassicRequest(requestId: number) {
+  return apiRequest<{ ok: boolean; status: string }>(
+    '/api/v1/my/classic/cancel',
+    { method: 'POST', body: JSON.stringify({ request_id: requestId }) },
+  );
+}
+
+export function releaseClassic() {
+  return apiRequest<{ ok: boolean; released: boolean; club: string; opponent: string; history: ClassicHistory }>(
+    '/api/v1/my/classic/release',
+    { method: 'POST', body: JSON.stringify({}) },
+  );
 }
 
 export function addClubTitle(club: string, title: string, important: boolean) {
