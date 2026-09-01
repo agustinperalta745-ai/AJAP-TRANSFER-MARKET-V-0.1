@@ -5,6 +5,7 @@ from __future__ import annotations
 import discord
 
 import mobile_write_api
+import classic_rival_discord_patch
 
 
 def apply_mobile_pairing_patch(runtime, bot) -> None:
@@ -63,5 +64,10 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
                 ephemeral=True,
             )
 
+    # This is deliberately mounted after guild isolation (this function is called
+    # after apply_guild_isolation_patch in run_bot). Discord and Mobile therefore
+    # share the same classic_rivals tables and the same 11-win release rule.
+    classic_rival_discord_patch.apply_classic_rival_discord_patch(runtime, bot)
+
     bot._ajpa_mobile_pairing_patch = True
-    print("AJPA Mobile: /app_codigo habilitado")
+    print("AJPA Mobile: /app_codigo habilitado • clásico rival también disponible en Discord")
