@@ -3,11 +3,16 @@ import fs from 'node:fs';
 const uiPath = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiPath, 'utf8');
 
-const badgeImport = "import { ClubBadge, getClubTheme } from './teamBadges';";
+const badgeImport = "import { ClubBadge, ClubMatchup, getClubTheme } from './teamBadges';";
 if (!ui.includes(badgeImport)) {
-  const oldBadgeImport = "import { ClubBadge } from './teamBadges';";
-  if (ui.includes(oldBadgeImport)) {
-    ui = ui.replace(oldBadgeImport, badgeImport);
+  const variants = [
+    "import { ClubBadge, ClubMatchup } from './teamBadges';",
+    "import { ClubBadge, getClubTheme } from './teamBadges';",
+    "import { ClubBadge } from './teamBadges';",
+  ];
+  const found = variants.find((candidate) => ui.includes(candidate));
+  if (found) {
+    ui = ui.replace(found, badgeImport);
   } else {
     const anchor = "import { BG_PERFIL } from './bg_perfil';";
     if (!ui.includes(anchor)) throw new Error('Club identity: no encontré el bloque de imports');
