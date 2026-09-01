@@ -93,3 +93,7 @@ import league_zaragoza_everton_scorers_backfill_patch  # noqa: F401,E402
 # Elimina el resultado de prueba Real Betis 2-0 Sevilla del servidor histórico.
 # Al salir de league_matches, los 3 puntos desaparecen tanto del bot como de Mobile.
 import league_betis_test_result_cleanup_patch  # noqa: F401,E402
+
+# Extiende la tarjeta GES sin adelantar su carga: interpreta goleadores escritos en
+# lenguaje natural, los conserva tras confirmación rival y los muestra por equipo.
+import league_ges_scorer_details_patch  # noqa: F401,E402
