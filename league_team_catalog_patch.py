@@ -15,11 +15,27 @@ def apply_league_team_catalog_patch() -> None:
         if not any(str(name).casefold() == club.casefold() for name in league.TEAMS):
             league.TEAMS.append(club)
 
+    # PES 6 can show licensed/DB club names or its default fake names depending
+    # on the database installed by each player. Result recognition must resolve
+    # both forms to the same official AJPA club before validating the screenshot.
     league.ALIASES.update(
         {
             "monaco": "AS Monaco",
             "as monaco": "AS Monaco",
             "feyenoord": "Feyenoord",
+
+            # PES default / unlicensed names used by AJPA players.
+            "middlebrook": "Bolton Wanderers",
+            "teesside": "Middlesbrough",
+            "west lindo white": "Fulham",
+            "west london white": "Fulham",
+            "west midlands village": "Aston Villa",
+            "merseyside blue": "Everton",
+            "man blue": "Manchester City",
+            "north east london": "Tottenham Hotspur",
         }
     )
-    print("AJAP Liga: catálogo de resultados actualizado • AS Monaco + Feyenoord activos • Celta/AS Roma retirados")
+    print(
+        "AJAP Liga: catálogo actualizado • nombres oficiales + aliases PES por defecto "
+        "• AS Monaco/Feyenoord activos • Celta/AS Roma retirados"
+    )
