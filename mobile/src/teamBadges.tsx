@@ -1,11 +1,12 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
+import { ATLETICO_BADGE_DATA_URI } from './atleticoBadge';
 
-// Prueba controlada: solo AS Monaco usa por ahora un PNG HD generado desde el
-// vector original. El archivo se reconstruye de forma determinista durante el
-// build para no degradarlo ni aplicar compresión adicional.
+// AS Monaco conserva su PNG reconstruido durante el build. Atlético de Madrid
+// usa el PNG 256x256 renderizado desde el EPS original y embebido en el bundle.
 const MONACO_BADGE: ImageSourcePropType = require('../assets/team_badge_test/as_monaco_hd.png');
+const ATLETICO_BADGE: ImageSourcePropType = { uri: ATLETICO_BADGE_DATA_URI };
 
 const normalizeClub = (club: string | null | undefined) =>
   String(club || '')
@@ -18,6 +19,13 @@ const normalizeClub = (club: string | null | undefined) =>
 export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
   const key = normalizeClub(club);
   if (key === 'as monaco' || key === 'monaco' || key === 'as monaco fc') return MONACO_BADGE;
+  if (
+    key === 'atletico de madrid' ||
+    key === 'atletico madrid' ||
+    key === 'club atletico de madrid' ||
+    key === 'atletico de madrid fc' ||
+    key === 'at madrid'
+  ) return ATLETICO_BADGE;
   return null;
 }
 
@@ -38,7 +46,7 @@ export function ClubBadge({
       resizeMode="contain"
       fadeDuration={0}
       style={[{ width: size, height: size }, style]}
-      accessibilityLabel={`Escudo de ${String(club || 'AS Monaco')}`}
+      accessibilityLabel={`Escudo de ${String(club || 'club')}`}
     />
   );
 }
