@@ -1,4 +1,4 @@
-"""Discord command and MI CLUB button for securely pairing AJPA Mobile."""
+"""Discord command and main-menu button for securely pairing AJPA Mobile."""
 
 from __future__ import annotations
 
@@ -75,18 +75,18 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     classic_rival_discord_patch.apply_classic_rival_discord_patch(runtime, bot)
     classic_rival_myclub_button_patch.apply_classic_rival_myclub_button_patch(runtime, bot)
 
-    # Extend the final Treasury/classic view, preserving all existing controls.
-    base_view = my_club.MyClubSectionView
+    # Extend the main menu shown before entering MI CLUB.
+    base_view = runtime.MercadoView
 
-    class MobilePairingMyClubSectionView(base_view):
-        def __init__(self, roster_callback):
-            super().__init__(roster_callback)
+    class MobilePairingMarketView(base_view):
+        def __init__(self):
+            super().__init__()
             button = discord.ui.Button(
                 label="Vincular con la app",
                 emoji="📱",
                 style=discord.ButtonStyle.primary,
-                custom_id="ajpa_my_club_app_codigo",
-                row=2,
+                custom_id="ajpa_main_app_codigo",
+                row=3,
             )
             button.callback = self._generate_pair_code
             self.add_item(button)
@@ -99,8 +99,8 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
             finally:
                 my_club._reset_guild_context(token)
 
-    MobilePairingMyClubSectionView.__name__ = "MyClubSectionView"
-    my_club.MyClubSectionView = MobilePairingMyClubSectionView
+    MobilePairingMarketView.__name__ = "MercadoView"
+    runtime.MercadoView = MobilePairingMarketView
 
     bot._ajpa_mobile_pairing_patch = True
-    print("AJPA Mobile: /app_codigo y botón Vincular con la app habilitados en MI CLUB")
+    print("AJPA Mobile: /app_codigo y botón Vincular con la app habilitados en el menú principal")
