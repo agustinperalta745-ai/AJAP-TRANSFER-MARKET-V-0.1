@@ -73,3 +73,7 @@ if not getattr(strict._send_admin_review, "_ajap_api_error_diagnostic", False):
     strict._send_admin_review = _send_review_with_diagnostic
 
 print("AJAP Liga diagnóstico API activo: errores HTTP seguros visibles para Staff")
+
+# Herramienta Staff para cargar/corregir goleadores de resultados ya persistidos,
+# incluidos los partidos que fueron resueltos mediante carga manual.
+import league_manual_scorers_patch  # noqa: F401,E402
