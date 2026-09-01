@@ -7,7 +7,12 @@ import { execFileSync } from 'node:child_process';
 execFileSync('python', ['-m', 'pip', 'install', '--quiet', 'Pillow'], { stdio: 'inherit' });
 const sanitizer = String.raw`
 from pathlib import Path
-from PIL import Image, ImageDraw, UnidentifiedImageError
+from PIL import Image, ImageDraw, ImageFile, UnidentifiedImageError
+
+# Algunos PNG viejos (p. ej. Benfica/Lazio/Tottenham) están truncados pero
+# conservan suficientes datos para reconstruirse. Pillow los abre en modo
+# tolerante y luego los volvemos a guardar como PNG RGBA limpio para AAPT2.
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 root = Path('assets/teams')
 if not root.exists():
@@ -29,8 +34,8 @@ for path in files:
         with Image.open(path) as src:
             src.load()
             img = src.convert('RGBA')
-    except UnidentifiedImageError as exc:
-        raise SystemExit(f'Team badge inválido que sí se usa: {path.name}') from exc
+    except (UnidentifiedImageError, OSError) as exc:
+        raise SystemExit(f'Team badge imposible de recuperar: {path.name}: {exc}') from exc
 
     # Ajax necesita conservar su campo blanco: en la tarjeta oscura el PNG
     # transparente hacía desaparecer esa parte del escudo.
