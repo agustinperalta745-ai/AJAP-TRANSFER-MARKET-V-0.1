@@ -184,7 +184,9 @@ jobs:
           from PIL import Image
 
           asset = Path('assets/background-parts/league-maradona.b64')
-          raw = base64.b64decode(''.join(asset.read_text().split()))
+          encoded = ''.join(asset.read_text().split())
+          encoded += '=' * (-len(encoded) % 4)
+          raw = base64.b64decode(encoded)
           image = Image.open(io.BytesIO(raw)).convert('RGB')
           out = io.BytesIO()
           image.save(out, format='WEBP', quality=92, method=6)
