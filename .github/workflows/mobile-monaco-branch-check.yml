@@ -59,6 +59,11 @@ jobs:
           node scripts/apply-premium-depth-v2.mjs
           node scripts/apply-monaco-badge-test.mjs
 
+      - name: Inspect nullable snapshot references
+        run: |
+          nl -ba src/BotParityAppV2.tsx | sed -n '595,610p;760,775p'
+          grep -n "snapshot" src/BotParityAppV2.tsx | head -80
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
