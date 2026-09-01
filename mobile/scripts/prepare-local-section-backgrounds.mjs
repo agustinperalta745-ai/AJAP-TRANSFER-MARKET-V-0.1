@@ -36,7 +36,7 @@ const league = readWebpParts(
 );
 const market = readWebpParts(
   ['market-01.b64', 'market-02.b64', 'market-03.b64', 'market-04.b64', 'market-05.b64'],
-  'b1b740927eb8e12904218c9a91218d2266348f29b285d583949299d089ccf951',
+  'e7c61220c782daf8b5ce4cc710195395f2ef8e8154f9e7c7f713a808ea08e4fe',
   'Mercado',
 );
 
