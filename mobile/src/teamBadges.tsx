@@ -33,8 +33,11 @@ const BADGES: Record<string, ImageSourcePropType> = {
   tottenham_hotspur: require('../assets/team_badge_hq256/tottenham_hotspur.png'),
   villarreal: require('../assets/team_badge_hq256/villarreal.png'),
   west_ham_united: require('../assets/team_badge_hq256/west_ham_united.png'),
-  // Zaragoza mantiene por ahora el escudo que ya tenía la app.
-  zaragoza: require('../assets/teams/zaragoza.png'),
+  // El PNG legado de Zaragoza está corrupto para AAPT2. Esta fuente remota
+  // transparente evita empaquetar ese archivo hasta reemplazarlo por un HQ local.
+  zaragoza: {
+    uri: 'https://www.footylogos.com/downloads/logo/real-zaragoza-logo-footylogos.png',
+  },
 };
 
 const THEMES: Record<string, ClubTheme> = {
