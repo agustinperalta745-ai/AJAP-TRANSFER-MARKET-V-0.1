@@ -7,6 +7,7 @@ on:
       - main
       - feature/mobile-app-foundation
       - fix/mobile-clausulazo-badges
+      - fix/team-card-gradients
     paths:
       - 'mobile/**'
       - 'bot_mobile.py'
@@ -43,9 +44,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-
-      - name: Prepare transparent HQ team badges
-        run: node scripts/prepare-hq-team-badges.mjs
 
       - name: Prepare AJPA launcher icon
         run: |
@@ -194,9 +192,6 @@ jobs:
       - name: Apply club profiles, treasury and awards
         run: node scripts/apply-club-profiles-awards.mjs
 
-      - name: Restore real club profile badges
-        run: node scripts/fix-club-profile-badges.mjs
-
       - name: Apply classic rival system
         run: node scripts/apply-classic-rival-mobile.mjs
 
@@ -208,6 +203,14 @@ jobs:
 
       - name: Apply and validate Monaco HD badge
         run: node scripts/apply-monaco-badge-test.mjs
+
+      - name: Restore approved embedded badges and profile bindings
+        run: |
+          node scripts/apply-all-hq-team-badges.mjs
+          node scripts/apply-profile-team-badges.mjs
+
+      - name: Apply team colors and soft card gradients
+        run: node scripts/apply-team-card-gradients.mjs
 
       - name: TypeScript check
         run: npx tsc --noEmit

@@ -1,203 +1,159 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
 import type { ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
-import { ATLETICO_BADGE_DATA_URI } from './atleticoBadge';
 
-// RESTAURADO DEL BUILD BUENO (fa74b6e): el escudo visible se resuelve desde
-// Wikipedia pageimages a 512 px. Eso fue lo que dio la apariencia nítida y sin
-// fondos negros que ya estaba aprobada. El asset histórico queda SOLO como
-// respaldo y además está fijado al commit bueno para que main no pueda degradarlo.
-const RAW_GOOD = 'https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/fa74b6ea72536eb1b60acf864f4497826d2402db/mobile/assets/teams';
-const BADGE_VERSION = '20260901-wiki-clean-restored';
-const remoteGood = (file: string): ImageSourcePropType => ({ uri: `${RAW_GOOD}/${file}?v=${BADGE_VERSION}` });
+export type ClubTheme = {
+  primary: string;
+  secondary: string;
+  accent: string;
+  soft: string;
+};
 
-const ASSETS = {
-  ajax: remoteGood('ajax.png'),
-  as_monaco: remoteGood('as_monaco.png'),
-  aston_villa: remoteGood('aston_villa.png'),
-  atletico_madrid: { uri: ATLETICO_BADGE_DATA_URI } as ImageSourcePropType,
-  benfica: remoteGood('benfica.png'),
-  bolton_wanderers: remoteGood('bolton_wanderers.png'),
-  everton: remoteGood('everton.png'),
-  feyenoord: remoteGood('feyenoord.png'),
-  fiorentina: remoteGood('fiorentina.png'),
-  fulham: remoteGood('fulham.png'),
-  galatasaray: remoteGood('galatasaray.png'),
-  lazio: remoteGood('lazio.png'),
-  manchester_city: remoteGood('manchester_city.png'),
-  middlesbrough: remoteGood('middlesbrough.png'),
-  olympique_lyon: remoteGood('olympique_lyon.png'),
-  olympique_marseille: remoteGood('olympique_marseille.png'),
-  porto: remoteGood('porto.png'),
-  psg: remoteGood('psg.png'),
-  real_betis: remoteGood('real_betis.png'),
-  sevilla: remoteGood('sevilla.png'),
-  torino: remoteGood('torino.png'),
-  tottenham_hotspur: remoteGood('tottenham_hotspur.png'),
-  villarreal: remoteGood('villarreal.png'),
-  west_ham_united: remoteGood('west_ham_united.png'),
-  zaragoza: remoteGood('zaragoza.png'),
-} satisfies Record<string, ImageSourcePropType>;
+const BADGES: Record<string, ImageSourcePropType> = {
+  ajax: require('../assets/team_badge_hq256/ajax.png'),
+  as_monaco: require('../assets/team_badge_test/as_monaco_hd.png'),
+  aston_villa: require('../assets/team_badge_hq256/aston_villa.png'),
+  atletico_madrid: require('../assets/team_badge_hq256/atletico_madrid.png'),
+  benfica: require('../assets/team_badge_hq256/benfica.png'),
+  bolton_wanderers: require('../assets/team_badge_hq256/bolton_wanderers.png'),
+  everton: require('../assets/team_badge_hq256/everton.png'),
+  feyenoord: require('../assets/team_badge_hq256/feyenoord.png'),
+  fiorentina: require('../assets/team_badge_hq256/fiorentina.png'),
+  fulham: require('../assets/team_badge_hq256/fulham.png'),
+  galatasaray: require('../assets/team_badge_hq256/galatasaray.png'),
+  lazio: require('../assets/team_badge_hq256/lazio.png'),
+  manchester_city: require('../assets/team_badge_hq256/manchester_city.png'),
+  middlesbrough: require('../assets/team_badge_hq256/middlesbrough.png'),
+  olympique_lyon: require('../assets/team_badge_hq256/olympique_lyon.png'),
+  olympique_marseille: require('../assets/team_badge_hq256/olympique_marseille.png'),
+  porto: require('../assets/team_badge_hq256/porto.png'),
+  psg: require('../assets/team_badge_hq256/psg.png'),
+  real_betis: require('../assets/team_badge_hq256/real_betis.png'),
+  sevilla: require('../assets/team_badge_hq256/sevilla.png'),
+  tottenham_hotspur: require('../assets/team_badge_hq256/tottenham_hotspur.png'),
+  villarreal: require('../assets/team_badge_hq256/villarreal.png'),
+  west_ham_united: require('../assets/team_badge_hq256/west_ham_united.png'),
+  // El PNG legado de Zaragoza está corrupto para AAPT2. Esta fuente remota
+  // transparente evita empaquetar ese archivo hasta reemplazarlo por un HQ local.
+  zaragoza: {
+    uri: 'https://www.footylogos.com/downloads/logo/real-zaragoza-logo-footylogos.png',
+  },
+};
+
+const THEMES: Record<string, ClubTheme> = {
+  ajax: { primary: '#D81E34', secondary: '#7A101E', accent: '#F2F4F6', soft: 'rgba(216,30,52,0.18)' },
+  as_monaco: { primary: '#D7193F', secondary: '#7D1026', accent: '#F3C04B', soft: 'rgba(215,25,63,0.20)' },
+  aston_villa: { primary: '#6A1B3F', secondary: '#341023', accent: '#89CFF0', soft: 'rgba(106,27,63,0.22)' },
+  atletico_madrid: { primary: '#D71936', secondary: '#781122', accent: '#2D5FA7', soft: 'rgba(215,25,54,0.20)' },
+  benfica: { primary: '#D71920', secondary: '#761017', accent: '#F2C14E', soft: 'rgba(215,25,32,0.20)' },
+  bolton_wanderers: { primary: '#173B6C', secondary: '#0B1C34', accent: '#D7282F', soft: 'rgba(23,59,108,0.22)' },
+  everton: { primary: '#1B58C7', secondary: '#0D2E6D', accent: '#F4F7FB', soft: 'rgba(27,88,199,0.22)' },
+  feyenoord: { primary: '#D71920', secondary: '#171717', accent: '#F3F3F3', soft: 'rgba(215,25,32,0.20)' },
+  fiorentina: { primary: '#6E2CA5', secondary: '#35134F', accent: '#F5F1FB', soft: 'rgba(110,44,165,0.22)' },
+  fulham: { primary: '#ECECEC', secondary: '#363636', accent: '#D71920', soft: 'rgba(236,236,236,0.12)' },
+  galatasaray: { primary: '#C9192D', secondary: '#70101B', accent: '#F5B335', soft: 'rgba(201,25,45,0.22)' },
+  lazio: { primary: '#6EBCEB', secondary: '#25577A', accent: '#F4F8FC', soft: 'rgba(110,188,235,0.20)' },
+  manchester_city: { primary: '#6CABDD', secondary: '#2C658C', accent: '#F5F8FA', soft: 'rgba(108,171,221,0.22)' },
+  middlesbrough: { primary: '#D71920', secondary: '#741015', accent: '#F3F3F3', soft: 'rgba(215,25,32,0.20)' },
+  olympique_lyon: { primary: '#174A9C', secondary: '#102C61', accent: '#D7193F', soft: 'rgba(23,74,156,0.22)' },
+  olympique_marseille: { primary: '#3FA9E6', secondary: '#1D5E87', accent: '#F6F9FC', soft: 'rgba(63,169,230,0.22)' },
+  porto: { primary: '#1D5DA8', secondary: '#0D315F', accent: '#F5F8FC', soft: 'rgba(29,93,168,0.22)' },
+  psg: { primary: '#173B73', secondary: '#091F42', accent: '#D7193F', soft: 'rgba(23,59,115,0.24)' },
+  real_betis: { primary: '#159447', secondary: '#0B4E28', accent: '#F4F8F5', soft: 'rgba(21,148,71,0.22)' },
+  sevilla: { primary: '#D71920', secondary: '#751018', accent: '#F5F5F5', soft: 'rgba(215,25,32,0.20)' },
+  tottenham_hotspur: { primary: '#183A6E', secondary: '#0B1C38', accent: '#F1F5F9', soft: 'rgba(24,58,110,0.22)' },
+  villarreal: { primary: '#D9B61C', secondary: '#7C6510', accent: '#244C87', soft: 'rgba(217,182,28,0.18)' },
+  west_ham_united: { primary: '#7A263A', secondary: '#3D111E', accent: '#7FC6E8', soft: 'rgba(122,38,58,0.22)' },
+  zaragoza: { primary: '#2A64B7', secondary: '#153664', accent: '#F2F5F8', soft: 'rgba(42,100,183,0.22)' },
+};
 
 const normalizeClub = (club: string | null | undefined) =>
   String(club || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[._-]+/g, ' ')
-    .replace(/[^a-z0-9 ]+/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
-const BADGES: Record<string, ImageSourcePropType> = {
-  ajax: ASSETS.ajax,
-  monaco: ASSETS.as_monaco,
-  'as monaco': ASSETS.as_monaco,
-  'as monaco fc': ASSETS.as_monaco,
-  'aston villa': ASSETS.aston_villa,
-  'atletico madrid': ASSETS.atletico_madrid,
-  'atletico de madrid': ASSETS.atletico_madrid,
-  'club atletico de madrid': ASSETS.atletico_madrid,
-  'atletico de madrid fc': ASSETS.atletico_madrid,
-  'at madrid': ASSETS.atletico_madrid,
-  benfica: ASSETS.benfica,
-  'sl benfica': ASSETS.benfica,
-  'real betis': ASSETS.real_betis,
-  betis: ASSETS.real_betis,
-  'bolton wanderers': ASSETS.bolton_wanderers,
-  bolton: ASSETS.bolton_wanderers,
-  everton: ASSETS.everton,
-  feyenoord: ASSETS.feyenoord,
-  fiorentina: ASSETS.fiorentina,
-  fulham: ASSETS.fulham,
-  galatasaray: ASSETS.galatasaray,
-  lazio: ASSETS.lazio,
-  'ss lazio': ASSETS.lazio,
-  lyon: ASSETS.olympique_lyon,
-  'olympique lyonnais': ASSETS.olympique_lyon,
-  'olympique de lyon': ASSETS.olympique_lyon,
-  'manchester city': ASSETS.manchester_city,
-  'man city': ASSETS.manchester_city,
-  marsella: ASSETS.olympique_marseille,
-  marseille: ASSETS.olympique_marseille,
-  'olympique de marsella': ASSETS.olympique_marseille,
-  'olympique de marseille': ASSETS.olympique_marseille,
-  middlesbrough: ASSETS.middlesbrough,
-  middle: ASSETS.middlesbrough,
-  psg: ASSETS.psg,
-  'paris saint germain': ASSETS.psg,
-  porto: ASSETS.porto,
-  'fc porto': ASSETS.porto,
-  sevilla: ASSETS.sevilla,
-  'sevilla fc': ASSETS.sevilla,
-  torino: ASSETS.torino,
-  'torino fc': ASSETS.torino,
-  tottenham: ASSETS.tottenham_hotspur,
-  'tottenham hotspur': ASSETS.tottenham_hotspur,
-  villareal: ASSETS.villarreal,
-  villarreal: ASSETS.villarreal,
-  'villarreal cf': ASSETS.villarreal,
-  'west ham': ASSETS.west_ham_united,
-  'west ham united': ASSETS.west_ham_united,
-  zaragoza: ASSETS.zaragoza,
-  'real zaragoza': ASSETS.zaragoza,
+const ALIASES: Record<string, string> = {
+  'ajax': 'ajax',
+  'as monaco': 'as_monaco',
+  'as monaco fc': 'as_monaco',
+  'monaco': 'as_monaco',
+  'aston villa': 'aston_villa',
+  'west midlands village': 'aston_villa',
+  'atletico madrid': 'atletico_madrid',
+  'atletico de madrid': 'atletico_madrid',
+  'at madrid': 'atletico_madrid',
+  'club atletico de madrid': 'atletico_madrid',
+  'benfica': 'benfica',
+  'sl benfica': 'benfica',
+  'bolton wanderers': 'bolton_wanderers',
+  'bolton': 'bolton_wanderers',
+  'middlebrook': 'bolton_wanderers',
+  'everton': 'everton',
+  'merseyside blue': 'everton',
+  'feyenoord': 'feyenoord',
+  'fiorentina': 'fiorentina',
+  'acf fiorentina': 'fiorentina',
+  'fulham': 'fulham',
+  'west london white': 'fulham',
+  'west lindo white': 'fulham',
+  'galatasaray': 'galatasaray',
+  'lazio': 'lazio',
+  'ss lazio': 'lazio',
+  'manchester city': 'manchester_city',
+  'man city': 'manchester_city',
+  'man blue': 'manchester_city',
+  'middlesbrough': 'middlesbrough',
+  'teesside': 'middlesbrough',
+  'olympique de lyon': 'olympique_lyon',
+  'olympique lyonnais': 'olympique_lyon',
+  'olympique lyon': 'olympique_lyon',
+  'lyon': 'olympique_lyon',
+  'olympique de marseille': 'olympique_marseille',
+  'olympique marseille': 'olympique_marseille',
+  'olympique de marsella': 'olympique_marseille',
+  'marsella': 'olympique_marseille',
+  'marseille': 'olympique_marseille',
+  'porto': 'porto',
+  'fc porto': 'porto',
+  'psg': 'psg',
+  'paris saint germain': 'psg',
+  'paris saint germain fc': 'psg',
+  'real betis': 'real_betis',
+  'real betis balompie': 'real_betis',
+  'sevilla': 'sevilla',
+  'sevilla fc': 'sevilla',
+  'tottenham hotspur': 'tottenham_hotspur',
+  'tottenham': 'tottenham_hotspur',
+  'north east london': 'tottenham_hotspur',
+  'villarreal': 'villarreal',
+  'villarreal cf': 'villarreal',
+  'west ham united': 'west_ham_united',
+  'west ham': 'west_ham_united',
+  'zaragoza': 'zaragoza',
+  'real zaragoza': 'zaragoza',
 };
 
-// EXACTAMENTE el resolver del build bueno. Atlético es la única excepción:
-// ya no consulta Wikipedia porque debe usar el PNG 512x512 producido desde el EPS.
-const WIKIPEDIA_TITLES: Record<string, string> = {
-  ajax: 'AFC Ajax',
-  monaco: 'AS Monaco FC',
-  'as monaco': 'AS Monaco FC',
-  'as monaco fc': 'AS Monaco FC',
-  'aston villa': 'Aston Villa F.C.',
-  benfica: 'S.L. Benfica',
-  'sl benfica': 'S.L. Benfica',
-  'real betis': 'Real Betis',
-  betis: 'Real Betis',
-  'bolton wanderers': 'Bolton Wanderers F.C.',
-  bolton: 'Bolton Wanderers F.C.',
-  everton: 'Everton F.C.',
-  feyenoord: 'Feyenoord',
-  fiorentina: 'ACF Fiorentina',
-  fulham: 'Fulham F.C.',
-  galatasaray: 'Galatasaray S.K. (football)',
-  lazio: 'S.S. Lazio',
-  'ss lazio': 'S.S. Lazio',
-  lyon: 'Olympique Lyonnais',
-  'olympique lyonnais': 'Olympique Lyonnais',
-  'olympique de lyon': 'Olympique Lyonnais',
-  'manchester city': 'Manchester City F.C.',
-  'man city': 'Manchester City F.C.',
-  marsella: 'Olympique de Marseille',
-  marseille: 'Olympique de Marseille',
-  'olympique de marsella': 'Olympique de Marseille',
-  'olympique de marseille': 'Olympique de Marseille',
-  middlesbrough: 'Middlesbrough F.C.',
-  middle: 'Middlesbrough F.C.',
-  psg: 'Paris Saint-Germain F.C.',
-  'paris saint germain': 'Paris Saint-Germain F.C.',
-  porto: 'FC Porto',
-  'fc porto': 'FC Porto',
-  sevilla: 'Sevilla FC',
-  'sevilla fc': 'Sevilla FC',
-  torino: 'Torino FC',
-  'torino fc': 'Torino FC',
-  tottenham: 'Tottenham Hotspur F.C.',
-  'tottenham hotspur': 'Tottenham Hotspur F.C.',
-  villareal: 'Villarreal CF',
-  villarreal: 'Villarreal CF',
-  'villarreal cf': 'Villarreal CF',
-  'west ham': 'West Ham United F.C.',
-  'west ham united': 'West Ham United F.C.',
-  zaragoza: 'Real Zaragoza',
-  'real zaragoza': 'Real Zaragoza',
-};
-
-const cleanBadgeCache: Record<string, string> = {};
-const badgeRequests: Record<string, Promise<string | null>> = {};
-
-const isAtleticoKey = (key: string) =>
-  key === 'atletico madrid' ||
-  key === 'atletico de madrid' ||
-  key === 'club atletico de madrid' ||
-  key === 'atletico de madrid fc' ||
-  key === 'at madrid';
-
-async function resolveCleanBadgeUri(club: string | null | undefined): Promise<string | null> {
-  const key = normalizeClub(club);
-  const title = WIKIPEDIA_TITLES[key];
-  if (!title) return null;
-  if (cleanBadgeCache[key]) return cleanBadgeCache[key];
-  if (badgeRequests[key]) return badgeRequests[key];
-
-  badgeRequests[key] = (async () => {
-    try {
-      const api = `https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageimages&piprop=thumbnail&pithumbsize=512&titles=${encodeURIComponent(title)}`;
-      const response = await fetch(api, { headers: { Accept: 'application/json' } });
-      if (!response.ok) return null;
-      const payload = await response.json();
-      const pages = payload?.query?.pages ? Object.values(payload.query.pages) as Array<any> : [];
-      const uri = pages[0]?.thumbnail?.source;
-      if (typeof uri === 'string' && uri.startsWith('http')) {
-        cleanBadgeCache[key] = uri;
-        return uri;
-      }
-      return null;
-    } catch {
-      return null;
-    } finally {
-      delete badgeRequests[key];
-    }
-  })();
-
-  return badgeRequests[key];
+export function getClubAssetKey(club: string | null | undefined): string | null {
+  const key = ALIASES[normalizeClub(club)];
+  return key && BADGES[key] ? key : null;
 }
 
 export function getTeamBadge(club: string | null | undefined): ImageSourcePropType | null {
-  const key = normalizeClub(club);
-  if (!key || key === 'jugador libre') return null;
-  return BADGES[key] ?? null;
+  const key = getClubAssetKey(club);
+  return key ? (BADGES[key] ?? null) : null;
+}
+
+export function getClubTheme(club: string | null | undefined): ClubTheme {
+  const key = getClubAssetKey(club);
+  return (key && THEMES[key]) || {
+    primary: '#258BE8',
+    secondary: '#103A61',
+    accent: '#8AC5FF',
+    soft: 'rgba(37,139,232,0.20)',
+  };
 }
 
 export function ClubBadge({
@@ -209,75 +165,28 @@ export function ClubBadge({
   size?: number;
   style?: StyleProp<ImageStyle>;
 }) {
-  const fallback = getTeamBadge(club);
-  const cacheKey = normalizeClub(club);
-  const pinnedLocal = isAtleticoKey(cacheKey);
-  const [cleanUri, setCleanUri] = React.useState<string | null>(() => cleanBadgeCache[cacheKey] ?? null);
-  const [resolved, setResolved] = React.useState(() => pinnedLocal || Boolean(cleanBadgeCache[cacheKey]));
-
-  React.useEffect(() => {
-    let active = true;
-    const nextKey = normalizeClub(club);
-
-    if (isAtleticoKey(nextKey)) {
-      setCleanUri(null);
-      setResolved(true);
-      return () => { active = false; };
-    }
-
-    const cached = cleanBadgeCache[nextKey];
-    if (cached) {
-      setCleanUri(cached);
-      setResolved(true);
-      return () => { active = false; };
-    }
-
-    setCleanUri(null);
-    setResolved(false);
-    resolveCleanBadgeUri(club).then(uri => {
-      if (!active) return;
-      setCleanUri(uri);
-      setResolved(true);
-    });
-    return () => { active = false; };
-  }, [club]);
-
-  if (!fallback && !cleanUri) return null;
-  if (!resolved && !cleanUri) {
-    return <View style={{ width: size, height: size, backgroundColor: 'transparent' }} />;
-  }
-
-  const image = (
-    <Image
-      source={cleanUri ? { uri: cleanUri } : fallback!}
-      resizeMode="contain"
-      fadeDuration={0}
-      accessibilityLabel={`Escudo de ${String(club || 'club')}`}
-      style={[{ width: size, height: size, backgroundColor: 'transparent' }, style]}
-    />
-  );
-
-  // Ajax necesita conservar el campo blanco que forma parte visual del escudo.
-  // Se añade SOLO detrás del Ajax y nunca como fondo rectangular de los demás.
-  if (cacheKey === 'ajax') {
+  const source = getTeamBadge(club);
+  if (!source) return null;
+  // Preserve the original HD pixels; restore only Ajax's white circular field.
+  if (getClubAssetKey(club) === 'ajax') {
     return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: '#ffffff',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}
-      >
-        {image}
+      <View style={[{ width: size, height: size }, style]}>
+        <View pointerEvents="none" style={{ position: 'absolute', left: '11.5%', top: '22%', width: '77%', height: '77%', borderRadius: size, backgroundColor: '#ffffff' }} />
+        <Image source={source} resizeMode="contain" fadeDuration={0}
+          style={{ width: '100%', height: '100%' }}
+          accessibilityLabel={`Escudo de ${String(club || 'club')}`} />
       </View>
     );
   }
-
-  return image;
+  return (
+    <Image
+      source={source}
+      resizeMode="contain"
+      fadeDuration={0}
+      style={[{ width: size, height: size }, style]}
+      accessibilityLabel={`Escudo de ${String(club || 'club')}`}
+    />
+  );
 }
 
 export function ClubMatchup({
@@ -289,12 +198,15 @@ export function ClubMatchup({
   away: string | null | undefined;
   size?: number;
 }) {
-  if (!home && !away) return null;
+  const homeBadge = getTeamBadge(home);
+  const awayBadge = getTeamBadge(away);
+  if (!homeBadge && !awayBadge) return null;
+
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
-      <ClubBadge club={home} size={size} />
-      <Text style={{ color: '#8ac5ff', fontWeight: '900', fontSize: 11 }}>VS</Text>
-      <ClubBadge club={away} size={size} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+      {homeBadge ? <ClubBadge club={home} size={size} /> : null}
+      <Text style={{ color: '#92a0ad', fontWeight: '800' }}>VS</Text>
+      {awayBadge ? <ClubBadge club={away} size={size} /> : null}
     </View>
   );
 }

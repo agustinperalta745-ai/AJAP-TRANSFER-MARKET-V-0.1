@@ -1,0 +1,149 @@
+name: Approved badges with card gradients
+
+on:
+  push:
+    branches:
+      - fix/preserve-approved-badges
+  workflow_dispatch:
+
+jobs:
+  build-hq-badges-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare AJPA launcher icon
+        run: |
+          mkdir -p assets
+          cat \
+            icon_chunks/00.txt \
+            icon_chunks/01.txt \
+            icon_chunks/02.txt \
+            icon_chunks/03a.txt \
+            icon_chunks/03b.txt \
+            icon_chunks/03c.txt \
+            icon_chunks/03d.txt \
+            icon_chunks/03e.txt \
+            | tr -d '\n\r' \
+            | base64 --decode > assets/ajpa-app-icon.png
+
+      - name: Apply production mobile transforms
+        run: |
+          node scripts/apply-discord-menu-parity.mjs
+          node scripts/apply-clausulazo-mobile.mjs
+          node scripts/apply-staff-mobile.mjs
+          node scripts/apply-staff-economy-mobile.mjs
+          node scripts/apply-resignation-mobile.mjs
+          node scripts/apply-organized-menu-style.mjs
+          node scripts/apply-premium-navigation-style.mjs
+          node scripts/apply-approved-screen-layout.mjs
+          node scripts/restore-clausulazo-screen.mjs
+          node scripts/apply-runtime-visual-fixes.mjs
+          node <<'NODE'
+          const fs = require('fs');
+          const uiPath = 'src/LiveAppBackgrounds.tsx';
+          let ui = fs.readFileSync(uiPath, 'utf8');
+          if (!ui.includes('blurRadius={6}')) {
+            ui = ui.replace(
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
+            );
+          }
+          fs.writeFileSync(uiPath, ui);
+          NODE
+          node scripts/apply-club-profiles-awards.mjs
+          node scripts/apply-classic-rival-mobile.mjs
+          node scripts/prepare-local-section-backgrounds.mjs
+          node scripts/apply-premium-depth-v2.mjs
+          node scripts/apply-monaco-badge-test.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+          node scripts/apply-profile-team-badges.mjs
+          node scripts/apply-team-card-gradients.mjs
+
+      - name: Validate badge policy
+        run: |
+          test "$(find assets/team_badge_hq256 -maxdepth 1 -type f -name '*.png' | wc -l)" -eq 22
+          ! grep -qi "torino" src/teamBadges.tsx
+          grep -q "real-zaragoza-logo-footylogos.png" src/teamBadges.tsx
+          grep -q "team_badge_test/as_monaco_hd.png" src/teamBadges.tsx
+          grep -q "<ClubBadge club={club.club} size={62}" src/BotParityAppV2.tsx
+          grep -q "<ClubBadge club={selectedClubProfile.club} size={62}" src/BotParityAppV2.tsx
+          echo 'HQ badge policy OK: escudos reales en Inicio, lista de equipos y perfil público.'
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Build standalone APK
+        run: ./gradlew assembleRelease
+        working-directory: mobile/android
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-Escudos-Preservados.apk
+
+      - name: Download exact user-approved baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-HQ-Badges
+          run-id: 33499208703
+          github-token: ${{ github.token }}
+          path: mobile/baseline
+
+      - name: Verify every packaged image remains byte-identical
+        run: |
+          python - <<'PY'
+          import zipfile, hashlib, collections, json
+          from pathlib import Path
+          original = Path('baseline/AJPA-Transfer-Market-HQ-Badges.apk')
+          current = Path('AJPA-Transfer-Market-Escudos-Preservados.apk')
+          assert hashlib.sha256(original.read_bytes()).hexdigest() == '008a8f3808f505410e07cb7dfeb60b0d9af82e081f8a1e3f9b211a73f0f47e57'
+          def images(p):
+              with zipfile.ZipFile(p) as z:
+                  return collections.Counter(hashlib.sha256(z.read(n)).hexdigest() for n in z.namelist() if n.lower().endswith(('.png','.webp','.jpg','.jpeg')))
+          before, after = images(original), images(current)
+          assert before == after, f'Packaged images changed: missing={before-after}, added={after-before}'
+          report = {'base_apk_sha256': hashlib.sha256(original.read_bytes()).hexdigest(), 'output_apk_sha256': hashlib.sha256(current.read_bytes()).hexdigest(), 'all_packaged_images_byte_identical': True, 'image_count': sum(before.values()), 'changes': ['Restore exact approved embedded badges', 'Preserve new team card gradients']}
+          Path('verification.json').write_text(json.dumps(report, indent=2))
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AJPA-Transfer-Market-Escudos-Preservados
+          path: |
+            mobile/AJPA-Transfer-Market-Escudos-Preservados.apk
+            mobile/verification.json
+          if-no-files-found: error
