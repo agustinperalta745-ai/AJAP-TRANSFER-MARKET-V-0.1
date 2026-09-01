@@ -1,16 +1,16 @@
-name: Monaco Binary Badge Test
+name: Full Club Badges Identity Test
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - fix/monaco-binary-final
+      - feature/full-badges-club-identity
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-monaco-binary-test.yml'
 
 jobs:
-  build-android-monaco-binary:
+  build-android-full-badges:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -118,49 +118,52 @@ jobs:
       - name: Apply premium depth v2 and Liga background
         run: node scripts/apply-premium-depth-v2.mjs
 
-      - name: Validate Monaco direct binary PNG
+      - name: Validate all active club badge PNGs
         run: |
           python - <<'PY'
           from pathlib import Path
-          import hashlib
           import struct
           import zlib
 
-          badge = Path('assets/team_badge_test/as_monaco_64.png')
-          data = badge.read_bytes()
-          expected = 'a34d02642a001aeb395a12359f5e900204a8d39c3fa713a41f866e019c05fa67'
-          if hashlib.sha256(data).hexdigest() != expected:
-              raise SystemExit('Monaco binary badge: SHA-256 inesperado')
-          if not data.startswith(b'\x89PNG\r\n\x1a\n'):
-              raise SystemExit('Monaco binary badge: firma PNG inválida')
-          if len(data) < 33 or data[12:16] != b'IHDR':
-              raise SystemExit('Monaco binary badge: IHDR inválido')
-          width, height, bit_depth, color_type = struct.unpack('>IIBB', data[16:26])
-          if (width, height) != (64, 64):
-              raise SystemExit(f'Monaco binary badge: tamaño inesperado {width}x{height}')
-          if bit_depth != 8 or color_type != 6:
-              raise SystemExit(f'Monaco binary badge: se esperaba RGBA 8-bit, recibido depth={bit_depth} type={color_type}')
+          badges = [
+              Path('assets/team_badge_test/as_monaco_64.png'),
+              *sorted(p for p in Path('assets/teams').glob('*.png') if p.name != 'as_monaco.png'),
+          ]
 
-          pos = 8
-          saw_iend = False
-          while pos + 12 <= len(data):
-              length = struct.unpack('>I', data[pos:pos+4])[0]
-              ctype = data[pos+4:pos+8]
-              chunk = data[pos+8:pos+8+length]
-              crc = struct.unpack('>I', data[pos+8+length:pos+12+length])[0]
-              if (zlib.crc32(ctype + chunk) & 0xffffffff) != crc:
-                  raise SystemExit(f'Monaco binary badge: CRC inválido en {ctype!r}')
-              pos += 12 + length
-              if ctype == b'IEND':
-                  saw_iend = True
-                  break
-          if not saw_iend or pos != len(data):
-              raise SystemExit('Monaco binary badge: PNG truncado o con bytes extra')
-          print(f'Monaco binary PNG OK: {width}x{height}, RGBA 8-bit, SHA/CRC OK, {len(data)} bytes')
+          def validate(path: Path):
+              data = path.read_bytes()
+              if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+                  raise SystemExit(f'{path}: firma PNG inválida')
+              if len(data) < 33 or data[12:16] != b'IHDR':
+                  raise SystemExit(f'{path}: IHDR inválido')
+              width, height = struct.unpack('>II', data[16:24])
+              pos = 8
+              saw_iend = False
+              while pos + 12 <= len(data):
+                  length = struct.unpack('>I', data[pos:pos+4])[0]
+                  end = pos + 12 + length
+                  if end > len(data):
+                      raise SystemExit(f'{path}: PNG truncado')
+                  ctype = data[pos+4:pos+8]
+                  chunk = data[pos+8:pos+8+length]
+                  crc = struct.unpack('>I', data[pos+8+length:end])[0]
+                  if (zlib.crc32(ctype + chunk) & 0xffffffff) != crc:
+                      raise SystemExit(f'{path}: CRC inválido en {ctype!r}')
+                  pos = end
+                  if ctype == b'IEND':
+                      saw_iend = True
+                      break
+              if not saw_iend or pos != len(data):
+                  raise SystemExit(f'{path}: PNG incompleto o con bytes extra')
+              print(f'OK {path.name}: {width}x{height}, {len(data)} bytes')
+
+          for badge in badges:
+              validate(badge)
+          print(f'Escudos validados: {len(badges)}')
           PY
 
-      - name: Apply Monaco badge test
-        run: node scripts/apply-monaco-badge-test.mjs
+      - name: Apply club badge identity card
+        run: node scripts/apply-club-identity-card.mjs
 
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
@@ -178,11 +181,11 @@ jobs:
           EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-Monaco-binary-test.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-full-badges-identity.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-Monaco-binary-test
-          path: mobile/AJPA-Transfer-Market-Monaco-binary-test.apk
+          name: AJPA-Full-Badges-Club-Identity
+          path: mobile/AJPA-Transfer-Market-full-badges-identity.apk
           if-no-files-found: error
