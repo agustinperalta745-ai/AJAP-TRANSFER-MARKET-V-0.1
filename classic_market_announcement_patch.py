@@ -111,9 +111,9 @@ async def publish_pending(guild):
                 embed = discord.Embed(
                     title="🔥 ¡SE PICÓ! HAY NUEVO CLÁSICO EN AJPA",
                     description=(
-                        f"⚔️ **{emoji_a} {club_a} vs {emoji_b} {club_b}**\n"
+                        f"⚔️ **{emoji_a} {club_a} vs {club_b} {emoji_b}**\n"
                         f"👔 {emoji_a} **{club_a}** — DT: {manager_a}\n"
-                        f"👔 {emoji_b} **{club_b}** — DT: {manager_b}\n\n"
+                        f"👔 **{club_b}** {emoji_b} — DT: {manager_b}\n\n"
                         "Acá se juega por la camiseta y por el derecho a gastar al otro hasta la revancha.\n\n"
                         "🏟️ El que gana, carga. El que pierde, se la banca. ¡Ahora hay que hablar adentro de la cancha!"
                     ),
