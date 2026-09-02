@@ -19,6 +19,7 @@ on:
       - 'mobile_ota_api_patch.py'
       - 'competition_cycle.py'
       - 'competition_cycle_admin_ui_patch.py'
+      - 'competition_scope_guards_patch.py'
       - 'mobile_competition_cycle_api_patch.py'
       - 'bot.py'
       - 'bot_mobile.py'
@@ -43,6 +44,7 @@ on:
       - 'mobile_ota_api_patch.py'
       - 'competition_cycle.py'
       - 'competition_cycle_admin_ui_patch.py'
+      - 'competition_scope_guards_patch.py'
       - 'mobile_competition_cycle_api_patch.py'
       - 'bot.py'
       - 'bot_mobile.py'
@@ -64,6 +66,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile mobile backend
-        run: python -m py_compile mobile_read_api.py mobile_write_api.py mobile_write_release_compat.py mobile_auth.py mobile_auth_patch.py mobile_pairing_patch.py mobile_pairing_bootstrap_patch.py mobile_staff_api_patch.py mobile_match_search_patch.py mobile_league_history_api_patch.py mobile_ota_api_patch.py competition_cycle.py competition_cycle_admin_ui_patch.py mobile_competition_cycle_api_patch.py bot.py bot_mobile.py
+        run: python -m py_compile mobile_read_api.py mobile_write_api.py mobile_write_release_compat.py mobile_auth.py mobile_auth_patch.py mobile_pairing_patch.py mobile_pairing_bootstrap_patch.py mobile_staff_api_patch.py mobile_match_search_patch.py mobile_league_history_api_patch.py mobile_ota_api_patch.py competition_cycle.py competition_cycle_admin_ui_patch.py competition_scope_guards_patch.py mobile_competition_cycle_api_patch.py bot.py bot_mobile.py
       - name: Run mobile API tests
         run: python -m unittest tests/test_mobile_read_api.py tests/test_mobile_write_api.py tests/test_mobile_match_search_patch.py tests/test_mobile_league_history_api_patch.py tests/test_mobile_ota_api_patch.py -v
