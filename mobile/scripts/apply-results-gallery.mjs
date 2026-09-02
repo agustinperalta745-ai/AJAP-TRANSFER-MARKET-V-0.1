@@ -31,8 +31,8 @@ if (!ui.includes("screen === 'resultsGallery'")) {
 }
 
 if (!ui.includes("if (screen === 'resultsGallery') return BG_RESULTADOS;")) {
-  const backgroundAnchor = "  const screenBackground = (() => {\n    if (screen === 'profile') return BG_PERFIL;";
-  if (!ui.includes(backgroundAnchor)) throw new Error('Results gallery: missing screen background anchor');
+  const backgroundAnchor = "  const screenBackground = (() => {";
+  if (!ui.includes(backgroundAnchor)) throw new Error('Results gallery: missing screen background function');
   ui = ui.replace(
     backgroundAnchor,
     `${backgroundAnchor}\n    if (screen === 'resultsGallery') return BG_RESULTADOS;`,
