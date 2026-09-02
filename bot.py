@@ -8,17 +8,6 @@ before Discord connects.
 import os
 import time
 
-# AJAP must have exactly one Discord gateway writer. This repository is currently
-# connected to two different Railway projects, each with its own persistent
-# volume/SQLite database. If both projects log in with the same Discord bot token,
-# consecutive interactions can be handled by different databases: one instance
-# saves "Ajax" and the next /mercado reads "sin equipo" (or an older club).
-#
-# `sublime-success` (project 6abcd5...) is the deployment that has been healthy
-# since the first persistent-volume commits, so it is the canonical writer.
-# The secondary Railway project stays alive/healthy but never imports or starts
-# the Discord bot. Set AJAP_PRIMARY_RAILWAY_PROJECT_ID explicitly in the future
-# before intentionally moving production to another Railway project.
 PRIMARY_RAILWAY_PROJECT_ID = (
     os.getenv("AJAP_PRIMARY_RAILWAY_PROJECT_ID")
     or "6abcd5b2-6995-4e18-b7f1-be32f6298fdc"
@@ -59,8 +48,7 @@ import selector_nickname_patch  # noqa: F401,E402
 import dt_resignation_patch  # noqa: F401,E402
 
 # Liga + ciclo oficial comparten la misma DB aislada por servidor. El ciclo se
-# instala DESPUÉS de Liga para poder etiquetar resultados por competencia sin
-# borrar el historial global que usan los clásicos.
+# instala DESPUÉS de Liga para etiquetar resultados sin borrar el historial global.
 import guild_isolation_patch
 from league_automation_patch import apply_league_automation_patch
 from competition_cycle import apply_competition_cycle
@@ -91,6 +79,7 @@ import manager_selector_patch  # noqa: F401,E402
 import my_club_menu_patch  # noqa: F401,E402
 import staff_dashboard_patch  # noqa: F401,E402
 import staff_admin_organized_patch  # noqa: F401,E402
+import competition_cycle_admin_ui_patch  # noqa: F401,E402
 import league_admin_config_location_patch  # noqa: F401,E402
 import staff_profile_gate_patch  # noqa: F401,E402
 import admin_roster_builder_patch  # noqa: F401,E402
