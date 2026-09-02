@@ -101,3 +101,7 @@ import league_ges_scorer_details_patch  # noqa: F401,E402
 # Staff -> Asignaciones también permite asignar un club libre a un usuario que
 # todavía no eligió equipo. Se carga acá, después del catálogo JSON y roles finales.
 import staff_assign_team_patch  # noqa: F401,E402
+
+# Liga -> Historial muestra los partidos oficiales del club actual con tarjetas
+# verdes/rojas/grises según victoria, derrota o empate y navegación paginada.
+import league_match_history_patch  # noqa: F401,E402
