@@ -8,6 +8,10 @@ import guild_isolation_patch as guild_isolation
 # Se importa después de league_result_feedback_patch: engancha el resultado ya
 # confirmado y publica FINAL DEL CLÁSICO en Radio Pasillo sin duplicados.
 import classic_result_radio_patch  # noqa: F401
+# Puente App ↔ Discord para Buscar Partido. Publica cada búsqueda móvil en el
+# canal elegido por Staff y permite aceptarla con IR A LA CANCHA sobre la misma
+# fila/estado que usa la APK, sin crear partidos paralelos.
+import match_search_discord_bridge_patch  # noqa: F401
 
 
 APP = None
