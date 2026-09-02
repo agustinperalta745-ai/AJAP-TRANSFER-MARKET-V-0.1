@@ -128,15 +128,15 @@ const styleClose = '\n});';
 const stylePos = shell.lastIndexOf(styleClose);
 requireMarker(stylePos >= 0, 'cierre de StyleSheet');
 const recordStyles = String.raw`
-  playerRecordCard: { borderRadius: 22, borderWidth: 1.1, borderColor: '#2c75a8', backgroundColor: 'rgba(3,17,29,0.78)', padding: 14, shadowColor: '#168cff', shadowOpacity: 0.16, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  playerRecordCard: { borderRadius: 15, borderWidth: 1, borderColor: '#25445c', backgroundColor: C.panel2, padding: 13 },
   playerRecordHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 13 },
   playerRecordEyebrow: { color: C.blueSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
   playerRecordTitle: { color: C.white, fontSize: 16, fontWeight: '900', marginTop: 3 },
-  playerRecordPlayedPill: { minWidth: 54, height: 42, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1, borderColor: '#2d7fb6', backgroundColor: 'rgba(4,28,47,0.72)', flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 },
+  playerRecordPlayedPill: { minWidth: 54, height: 42, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4 },
   playerRecordPlayedValue: { color: C.white, fontSize: 20, fontWeight: '900' },
   playerRecordPlayedLabel: { color: C.blueSoft, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
   playerRecordStatsRow: { flexDirection: 'row', gap: 8 },
-  playerRecordStat: { flex: 1, minHeight: 78, borderRadius: 17, borderWidth: 1, borderColor: '#244f6e', backgroundColor: 'rgba(5,22,36,0.72)', alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 5 },
+  playerRecordStat: { flex: 1, minHeight: 78, borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: C.panel, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 5 },
   playerRecordEmoji: { fontSize: 17 },
   playerRecordValue: { color: C.white, fontSize: 21, lineHeight: 24, fontWeight: '900', marginTop: 3 },
   playerRecordLabel: { color: C.muted, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.7, marginTop: 2 },
