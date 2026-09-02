@@ -28,3 +28,9 @@ if (!source.includes(playerRecordHook)) {
   source = `${source.trimEnd()}\n${playerRecordHook}\n`;
   fs.writeFileSync(finalPass, source);
 }
+
+const exchangePublicationHook = "await import('./apply-exchange-publication.mjs');";
+if (!source.includes(exchangePublicationHook)) {
+  source = `${source.trimEnd()}\n${exchangePublicationHook}\n`;
+  fs.writeFileSync(finalPass, source);
+}
