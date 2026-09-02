@@ -58,6 +58,16 @@ def matches_payload(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+# Four historical test cards rejected by the owner. Match source IDs exactly so
+# future Betis/Sevilla results, including another 2-0, remain visible.
+HIDDEN_RESULT_CARD_SOURCE_IDS = frozenset({
+    "1543407517021896744",
+    "1543406316846981231",
+    "1543372234897236039",
+    "1543370690369949697",
+})
+
+
 def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
     """Closed results posted by the bot, including pending GES entries."""
     if "league_ges_result_queue" not in parity._tables(conn):
@@ -74,7 +84,7 @@ def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
         away_team=_canonical_mobile_team(conn, row["away_team"]),
         home_goals=int(row["home_goals"]), away_goals=int(row["away_goals"]),
         created_at=str(row["created_at"] or ""),
-    ) for row in rows]
+    ) for row in rows if str(row["source_message_id"]) not in HIDDEN_RESULT_CARD_SOURCE_IDS]
 
 
 def apply_mobile_league_history_api_patch() -> None:

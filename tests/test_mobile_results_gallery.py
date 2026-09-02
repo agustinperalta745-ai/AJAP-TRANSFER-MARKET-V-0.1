@@ -20,6 +20,24 @@ class ResultGalleryTests(unittest.TestCase):
         self.assertEqual(conn.execute('SELECT COUNT(*) FROM league_ges_result_queue').fetchone()[0], 3)
         conn.close()
 
+    def test_excludes_only_four_rejected_cards_without_mutating_history(self):
+        conn = sqlite3.connect(':memory:')
+        conn.row_factory = sqlite3.Row
+        conn.execute('CREATE TABLE league_ges_result_queue (source_message_id INTEGER PRIMARY KEY, ges_message_id INTEGER, home_team TEXT, away_team TEXT, home_goals INTEGER, away_goals INTEGER, created_at TEXT)')
+        rejected = [1543407517021896744, 1543406316846981231,
+                    1543372234897236039, 1543370690369949697]
+        rows = [(source, 11, 'Real Betis', 'Sevilla FC', 2, 0, '2026-08-29')
+                for source in rejected]
+        rows += [(1544535393939230751, 12, 'Real Betis', 'Sevilla FC', 2, 0, '2026-09-02'),
+                 (1544535393939230752, 13, 'Ajax', 'Everton', 2, 1, '2026-09-02')]
+        conn.executemany('INSERT INTO league_ges_result_queue VALUES (?,?,?,?,?,?,?)', rows)
+        with patch.object(history.mobile_read_api, '_live_mobile_club_names', return_value=[]):
+            results = history.result_cards_payload(conn)
+        self.assertEqual({r['id'] for r in results},
+                         {'1544535393939230751', '1544535393939230752'})
+        self.assertEqual(conn.execute('SELECT COUNT(*) FROM league_ges_result_queue').fetchone()[0], 6)
+        conn.close()
+
     def test_legacy_database_fallback(self):
         conn = sqlite3.connect(':memory:')
         with patch.object(history, 'matches_payload', return_value=[{'id': 1}]) as fallback:
