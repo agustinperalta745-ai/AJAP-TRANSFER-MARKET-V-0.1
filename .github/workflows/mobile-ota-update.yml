@@ -7,6 +7,11 @@ on:
         description: 'Descripción corta de la actualización'
         required: false
         default: 'AJPA mobile OTA update'
+  push:
+    branches:
+      - main
+    paths:
+      - '.ota-trigger'
 
 permissions:
   contents: write
@@ -166,5 +171,5 @@ jobs:
           echo "### AJPA OTA publicado" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime: $AJPA_OTA_RUNTIME" >> "$GITHUB_STEP_SUMMARY"
           echo "- Release: $AJPA_OTA_RELEASE" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Nota: ${{ inputs.note }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Nota: ${{ inputs.note || 'Trigger OTA desde main' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Los jugadores con una APK del mismo runtime lo reciben sin reinstalar." >> "$GITHUB_STEP_SUMMARY"
