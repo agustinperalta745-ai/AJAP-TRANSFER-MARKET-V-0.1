@@ -1,12 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { apiRequest } from './api';
+import { BG_RESULTADOS } from './bg_resultados';
 import { ClubBadge } from './teamBadges';
 import { initialResults, mergeResults, ResultCard } from './resultGalleryData';
 
-const RESULTS_BACKGROUND = {
- uri: 'https://ajap-transfer-market-v-01-production.up.railway.app/api/v1/assets/results-background.jpg?v=20260902-3',
-};
+// Durante el build de la APK/OTA bg_resultados.ts se reescribe a un require(...)
+// del JPEG generado. En desarrollo sigue aceptando el data URI embebido. No depende
+// de red, Railway ni GitHub para mostrar el fondo.
+const RESULTS_BACKGROUND = typeof BG_RESULTADOS === 'number'
+ ? BG_RESULTADOS
+ : { uri: BG_RESULTADOS };
 
 export default function ResultsGallery() {
  const [results,setResults]=useState<ResultCard[]>(initialResults);
