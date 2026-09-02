@@ -1,3 +1,4 @@
+// OTA-safe Liga theming: reutiliza exclusivamente assets y temas ya aprobados.
 import fs from 'node:fs';
 
 const path = new URL('../src/BotParityAppV2.tsx', import.meta.url);
