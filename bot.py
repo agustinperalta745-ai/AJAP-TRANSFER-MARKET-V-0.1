@@ -81,6 +81,9 @@ import staff_dashboard_patch  # noqa: F401,E402
 import staff_admin_organized_patch  # noqa: F401,E402
 import competition_cycle_admin_ui_patch  # noqa: F401,E402
 import league_admin_config_location_patch  # noqa: F401,E402
+# Must run after the format patch: it keeps ida/vuelta limits but scopes them to
+# the active competition so old seasons never block new fixtures.
+import competition_scope_guards_patch  # noqa: F401,E402
 import staff_profile_gate_patch  # noqa: F401,E402
 import admin_roster_builder_patch  # noqa: F401,E402
 import admin_team_delete_patch  # noqa: F401,E402
