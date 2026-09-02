@@ -15,6 +15,7 @@ import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
 import mobile_league_history_api_patch  # noqa: E402
 import mobile_competition_cycle_api_patch  # noqa: E402
+import competition_bootstrap_repair_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
 import mobile_club_profiles_api_patch  # noqa: E402
@@ -34,6 +35,9 @@ league_team_catalog_patch.apply_league_team_catalog_patch()
 mobile_write_release_compat.apply()
 mobile_auth_patch.apply_mobile_auth_patch()
 mobile_write_api.apply_mobile_write_patch()
+# One-time safe migration: pre-existing Temporada 1 results were tagged as
+# rollout "preseason" rows. Reattach only those legacy rows; never delete data.
+competition_bootstrap_repair_patch.apply_bootstrap_repair()
 mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
 mobile_league_history_api_patch.apply_mobile_league_history_api_patch()
