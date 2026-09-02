@@ -33,8 +33,9 @@ def _tables(conn: sqlite3.Connection) -> set[str]:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
+    # Execute statements separately: executescript would commit an active
+    # response transaction and break serialization between app and DM actions.
+    schema = """
         CREATE TABLE IF NOT EXISTS classic_rival_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             requester_club TEXT NOT NULL COLLATE NOCASE,
@@ -70,7 +71,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         """
-    )
+    for statement in schema.split(";"):
+        if statement.strip():
+            conn.execute(statement)
 
 
 def _canonical(conn: sqlite3.Connection, raw: str) -> str:
@@ -292,7 +295,7 @@ def _request_classic(conn: sqlite3.Connection, session: dict, payload: dict) -> 
         f"⚠️ Si aceptás, **{requester}** quedará como clásico rival fijo de **{target}**. "
         "Solo podrá liberarse cuando uno de los dos tenga **11 o más victorias de diferencia** "
         "en el historial entre ambos.\n\n"
-        "Abrí **AJPA Transfer Market → Mi Club → Clásico** para **ACEPTAR** o **RECHAZAR**."
+        "Respondé con los botones de abajo."
     )
     return {"ok": True, "request_id": request_id, "requester_club": requester, "target_club": target}, (target_user, message)
 
@@ -451,13 +454,16 @@ def _discord_json(path: str, method: str = "GET", payload: dict | None = None) -
         return None
 
 
-def _send_dm(user_id: int, content: str) -> None:
+def _send_dm(user_id: int, content: str, *, components=None) -> None:
     try:
         channel = _discord_json("/users/@me/channels", "POST", {"recipient_id": str(int(user_id))})
         channel_id = str((channel or {}).get("id") or "") if isinstance(channel, dict) else ""
         if not channel_id:
             return
-        _discord_json(f"/channels/{channel_id}/messages", "POST", {"content": content[:1900]})
+        message = {"content": content[:1900]}
+        if components is not None:
+            message["components"] = components
+        _discord_json(f"/channels/{channel_id}/messages", "POST", message)
     except Exception:
         return
 
@@ -527,7 +533,12 @@ def apply_mobile_classic_rival_api_patch() -> None:
             conn.commit()
             self._json(result)
             if notification:
-                _send_dm(notification[0], notification[1])
+                components = None
+                if action is _request_classic:
+                    from classic_rival_dm_patch import request_components
+                    from mobile_staff_api_patch import _mobile_guild_id
+                    components = request_components(_mobile_guild_id(), result["request_id"])
+                _send_dm(notification[0], notification[1], components=components)
         except mobile_write_api.ApiFailure as exc:
             if conn is not None:
                 try:

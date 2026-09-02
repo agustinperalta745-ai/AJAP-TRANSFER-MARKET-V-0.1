@@ -10,6 +10,7 @@ import discord
 
 import mobile_classic_rival_api_patch as classic
 import mobile_write_api
+from classic_rival_dm_patch import ClassicDMAction, request_view
 
 APP = None
 BOT = None
@@ -106,10 +107,10 @@ def _embed(guild: discord.Guild | None, user_id: int) -> discord.Embed:
     return embed
 
 
-async def _dm(user_id: int, content: str) -> None:
+async def _dm(user_id: int, content: str, *, view=None) -> None:
     try:
         user = BOT.get_user(int(user_id)) or await BOT.fetch_user(int(user_id))
-        await user.send(content)
+        await user.send(content, view=view)
     except (discord.Forbidden, discord.HTTPException, discord.NotFound):
         pass
 
@@ -168,7 +169,8 @@ class ClassicTargetSelect(discord.ui.Select):
                     f"🔥 **{result['requester_club']} considera que sos su clásico rival.**\n\n"
                     f"⚠️ Si aceptás, **{result['requester_club']}** será el clásico rival fijo de **{result['target_club']}**. "
                     "Solo podrá liberarse si uno de los dos llega a tener **11 o más victorias de diferencia** en el historial entre ambos.\n\n"
-                    "Para responder entrá al servidor y abrí **Mercado → Mi club → Elegir clásico**."
+                    "Respondé con los botones de abajo.",
+                    view=request_view(interaction.guild.id, result["request_id"]),
                 )
             await interaction.response.edit_message(embed=_embed(interaction.guild, interaction.user.id), view=ClassicHubView(interaction.user.id))
         except mobile_write_api.ApiFailure as exc:
@@ -352,6 +354,7 @@ def apply_classic_rival_discord_patch(runtime, bot) -> None:
         return
     APP = runtime
     BOT = bot
+    bot.add_dynamic_items(ClassicDMAction)
     with APP.db() as conn:
         classic.ensure_schema(conn)
         conn.commit()
