@@ -64,6 +64,11 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON classic_rival_requests(status, requester_club, target_club);
         CREATE INDEX IF NOT EXISTS idx_classic_rivals_active
             ON classic_rivals(active, club_a, club_b);
+
+        CREATE TABLE IF NOT EXISTS classic_market_outbox (
+            classic_id INTEGER PRIMARY KEY,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
 
@@ -360,6 +365,11 @@ def _respond_classic(conn: sqlite3.Connection, session: dict, payload: dict) -> 
     msg = (
         f"🔥 **{target} aceptó. {requester} vs {target} ya es un clásico oficial de AJPA.**\n\n"
         "El historial se actualizará automáticamente con cada resultado oficial de Liga."
+    )
+    # The bot publishes only after this transaction commits, for both clients.
+    conn.execute(
+        "INSERT INTO classic_market_outbox (classic_id) VALUES (?)",
+        (int(pair_cursor.lastrowid),),
     )
     return {
         "ok": True,
