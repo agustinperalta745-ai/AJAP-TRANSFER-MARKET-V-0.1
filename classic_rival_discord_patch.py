@@ -358,4 +358,6 @@ def apply_classic_rival_discord_patch(runtime, bot) -> None:
     if bot.tree.get_command("clasico") is None:
         bot.tree.command(name="clasico", description="Elegí, respondé o consultá tu clásico rival")(classic_command)
     bot._ajpa_classic_rival_discord_patch = True
+    from classic_market_announcement_patch import install
+    install(bot)
     print("AJPA Discord: clásico rival activo en Mi club y Mobile")
