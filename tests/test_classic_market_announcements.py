@@ -38,7 +38,12 @@ class ClassicAnnouncementTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_accept_queues_until_commit_and_announces_once(self):
         self.respond('ACCEPT')
-        with patch.object(feed.summary, 'APP', self.runtime), patch.object(feed.rumors, '_resolve_summary_channel', AsyncMock(return_value=(self.channel, 'CONFIGURED'))):
+        with (
+            patch.object(feed.summary, 'APP', self.runtime),
+            patch.object(feed.rumors, '_resolve_summary_channel', AsyncMock(return_value=(self.channel, 'CONFIGURED'))),
+            patch.object(feed, '_manager_id', side_effect=[101, 202]),
+            patch.object(feed, '_club_emoji', side_effect=['<:ajax:11>', '<:Everton:22>']),
+        ):
             # Another connection (the bot worker) cannot see uncommitted links.
             await feed.publish_pending(self.guild)
             self.channel.send.assert_not_awaited()
@@ -47,8 +52,11 @@ class ClassicAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             await feed.publish_pending(self.guild)
         self.channel.send.assert_awaited_once()
         kwargs = self.channel.send.call_args.kwargs
-        self.assertIn('Ajax vs Everton', kwargs['embed'].description)
-        self.assertEqual(kwargs['allowed_mentions'].to_dict(), {'parse': []})
+        self.assertIn('<:ajax:11> Ajax vs <:Everton:22> Everton', kwargs['embed'].description)
+        self.assertIn('DT: <@101>', kwargs['embed'].description)
+        self.assertIn('DT: <@202>', kwargs['embed'].description)
+        self.assertEqual(kwargs['content'], '🔥 <@101> vs <@202> — ya tienen clásico oficial.')
+        self.assertEqual(kwargs['allowed_mentions'].to_dict(), {'parse': ['users']})
         self.assertEqual(self.conn.execute('SELECT COUNT(*) FROM classic_market_outbox').fetchone()[0], 0)
 
     async def test_reject_does_not_queue(self):
