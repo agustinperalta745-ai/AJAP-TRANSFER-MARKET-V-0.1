@@ -8,6 +8,7 @@ import {
 } from 'react-native-safe-area-context';
 
 import MatchSearchShell from './src/MatchSearchShell';
+import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 
 export default function App() {
   useEffect(() => {
@@ -23,12 +24,8 @@ export default function App() {
           await Updates.fetchUpdateAsync();
           if (!active) return;
 
-          // The OTA server only publishes bundles for this binary's matching
-          // runtimeVersion. Reload immediately after a successful download so
-          // players receive normal UI/logic updates without installing an APK.
           await Updates.reloadAsync();
         } catch (error) {
-          // OTA must never prevent the embedded app from starting or being used.
           console.warn('AJPA OTA update check failed', error);
         }
       })();
@@ -52,6 +49,7 @@ export default function App() {
           translucent={false}
         />
         <MatchSearchShell />
+        <CompetitionCycleAdminFab />
       </SafeAreaView>
     </SafeAreaProvider>
   );
