@@ -7,6 +7,11 @@ on:
         description: 'Descripción corta de la actualización'
         required: false
         default: 'AJPA mobile OTA update'
+  push:
+    branches:
+      - main
+    paths:
+      - 'mobile/ota-trigger.txt'
 
 permissions:
   contents: write
