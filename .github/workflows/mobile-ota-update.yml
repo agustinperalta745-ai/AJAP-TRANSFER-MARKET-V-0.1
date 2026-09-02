@@ -1,0 +1,165 @@
+name: Mobile OTA Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Descripción corta de la actualización'
+        required: false
+        default: 'AJPA mobile OTA update'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-android-ota:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare transparent HQ team badges
+        run: node scripts/prepare-hq-team-badges.mjs
+
+      - name: Prepare AJPA launcher icon
+        run: |
+          mkdir -p assets
+          cat \
+            icon_chunks/00.txt \
+            icon_chunks/01.txt \
+            icon_chunks/02.txt \
+            icon_chunks/03a.txt \
+            icon_chunks/03b.txt \
+            icon_chunks/03c.txt \
+            icon_chunks/03d.txt \
+            icon_chunks/03e.txt \
+            | tr -d '\n\r' \
+            | base64 --decode > assets/ajpa-app-icon.png
+
+      - name: Apply Discord menu parity
+        run: node scripts/apply-discord-menu-parity.mjs
+
+      - name: Apply operational Clausulazo
+        run: node scripts/apply-clausulazo-mobile.mjs
+
+      - name: Apply operational Staff market
+        run: node scripts/apply-staff-mobile.mjs
+
+      - name: Apply operational Staff economy
+        run: node scripts/apply-staff-economy-mobile.mjs
+
+      - name: Apply operational club resignation
+        run: node scripts/apply-resignation-mobile.mjs
+
+      - name: Apply organized menus and panel style
+        run: node scripts/apply-organized-menu-style.mjs
+
+      - name: Apply premium navigation and glass effects
+        run: node scripts/apply-premium-navigation-style.mjs
+
+      - name: Apply approved personalized layout
+        run: node scripts/apply-approved-screen-layout.mjs
+
+      - name: Preserve Clausulazo screen after layout
+        run: node scripts/restore-clausulazo-screen.mjs
+
+      - name: Apply runtime crash and visual fixes
+        run: node scripts/apply-runtime-visual-fixes.mjs
+
+      - name: Prepare polished visuals
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const uiPath = 'src/LiveAppBackgrounds.tsx';
+          let ui = fs.readFileSync(uiPath, 'utf8');
+          if (!ui.includes('blurRadius={6}')) {
+            ui = ui.replace(
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
+              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
+            );
+          }
+          fs.writeFileSync(uiPath, ui);
+          NODE
+
+      - name: Apply club profiles, treasury and awards
+        run: node scripts/apply-club-profiles-awards.mjs
+
+      - name: Restore real club profile badges
+        run: node scripts/fix-club-profile-badges.mjs
+
+      - name: Apply classic rival system
+        run: node scripts/apply-classic-rival-mobile.mjs
+
+      - name: Prepare local Liga and Mercado backgrounds
+        run: node scripts/prepare-local-section-backgrounds.mjs
+
+      - name: Apply premium depth v2 and Liga background
+        run: node scripts/apply-premium-depth-v2.mjs
+
+      - name: Apply and validate Monaco HD badge
+        run: node scripts/apply-monaco-badge-test.mjs
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Export compatible Android update
+        run: |
+          rm -rf ota-export ota-stage
+          npx expo export --platform android --output-dir ota-export
+          RUNTIME=$(node -e "const c=require('./app.json').expo.runtimeVersion; if(typeof c!=='string') process.exit(2); process.stdout.write(c)")
+          STAMP=$(date +%s)
+          node scripts/build-ota-manifest.mjs ota-export ota-stage "$STAMP" "$RUNTIME"
+          echo "AJPA_OTA_RUNTIME=$RUNTIME" >> "$GITHUB_ENV"
+          echo "AJPA_OTA_RELEASE=$STAMP" >> "$GITHUB_ENV"
+
+      - name: Publish immutable OTA release
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "AJPA OTA Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin ota-updates --depth=1
+          rm -rf /tmp/ajpa-ota-worktree
+          git worktree add -B ota-updates /tmp/ajpa-ota-worktree origin/ota-updates
+
+          mkdir -p /tmp/ajpa-ota-worktree/mobile/ota
+          cp -R "$GITHUB_WORKSPACE/mobile/ota-stage/." /tmp/ajpa-ota-worktree/mobile/ota/
+
+          RELEASE_ROOT="/tmp/ajpa-ota-worktree/mobile/ota/releases/$AJPA_OTA_RUNTIME"
+          if [ -d "$RELEASE_ROOT" ]; then
+            cd "$RELEASE_ROOT"
+            ls -1dt */ 2>/dev/null | tail -n +9 | xargs -r rm -rf
+          fi
+
+          cd /tmp/ajpa-ota-worktree
+          git add mobile/ota
+          if git diff --cached --quiet; then
+            echo "No hay cambios OTA para publicar."
+            exit 0
+          fi
+          git commit -m "OTA Android runtime $AJPA_OTA_RUNTIME release $AJPA_OTA_RELEASE"
+          git push origin HEAD:ota-updates
+
+      - name: Summary
+        run: |
+          echo "### AJPA OTA publicado" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime: $AJPA_OTA_RUNTIME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release: $AJPA_OTA_RELEASE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Nota: ${{ inputs.note }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Los jugadores con una APK del mismo runtime lo reciben sin reinstalar." >> "$GITHUB_STEP_SUMMARY"
