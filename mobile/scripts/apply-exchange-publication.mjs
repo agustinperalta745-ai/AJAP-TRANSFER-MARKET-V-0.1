@@ -75,9 +75,7 @@ const mutateMarker = String.raw`    mutate(
         price: publishPrice,
         detail: publishDetail,`;
 requireMarker(ui.includes(mutateMarker), 'payload de publicación');
-ui = ui.replace(
-  mutateMarker,
-  String.raw`    const exchangeTarget = exchangeTargetPlayerId
+const mutateReplacement = String.raw`    const exchangeTarget = exchangeTargetPlayerId
       ? allPlayers.find((player) => player.id === exchangeTargetPlayerId) ?? null
       : null;
     const cashDifferenceDigits = exchangeCashDifference.replace(/[^0-9]/g, '');
@@ -96,8 +94,10 @@ ui = ui.replace(
         // El backend histórico exige un precio numérico. En intercambio se guarda 0,
         // pero la app no lo muestra como precio: las condiciones quedan en el detalle.
         price: publishType === 'INTERCAMBIO' ? '0' : publishPrice,
-        detail: publishType === 'INTERCAMBIO' ? exchangeDetail : publishDetail,`,
-);
+        detail: publishType === 'INTERCAMBIO' ? exchangeDetail : publishDetail,`;
+// Usamos callback para que String.replace NO interprete "$'" como token especial
+// de reemplazo y conserve literalmente el signo $ del texto de diferencia.
+ui = ui.replace(mutateMarker, () => mutateReplacement);
 
 const publishScreenMarker = '  const publishScreen = (';
 const publishScreenPos = ui.indexOf(publishScreenMarker);
