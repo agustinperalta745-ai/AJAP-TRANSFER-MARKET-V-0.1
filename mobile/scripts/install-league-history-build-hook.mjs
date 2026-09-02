@@ -34,3 +34,13 @@ if (!source.includes(exchangePublicationHook)) {
   source = `${source.trimEnd()}\n${exchangePublicationHook}\n`;
   fs.writeFileSync(finalPass, source);
 }
+
+// Temporary build diagnostic: print the generated exchange area after the final
+// card-color transformation, immediately before TypeScript validation.
+const colorPass = new URL('./apply-club-player-card-colors.mjs', import.meta.url);
+let colorSource = fs.readFileSync(colorPass, 'utf8');
+const exchangeDebugHook = "await import('./debug-exchange-source.mjs');";
+if (!colorSource.includes(exchangeDebugHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${exchangeDebugHook}\n`;
+  fs.writeFileSync(colorPass, colorSource);
+}
