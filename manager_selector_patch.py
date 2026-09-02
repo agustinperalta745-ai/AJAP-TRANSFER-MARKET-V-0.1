@@ -12,6 +12,9 @@ import classic_result_radio_patch  # noqa: F401
 # canal elegido por Staff y permite aceptarla con IR A LA CANCHA sobre la misma
 # fila/estado que usa la APK, sin crear partidos paralelos.
 import match_search_discord_bridge_patch  # noqa: F401
+# Si todavía no se configuró /canal_partidos, usa automáticamente el canal
+# existente BUSCAR-RIVAL-LIGA. Una selección manual posterior sigue teniendo prioridad.
+import match_search_channel_autoconfig_patch  # noqa: F401
 
 
 APP = None
