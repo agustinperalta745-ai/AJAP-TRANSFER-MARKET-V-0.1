@@ -29,18 +29,13 @@ if (!source.includes(playerRecordHook)) {
   fs.writeFileSync(finalPass, source);
 }
 
-const exchangePublicationHook = "await import('./apply-exchange-publication.mjs');";
-if (!source.includes(exchangePublicationHook)) {
-  source = `${source.trimEnd()}\n${exchangePublicationHook}\n`;
-  fs.writeFileSync(finalPass, source);
-}
-
-// Temporary build diagnostic: print the generated exchange area after the final
-// card-color transformation, immediately before TypeScript validation.
+// Intercambio se aplica DESPUÉS de todas las transformaciones visuales. Algunos
+// parches históricos usan reemplazos amplios sobre '$', así evitamos que alteren
+// los textos y el payload de la publicación antes del chequeo TypeScript.
 const colorPass = new URL('./apply-club-player-card-colors.mjs', import.meta.url);
 let colorSource = fs.readFileSync(colorPass, 'utf8');
-const exchangeDebugHook = "await import('./debug-exchange-source.mjs');";
-if (!colorSource.includes(exchangeDebugHook)) {
-  colorSource = `${colorSource.trimEnd()}\n${exchangeDebugHook}\n`;
+const exchangePublicationHook = "await import('./apply-exchange-publication.mjs');";
+if (!colorSource.includes(exchangePublicationHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${exchangePublicationHook}\n`;
   fs.writeFileSync(colorPass, colorSource);
 }
