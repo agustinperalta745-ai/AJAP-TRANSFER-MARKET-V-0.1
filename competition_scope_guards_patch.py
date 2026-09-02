@@ -15,9 +15,22 @@ import league_admin_config_location_patch as config
 import league_result_evidence_patch as evidence
 
 
+def _cycle_row(conn: sqlite3.Connection):
+    try:
+        return conn.execute(
+            "SELECT phase,competition_id FROM competition_cycle_state WHERE id=1"
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None
+
+
 def _active_cid(conn: sqlite3.Connection):
-    cycle.ensure_schema(conn)
-    return cycle.active_competition_id(conn)
+    # Read-only on purpose: Buscar Partido may already hold BEGIN IMMEDIATE.
+    # Schema installation happens at bot startup, not inside matchmaker locks.
+    row = _cycle_row(conn)
+    if not row or str(row["phase"]) not in cycle.PLAYABLE or row["competition_id"] is None:
+        return None
+    return int(row["competition_id"])
 
 
 def _existing_official_pair_current(
@@ -64,10 +77,7 @@ if mobile is not None:
     _original_eligibility = mobile._eligibility
 
     def _phase(conn: sqlite3.Connection) -> str:
-        cycle.ensure_schema(conn)
-        row = conn.execute(
-            "SELECT phase FROM competition_cycle_state WHERE id=1"
-        ).fetchone()
+        row = _cycle_row(conn)
         return str(row["phase"]) if row else cycle.PRESEASON
 
     def _require_playable(conn: sqlite3.Connection) -> None:
