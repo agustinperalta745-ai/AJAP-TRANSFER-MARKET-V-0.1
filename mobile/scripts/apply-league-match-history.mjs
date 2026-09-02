@@ -86,7 +86,7 @@ if (!ui.includes('const leagueHistoryScreen =')) {
       <Title
         eyebrow="LIGA · HISTORIAL"
         title="Historial de partidos"
-        subtitle={profile?.club ? `Partidos oficiales de ${profile.club}` : 'Necesitás un club asignado'}
+        subtitle={profile?.club ? 'Partidos oficiales de ' + profile.club : 'Necesitás un club asignado'}
       />
 
       {profile?.club ? (
@@ -124,7 +124,7 @@ if (!ui.includes('const leagueHistoryScreen =')) {
         const rawDate = String(match.created_at || '').slice(0, 10);
         const dateParts = rawDate.split('-');
         const dateText = dateParts.length === 3
-          ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
+          ? dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0]
           : (rawDate || 'Sin fecha');
 
         return (
