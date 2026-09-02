@@ -40,11 +40,11 @@ async def publish_pending(guild):
                 club_a = discord.utils.escape_markdown(str(row["club_a"]))
                 club_b = discord.utils.escape_markdown(str(row["club_b"]))
                 embed = discord.Embed(
-                    title="🔥 ¡NACE UNA NUEVA RIVALIDAD!",
+                    title="🔥 ¡SE PICÓ! HAY NUEVO CLÁSICO EN AJPA",
                     description=(
                         f"⚔️ **{club_a} vs {club_b}**\n\n"
-                        "La rivalidad ya es oficial. Cada cruce será mucho más que tres puntos: se juega el orgullo.\n\n"
-                        "🏟️ Dos clubes frente a frente. Que la cancha decida quién manda en este clásico."
+                        "Acá se juega por la camiseta y por el derecho a gastar al otro hasta la revancha.\n\n"
+                        "🏟️ El que gana, carga. El que pierde, se la banca. ¡Ahora hay que hablar adentro de la cancha!"
                     ),
                     color=discord.Color.gold(),
                 )
