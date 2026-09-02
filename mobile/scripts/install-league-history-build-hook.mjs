@@ -17,3 +17,8 @@ if (!source.includes(hardeningHook)) {
 fs.writeFileSync(finalPass, source);
 
 console.log('AJPA build hook listo: historial de Liga se aplica al final del pipeline móvil.');
+const resultsHook = "await import('./apply-results-gallery.mjs');";
+if (!source.includes(resultsHook)) {
+  source = `${source.trimEnd()}\n${resultsHook}\n`;
+  fs.writeFileSync(finalPass, source);
+}
