@@ -58,6 +58,25 @@ def matches_payload(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
+    """Closed results posted by the bot, including pending GES entries."""
+    if "league_ges_result_queue" not in parity._tables(conn):
+        return matches_payload(conn)
+    rows = conn.execute(
+        """SELECT source_message_id, home_team, away_team, home_goals,
+                  away_goals, created_at
+           FROM league_ges_result_queue WHERE ges_message_id IS NOT NULL
+           ORDER BY created_at DESC, source_message_id DESC LIMIT 500"""
+    ).fetchall()
+    return [dict(
+        id=str(row["source_message_id"]),
+        home_team=_canonical_mobile_team(conn, row["home_team"]),
+        away_team=_canonical_mobile_team(conn, row["away_team"]),
+        home_goals=int(row["home_goals"]), away_goals=int(row["away_goals"]),
+        created_at=str(row["created_at"] or ""),
+    ) for row in rows]
+
+
 def apply_mobile_league_history_api_patch() -> None:
     current = parity.league_payload
     if getattr(current, "_ajpa_mobile_league_history", False):
@@ -66,6 +85,7 @@ def apply_mobile_league_history_api_patch() -> None:
     def league_payload_with_history(conn: sqlite3.Connection) -> dict:
         payload = dict(current(conn))
         payload["matches"] = matches_payload(conn)
+        payload["result_cards"] = result_cards_payload(conn)
         return payload
 
     league_payload_with_history._ajpa_mobile_league_history = True
