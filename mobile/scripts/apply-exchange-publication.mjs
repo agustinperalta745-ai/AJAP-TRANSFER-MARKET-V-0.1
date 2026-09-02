@@ -10,7 +10,13 @@ if (ui.includes(PATCH_MARKER)) {
 }
 
 function requireMarker(condition, label) {
-  if (!condition) throw new Error(`AJPA intercambio: no encontré ${label}`);
+  if (!condition) {
+    const publishAt = ui.indexOf('const startPublish');
+    const priceAt = ui.indexOf('PRECIO PEDIDO');
+    if (publishAt >= 0) console.log('DEBUG startPublish:', ui.slice(publishAt, publishAt + 1300));
+    if (priceAt >= 0) console.log('DEBUG precio:', ui.slice(Math.max(0, priceAt - 900), priceAt + 1100));
+    throw new Error(`AJPA intercambio: no encontré ${label}`);
+  }
 }
 
 // Estado específico del intercambio. Reutilizamos allPlayers para que el DT pueda
@@ -22,11 +28,11 @@ ui = ui.replace(
   `${purchaseState}\n  // ${PATCH_MARKER}\n  const [exchangeTargetPlayerId, setExchangeTargetPlayerId] = useState<number | null>(null);\n  const [exchangeCashDifference, setExchangeCashDifference] = useState('');\n  const [exchangeSearchText, setExchangeSearchText] = useState('');\n  const [exchangeLoadingPlayers, setExchangeLoadingPlayers] = useState(false);`,
 );
 
-const startReset = "    setPurchaseValue('');\n    setScreen('publish');";
-requireMarker(ui.includes(startReset), 'reinicio de startPublish');
+const purchaseResetLine = "    setPurchaseValue('');";
+requireMarker(ui.includes(purchaseResetLine), 'reinicio de startPublish');
 ui = ui.replace(
-  startReset,
-  "    setPurchaseValue('');\n    setExchangeTargetPlayerId(null);\n    setExchangeCashDifference('');\n    setExchangeSearchText('');\n    setScreen('publish');",
+  purchaseResetLine,
+  `${purchaseResetLine}\n    setExchangeTargetPlayerId(null);\n    setExchangeCashDifference('');\n    setExchangeSearchText('');`,
 );
 
 const submitMarker = '  const submitPublication = () => {';
