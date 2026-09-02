@@ -22,3 +22,9 @@ if (!source.includes(resultsHook)) {
   source = `${source.trimEnd()}\n${resultsHook}\n`;
   fs.writeFileSync(finalPass, source);
 }
+
+const playerRecordHook = "await import('./apply-player-record-card.mjs');";
+if (!source.includes(playerRecordHook)) {
+  source = `${source.trimEnd()}\n${playerRecordHook}\n`;
+  fs.writeFileSync(finalPass, source);
+}
