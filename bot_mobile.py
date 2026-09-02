@@ -16,6 +16,7 @@ import mobile_clausulazo_api_patch  # noqa: E402
 import mobile_write_release_compat  # noqa: E402
 import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
+import mobile_league_history_api_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
 import mobile_club_profiles_api_patch  # noqa: E402
@@ -42,6 +43,8 @@ mobile_write_api.apply_mobile_write_patch()
 mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 # Adds real Liga/history reads plus narrowly scoped Staff mobile endpoints.
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
+# Extend that same read-only Liga response with the official match history.
+mobile_league_history_api_patch.apply_mobile_league_history_api_patch()
 # Staff Mercado parity: pending operations, clausulazo review and safe undo.
 mobile_staff_api_patch.apply_mobile_staff_api_patch()
 # Staff Economia parity: audited Dar/Quitar dinero using the same Discord ledger.
