@@ -20,16 +20,106 @@ def _staff(headers, conn):
     return session
 
 
+def _active_competition_id_readonly(conn):
+    """Read the active competition without attempting schema writes.
+
+    `/api/v1/league` runs against `mobile_read_api.readonly_db()`. The normal
+    competition-cycle helpers call `ensure_schema()`, so they must never be used
+    from this public read path.
+    """
+    if "competition_cycle_state" not in parity._tables(conn):
+        return None
+    row = conn.execute(
+        "SELECT phase,competition_id FROM competition_cycle_state WHERE id=1"
+    ).fetchone()
+    if (
+        not row
+        or str(row["phase"] or "") not in cycle.PLAYABLE
+        or row["competition_id"] is None
+    ):
+        return None
+    return int(row["competition_id"])
+
+
+def _cycle_state_payload_readonly(conn):
+    """Read the cycle summary without `ensure_schema()` or any mutation."""
+    tables = parity._tables(conn)
+    if "competition_cycle_state" not in tables:
+        return None
+
+    state = conn.execute(
+        "SELECT * FROM competition_cycle_state WHERE id=1"
+    ).fetchone()
+    if not state:
+        return None
+
+    phase = str(state["phase"])
+    number = int(state["season_number"])
+    competition_id = (
+        int(state["competition_id"])
+        if state["competition_id"] is not None
+        else None
+    )
+
+    edition = None
+    if competition_id is not None and "competition_editions" in tables:
+        row = conn.execute(
+            "SELECT id,kind,label,status FROM competition_editions WHERE id=?",
+            (competition_id,),
+        ).fetchone()
+        if row:
+            edition = {
+                "id": int(row["id"]),
+                "kind": str(row["kind"]),
+                "label": str(row["label"]),
+                "status": str(row["status"]),
+            }
+
+    market_open = False
+    if "market_state" in tables:
+        row = conn.execute(
+            "SELECT is_open FROM market_state WHERE id=1"
+        ).fetchone()
+        market_open = bool(row and int(row["is_open"]))
+
+    market_cycle_id = None
+    if "market_cycles" in tables:
+        row = conn.execute(
+            "SELECT id FROM market_cycles WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        market_cycle_id = int(row["id"]) if row else None
+
+    return {
+        "phase": phase,
+        "phase_label": cycle._phase_label(phase, number),
+        "season_number": number,
+        "competition_id": competition_id,
+        "competition": edition,
+        "market_open": market_open,
+        "market_cycle_id": market_cycle_id,
+        "next_action": cycle._action(phase, number),
+        "timeline": ["Temporada", "Mercado 1", "Copa", "Mercado 2", "Temporada"],
+        "persistent_note": "Planteles, saldos, fichajes e historial de clásicos nunca se resetean.",
+        "competition_note": "Tabla, goleadores y estadísticas activas pertenecen solo a la competencia actual.",
+        "updated_at": str(state["updated_at"] or ""),
+    }
+
+
 def _filtered_league_payload(conn, base_payload):
     """Replace only active standings/scorers; keep all-time history/cards intact."""
-    cycle.ensure_schema(conn)
-    cid = cycle.active_competition_id(conn)
+    # IMPORTANT: this function is called with readonly_db(). Never call
+    # cycle.ensure_schema(), cycle.active_competition_id() or cycle.state_payload()
+    # here because all three may CREATE/ALTER/UPDATE the SQLite database.
+    cid = _active_competition_id_readonly(conn)
     teams = list(mobile_read_api._live_mobile_club_names(conn))
     table = {
         team: {"team":team,"pj":0,"pg":0,"pe":0,"pp":0,"gf":0,"gc":0,"dg":0,"pts":0}
         for team in teams
     }
-    if cid is not None and "league_matches" in parity._tables(conn):
+
+    match_columns = mobile_read_api._columns(conn, "league_matches")
+    can_scope_matches = "competition_id" in match_columns
+    if cid is not None and can_scope_matches:
         rows = conn.execute(
             "SELECT home_team,away_team,home_goals,away_goals FROM league_matches WHERE competition_id=? ORDER BY id",
             (int(cid),),
@@ -51,13 +141,21 @@ def _filtered_league_payload(conn, base_payload):
                 a["pg"] += 1; h["pp"] += 1; a["pts"] += 3
             else:
                 h["pe"] += 1; a["pe"] += 1; h["pts"] += 1; a["pts"] += 1
-    standings = list(table.values())
-    for row in standings:
-        row["dg"] = int(row["gf"]) - int(row["gc"])
-    standings.sort(key=lambda r:(-r["pts"],-r["dg"],-r["gf"],-r["pg"],str(r["team"]).casefold()))
+
+    # If a deployment has the cycle state but not the competition_id migration
+    # yet, keep the already-working legacy standings instead of returning zeroes.
+    if cid is not None and not can_scope_matches:
+        standings = list(base_payload.get("standings") or [])
+    else:
+        standings = list(table.values())
+        for row in standings:
+            row["dg"] = int(row["gf"]) - int(row["gc"])
+        standings.sort(key=lambda r:(-r["pts"],-r["dg"],-r["gf"],-r["pg"],str(r["team"]).casefold()))
 
     scorers = []
-    if cid is not None and "league_goal_events" in parity._tables(conn):
+    goal_columns = mobile_read_api._columns(conn, "league_goal_events")
+    can_scope_scorers = "competition_id" in goal_columns
+    if cid is not None and can_scope_scorers:
         rows = conn.execute(
             """SELECT player,team,SUM(goals) goals FROM league_goal_events
                WHERE competition_id=?
@@ -69,11 +167,13 @@ def _filtered_league_payload(conn, base_payload):
             {"player":str(r["player"]),"team":str(r["team"] or ""),"goals":int(r["goals"] or 0)}
             for r in rows
         ]
+    elif cid is not None and not can_scope_scorers:
+        scorers = list(base_payload.get("scorers") or [])
 
     payload = dict(base_payload)
     payload["standings"] = standings
     payload["scorers"] = scorers
-    payload["cycle"] = cycle.state_payload(conn)
+    payload["cycle"] = _cycle_state_payload_readonly(conn)
     return payload
 
 
