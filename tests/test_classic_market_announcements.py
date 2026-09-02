@@ -52,7 +52,7 @@ class ClassicAnnouncementTests(unittest.IsolatedAsyncioTestCase):
             await feed.publish_pending(self.guild)
         self.channel.send.assert_awaited_once()
         kwargs = self.channel.send.call_args.kwargs
-        self.assertIn('<:ajax:11> Ajax vs <:Everton:22> Everton', kwargs['embed'].description)
+        self.assertIn('<:ajax:11> Ajax vs Everton <:Everton:22>', kwargs['embed'].description)
         self.assertIn('DT: <@101>', kwargs['embed'].description)
         self.assertIn('DT: <@202>', kwargs['embed'].description)
         self.assertEqual(kwargs['content'], '🔥 <@101> vs <@202> — ya tienen clásico oficial.')
