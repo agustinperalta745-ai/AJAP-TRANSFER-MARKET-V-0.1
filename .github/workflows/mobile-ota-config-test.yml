@@ -6,7 +6,7 @@ on:
       - 'mobile/App.tsx'
       - 'mobile/app.json'
       - 'mobile/package.json'
-      - 'mobile/scripts/build-ota-manifest.mjs'
+      - 'mobile/scripts/**'
       - '.github/workflows/mobile-ota-config-test.yml'
       - '.github/workflows/mobile-ota-update.yml'
   push:
@@ -16,7 +16,7 @@ on:
       - 'mobile/App.tsx'
       - 'mobile/app.json'
       - 'mobile/package.json'
-      - 'mobile/scripts/build-ota-manifest.mjs'
+      - 'mobile/scripts/**'
       - '.github/workflows/mobile-ota-config-test.yml'
       - '.github/workflows/mobile-ota-update.yml'
 
@@ -55,6 +55,32 @@ jobs:
             icon_chunks/03e.txt \
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
+
+      - name: Apply OTA production transforms
+        run: |
+          node scripts/apply-discord-menu-parity.mjs
+          node scripts/apply-clausulazo-mobile.mjs
+          node scripts/apply-staff-mobile.mjs
+          node scripts/apply-staff-economy-mobile.mjs
+          node scripts/apply-resignation-mobile.mjs
+          node scripts/apply-organized-menu-style.mjs
+          node scripts/apply-premium-navigation-style.mjs
+          node scripts/apply-approved-screen-layout.mjs
+          node scripts/restore-clausulazo-screen.mjs
+          node scripts/apply-runtime-visual-fixes.mjs
+          node scripts/apply-club-profiles-awards.mjs
+          node scripts/apply-classic-rival-mobile.mjs
+          node scripts/prepare-local-section-backgrounds.mjs
+          node scripts/apply-premium-depth-v2.mjs
+          node scripts/apply-monaco-badge-test.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+          node scripts/apply-profile-team-badges.mjs
+          node scripts/apply-team-card-gradients.mjs
+          node scripts/apply-club-player-card-colors.mjs
+          grep -q "league-team-card-colors applied" src/BotParityAppV2.tsx
+          grep -q "<TeamCardBackdrop club={row.team} />" src/BotParityAppV2.tsx
+          grep -q "<ClubBadge club={row.team} size={46}" src/BotParityAppV2.tsx
+          echo 'AJPA OTA visual pipeline OK: Liga tematizada con assets aprobados.'
 
       - name: Check OTA publisher syntax
         run: node --check scripts/build-ota-manifest.mjs

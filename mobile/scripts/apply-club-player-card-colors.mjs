@@ -70,3 +70,6 @@ for (const club of ['club.club', 'selectedClubProfile.club', 'player.club']) {
 }
 fs.writeFileSync(path, ui + '\n' + marker + '\n');
 console.log('Club profiles and player cards now use their current club theme; badge assets unchanged.');
+
+// Liga se tematiza al final para reutilizar exactamente los mismos helpers y assets aprobados.
+await import('./apply-league-team-card-colors.mjs');
