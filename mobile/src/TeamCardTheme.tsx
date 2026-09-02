@@ -29,7 +29,7 @@ const THEMES: [RegExp, string, string][] = [
   [/tottenham/, '#294878', '#dce5ef'],
   [/villarreal/, '#dac136', '#e8d878'],
   [/west.*ham/, '#832748', '#83badb'],
-  [/zaragoza/, '#2d64be', '#d5b65a'],
+  [/zaragoza/, '#e3c52f', '#d5b65a'],
 ];
 export function teamCardTheme(club: string | null | undefined) {
   const key = (club ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
