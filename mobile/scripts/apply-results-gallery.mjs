@@ -34,9 +34,9 @@ fs.writeFileSync(
   "export const BG_RESULTADOS = require('../assets/generated/results-pique-5-1.jpg');\n",
 );
 
-// ResultsGallery debe consumir BG_RESULTADOS como ImageSourcePropType. Un require
-// de React Native devuelve un id numérico; envolverlo como { uri: ... } lo rompe
-// y deja la pantalla negra. Este guard evita que vuelva a aparecer ese error.
+// El fondo vive dentro de ResultsGallery. No tocamos el ImageBackground global
+// de BotParityAppV2: varios pases visuales lo reescriben durante el build y esa
+// dependencia fue la causa del fallo anterior.
 const galleryPath = new URL('../src/ResultsGallery.tsx', import.meta.url);
 let gallery = fs.readFileSync(galleryPath, 'utf8');
 const resultImport = "import { BG_RESULTADOS } from './bg_resultados';";
@@ -61,12 +61,6 @@ if (!ui.includes("import ResultsGallery from './ResultsGallery';")) {
   ui = "import ResultsGallery from './ResultsGallery';\n" + ui;
 }
 
-if (!ui.includes("import { BG_RESULTADOS } from './bg_resultados';")) {
-  const bgAnchor = "import { BG_PERFIL } from './bg_perfil';";
-  if (!ui.includes(bgAnchor)) throw new Error('Results gallery: missing background import anchor');
-  ui = ui.replace(bgAnchor, `${bgAnchor}\nimport { BG_RESULTADOS } from './bg_resultados';`);
-}
-
 if (!ui.includes("  | 'resultsGallery'")) {
   if (!ui.includes("  | 'league'")) throw new Error('Results gallery: missing screen anchor');
   ui = ui.replace("  | 'league'", "  | 'resultsGallery'\n  | 'league'");
@@ -85,23 +79,5 @@ if (!ui.includes(resultsDispatch)) {
   ui = ui.replace(dispatch, `${resultsDispatch}\n  ${dispatch}`);
 }
 
-if (!ui.includes("if (screen === 'resultsGallery') return BG_RESULTADOS;")) {
-  const backgroundAnchor = "  const screenBackground = (() => {";
-  if (!ui.includes(backgroundAnchor)) throw new Error('Results gallery: missing screen background function');
-  ui = ui.replace(
-    backgroundAnchor,
-    `${backgroundAnchor}\n    if (screen === 'resultsGallery') return BG_RESULTADOS;`,
-  );
-}
-
-// BG_RESULTADOS es un require(...) numérico en producción. Las demás pantallas
-// usan strings/data URI. ImageBackground debe recibir cada tipo en su forma real.
-const safeSource = "source={typeof screenBackground === 'number' ? screenBackground : { uri: screenBackground }}";
-if (!ui.includes(safeSource)) {
-  const legacySource = 'source={{ uri: screenBackground }}';
-  if (!ui.includes(legacySource)) throw new Error('Results gallery: missing ImageBackground source anchor');
-  ui = ui.replace(legacySource, safeSource);
-}
-
 fs.writeFileSync(path, ui);
-console.log(`AJPA Results gallery ready with local background (${resultBytes.length} bytes).`);
+console.log(`AJPA Results gallery ready with direct local background (${resultBytes.length} bytes).`);
