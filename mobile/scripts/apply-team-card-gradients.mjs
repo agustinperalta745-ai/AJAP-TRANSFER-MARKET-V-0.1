@@ -1,4 +1,37 @@
 import fs from 'node:fs';
+
+// Keep the large background shield treatment consistent across every club, but
+// give Ajax/Tottenham a tiny visibility correction because their artwork loses
+// contrast against their own card gradients. This is intentionally opacity-only:
+// no extra halo, border or different sizing, so they still match the rest.
+const themePath = new URL('../src/TeamCardTheme.tsx', import.meta.url);
+let theme = fs.readFileSync(themePath, 'utf8');
+const oldBackdrop = `export function TeamCardBackdrop({ club }: { club: string | null | undefined }) {
+  return <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+    <SoftCardGlow color={teamCardTheme(club).color} opacity={0.95} />
+    <View style={{ position: 'absolute', right: -8, top: -8, bottom: -8, justifyContent: 'center', opacity: 0.07 }}>
+      <ClubBadge club={club} size={154} />
+    </View>
+  </View>;
+}`;
+const newBackdrop = `export function TeamCardBackdrop({ club }: { club: string | null | undefined }) {
+  const key = (club ?? '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+  const badgeOpacity = /ajax/.test(key) ? 0.105 : /tottenham/.test(key) ? 0.10 : 0.07;
+  return <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+    <SoftCardGlow color={teamCardTheme(club).color} opacity={0.95} />
+    <View style={{ position: 'absolute', right: -8, top: -8, bottom: -8, justifyContent: 'center', opacity: badgeOpacity }}>
+      <ClubBadge club={club} size={154} />
+    </View>
+  </View>;
+}`;
+if (theme.includes(oldBackdrop)) {
+  theme = theme.replace(oldBackdrop, newBackdrop);
+  fs.writeFileSync(themePath, theme);
+  console.log('Ajax/Tottenham background badges: subtle visibility correction applied.');
+} else if (!theme.includes('const badgeOpacity = /ajax/.test(key) ? 0.105 : /tottenham/.test(key) ? 0.10 : 0.07;')) {
+  throw new Error('Team card gradients: TeamCardBackdrop shape changed; visibility correction was not applied.');
+}
+
 const path = new URL('../src/BotParityAppV2.tsx', import.meta.url);
 let ui = fs.readFileSync(path, 'utf8');
 if (ui.includes('// team-card-gradients applied')) process.exit(0);
