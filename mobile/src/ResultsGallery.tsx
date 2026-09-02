@@ -25,7 +25,7 @@ export default function ResultsGallery() {
   const listener=AppState.addEventListener('change',state=>{if(state==='active')void refresh();});
   return()=>{mounted.current=false;clearInterval(timer);listener.remove();};
  },[refresh]);
- return <ScrollView contentContainerStyle={s.gallery}>
+ return <ScrollView style={s.root} contentContainerStyle={s.gallery}>
   <View style={s.header}><Text style={s.title}>Resultados</Text>
    <Pressable accessibilityRole="button" accessibilityLabel="Actualizar resultados" onPress={()=>void refresh()} style={s.refresh}>
     {loading?<ActivityIndicator color="#fff"/>:<Text style={s.refreshText}>↻</Text>}
@@ -40,10 +40,10 @@ export default function ResultsGallery() {
  </ScrollView>;
 }
 const s=StyleSheet.create({
- gallery:{gap:14,padding:16,paddingBottom:32},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+ root:{flex:1,backgroundColor:'transparent'},gallery:{gap:14,padding:16,paddingBottom:32,backgroundColor:'transparent'},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
  title:{color:'#fff',fontSize:26,fontWeight:'800'},refresh:{minWidth:48,minHeight:48,alignItems:'center',justifyContent:'center'},refreshText:{color:'#fff',fontSize:28},error:{color:'#ffc36f',fontSize:13},
- card:{backgroundColor:'#191e25',borderRadius:20,padding:10,flexDirection:'row',gap:8,alignItems:'center'},
- team:{flex:1,minWidth:0,minHeight:120,backgroundColor:'#24282e',borderRadius:14,alignItems:'center',justifyContent:'center',padding:7,gap:8},
- name:{color:'#f2f4f7',textAlign:'center',fontSize:11},scoreBox:{flex:0.9,minWidth:0,backgroundColor:'#101318',borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:96,padding:5,gap:8},
+ card:{backgroundColor:'rgba(25,30,37,0.92)',borderRadius:20,padding:10,flexDirection:'row',gap:8,alignItems:'center'},
+ team:{flex:1,minWidth:0,minHeight:120,backgroundColor:'rgba(36,40,46,0.94)',borderRadius:14,alignItems:'center',justifyContent:'center',padding:7,gap:8},
+ name:{color:'#f2f4f7',textAlign:'center',fontSize:11},scoreBox:{flex:0.9,minWidth:0,backgroundColor:'rgba(16,19,24,0.96)',borderRadius:14,alignItems:'center',justifyContent:'center',minHeight:96,padding:5,gap:8},
  score:{color:'#fff',fontSize:30,fontWeight:'500'},caption:{color:'#c9cdd2',fontSize:7,textAlign:'center'},
 });
