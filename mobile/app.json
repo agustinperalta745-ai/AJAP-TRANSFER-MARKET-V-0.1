@@ -2,12 +2,13 @@
   "expo": {
     "name": "AJPA Transfer Market",
     "slug": "ajpa-transfer-market",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/ajpa-app-icon.png",
     "android": {
       "package": "com.ajpa.transfermarket",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/ajpa-app-icon.png",
         "backgroundColor": "#000000"
