@@ -26,6 +26,7 @@ import mobile_match_search_patch  # noqa: E402
 import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
 import mobile_ota_api_patch  # noqa: E402
+import mobile_results_background_api_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 # Must be imported BEFORE bot.py/run_bot.py so /app_codigo is registered on the
 # final per-guild runtime before Discord connects.
@@ -68,6 +69,9 @@ mobile_resignation_api_patch.apply_mobile_resignation_api_patch()
 # Expo Updates manifest proxy. Apply before transport so the final GET wrapper
 # preserves this read-only route while still handling authenticated mutations.
 mobile_ota_api_patch.apply_mobile_ota_api_patch()
+# Serve the selected Pique 5-1 Results image from the same Railway origin the app
+# already uses. Apply before transport so its final GET wrapper preserves this route.
+mobile_results_background_api_patch.apply_mobile_results_background_api_patch()
 # IMPORTANT: transport is last so the reliable GET tunnel captures every mutation
 # route installed above instead of bypassing later wrappers.
 mobile_transport_patch.apply_mobile_transport_patch()
