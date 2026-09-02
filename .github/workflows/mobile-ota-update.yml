@@ -151,6 +151,9 @@ jobs:
           mkdir -p /tmp/ajpa-ota-worktree/mobile/ota
           cp -R "$GITHUB_WORKSPACE/mobile/ota-stage/." /tmp/ajpa-ota-worktree/mobile/ota/
 
+          mkdir -p /tmp/ajpa-ota-worktree/mobile/ota/static
+          cp "$GITHUB_WORKSPACE/mobile/assets/generated/results-pique-5-1.jpg" /tmp/ajpa-ota-worktree/mobile/ota/static/results-pique-5-1.jpg
+
           RELEASE_ROOT="/tmp/ajpa-ota-worktree/mobile/ota/releases/$AJPA_OTA_RUNTIME"
           if [ -d "$RELEASE_ROOT" ]; then
             cd "$RELEASE_ROOT"
