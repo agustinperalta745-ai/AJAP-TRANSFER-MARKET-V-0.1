@@ -1,4 +1,4 @@
-"""Surface the official AJPA cycle inside Administración -> Gestión."""
+"""Surface the official AJPA cycle inside Administración and avoid raw phase toggles."""
 
 import discord
 
@@ -28,8 +28,7 @@ class ManageCycleButton(discord.ui.Button):
         )
 
 
-def apply_patch():
-    view = staff.ManagementView
+def _patch_view(view, remove_needles, *, add_cycle=True):
     if getattr(view, "_ajpa_cycle_admin_ui", False):
         return
     original_init = view.__init__
@@ -38,29 +37,61 @@ def apply_patch():
         original_init(self)
         for item in list(self.children):
             label = str(getattr(item, "label", "") or "").strip().casefold()
-            if "cambiar temporada" in label:
+            if any(needle in label for needle in remove_needles):
                 self.remove_item(item)
-        # Keep Assignments on row 0 and make the official lifecycle the second
-        # primary management action. Export/configuration remain below.
-        self.add_item(ManageCycleButton(row=0))
+        if add_cycle and not any(
+            str(getattr(item, "custom_id", "") or "") == "ajpa_admin_manage_cycle"
+            for item in self.children
+        ):
+            self.add_item(ManageCycleButton(row=0))
 
     view.__init__ = init
     view._ajpa_cycle_admin_ui = True
 
+
+def apply_patch():
+    # Season and market open/close are one state machine. Removing the legacy
+    # direct toggles prevents combinations such as "Temporada activa + Mercado abierto".
+    _patch_view(staff.ManagementView, ("cambiar temporada",))
+    _patch_view(staff.MarketView, ("abrir mercado", "cerrar mercado"))
+
     original_embed = staff.admin_home_embed
+
     def admin_home_embed():
         embed = original_embed()
         try:
             payload = cycle.runtime_state(staff.APP)
             for index, field in enumerate(embed.fields):
                 if "temporada" in str(field.name).casefold():
-                    embed.set_field_at(index, name="🗓️ Etapa AJPA", value=payload["phase_label"], inline=True)
+                    embed.set_field_at(
+                        index,
+                        name="🗓️ Etapa AJPA",
+                        value=payload["phase_label"],
+                        inline=True,
+                    )
                     break
         except Exception:
             pass
         return embed
+
     staff.admin_home_embed = admin_home_embed
-    print("AJPA Administración: Cambiar temporada -> Gestionar etapa")
+
+    original_section_embed = staff.section_embed
+
+    def section_embed(title, description, tools):
+        items = []
+        for item in list(tools):
+            text = str(item)
+            low = text.casefold()
+            if "cambiar temporada" in low:
+                text = "🗓️ Gestionar etapa AJPA"
+            elif "abrir o cerrar" in low:
+                text = "🗓️ Apertura/cierre según etapa AJPA"
+            items.append(text)
+        return original_section_embed(title, description, items)
+
+    staff.section_embed = section_embed
+    print("AJPA Administración: temporada/mercado controlados por Gestionar etapa")
 
 
 apply_patch()
