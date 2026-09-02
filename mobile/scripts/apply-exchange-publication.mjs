@@ -76,11 +76,11 @@ ui = ui.replace(
       : null;
     const cashDifferenceDigits = exchangeCashDifference.replace(/[^0-9]/g, '');
     const exchangeDetail = [
-      exchangeTarget ? `Busca: ${exchangeTarget.name} (${exchangeTarget.club})` : 'Cualquier propuesta',
+      exchangeTarget ? 'Busca: ' + exchangeTarget.name + ' (' + exchangeTarget.club + ')' : 'Cualquier propuesta',
       cashDifferenceDigits
-        ? `Diferencia en dinero: $${Number(cashDifferenceDigits).toLocaleString('es-AR')}`
+        ? 'Diferencia en dinero: $' + Number(cashDifferenceDigits).toLocaleString('es-AR')
         : null,
-      publishDetail.trim() ? `Observación: ${publishDetail.trim()}` : null,
+      publishDetail.trim() ? 'Observación: ' + publishDetail.trim() : null,
     ].filter(Boolean).join(' · ');
 
     mutate(
@@ -104,7 +104,7 @@ const exchangeComputed = String.raw`  const selectedExchangeTarget = exchangeTar
     if (!player.id || player.id === publishTarget?.id) return false;
     if (profile?.club && player.club.toLowerCase() === profile.club.toLowerCase()) return false;
     if (!exchangeSearchKey) return true;
-    return `${player.name} ${player.club} ${player.position}`.toLowerCase().includes(exchangeSearchKey);
+    return (player.name + ' ' + player.club + ' ' + player.position).toLowerCase().includes(exchangeSearchKey);
   });
 
 `;
@@ -150,8 +150,8 @@ const exchangeBlock = String.raw`          {publishType === 'INTERCAMBIO' ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalChoices}>
                   {exchangeCandidates.slice(0, 60).map((player) => (
                     <Button
-                      key={`${player.club}-${player.id}`}
-                      label={`${player.name} · ${player.club}`}
+                      key={player.club + '-' + player.id}
+                      label={player.name + ' · ' + player.club}
                       kind={exchangeTargetPlayerId === player.id ? 'blue' : 'ghost'}
                       onPress={() => setExchangeTargetPlayerId(player.id)}
                     />
@@ -161,7 +161,7 @@ const exchangeBlock = String.raw`          {publishType === 'INTERCAMBIO' ? (
 
               <Text style={s.detail}>
                 {selectedExchangeTarget
-                  ? `Buscás a ${selectedExchangeTarget.name} (${selectedExchangeTarget.club}).`
+                  ? 'Buscás a ' + selectedExchangeTarget.name + ' (' + selectedExchangeTarget.club + ').'
                   : 'Aceptás cualquier propuesta de jugador.'}
               </Text>
 
