@@ -3,9 +3,9 @@ import fs from 'node:fs';
 const path = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(path, 'utf8');
 
-// React Native no estaba mostrando de forma confiable el JPEG de Resultados como
-// data URI grande. Reconstruimos la imagen elegida por el usuario durante el build
-// y la consumimos como asset local, igual que los fondos estables de Liga/Mercado.
+// Reconstruimos la imagen elegida por el usuario durante el build y la dejamos
+// como asset local real. De esta forma Resultados no depende de red, Railway ni
+// GitHub para mostrar el fondo.
 const resultParts = [0, 1, 2, 3].map((index) => {
   const source = fs.readFileSync(
     new URL(`../src/bg_resultados_part${index}.ts`, import.meta.url),
@@ -33,6 +33,29 @@ fs.writeFileSync(
   new URL('../src/bg_resultados.ts', import.meta.url),
   "export const BG_RESULTADOS = require('../assets/generated/results-pique-5-1.jpg');\n",
 );
+
+// ResultsGallery debe consumir BG_RESULTADOS como ImageSourcePropType. Un require
+// de React Native devuelve un id numérico; envolverlo como { uri: ... } lo rompe
+// y deja la pantalla negra. Este guard evita que vuelva a aparecer ese error.
+const galleryPath = new URL('../src/ResultsGallery.tsx', import.meta.url);
+let gallery = fs.readFileSync(galleryPath, 'utf8');
+const resultImport = "import { BG_RESULTADOS } from './bg_resultados';";
+if (!gallery.includes(resultImport)) {
+  const apiImport = "import { apiRequest } from './api';";
+  if (!gallery.includes(apiImport)) throw new Error('Results gallery: missing API import anchor');
+  gallery = gallery.replace(apiImport, `${apiImport}\n${resultImport}`);
+}
+
+const localSource = `const RESULTS_BACKGROUND = typeof BG_RESULTADOS === 'number'\n ? BG_RESULTADOS\n : { uri: BG_RESULTADOS };`;
+if (!gallery.includes(localSource)) {
+  const sourceBlock = /const RESULTS_BACKGROUND\s*=\s*[\s\S]*?;\n\nexport default function ResultsGallery/;
+  if (!sourceBlock.test(gallery)) throw new Error('Results gallery: missing background source block');
+  gallery = gallery.replace(
+    sourceBlock,
+    `${localSource}\n\nexport default function ResultsGallery`,
+  );
+}
+fs.writeFileSync(galleryPath, gallery);
 
 if (!ui.includes("import ResultsGallery from './ResultsGallery';")) {
   ui = "import ResultsGallery from './ResultsGallery';\n" + ui;
@@ -69,6 +92,15 @@ if (!ui.includes("if (screen === 'resultsGallery') return BG_RESULTADOS;")) {
     backgroundAnchor,
     `${backgroundAnchor}\n    if (screen === 'resultsGallery') return BG_RESULTADOS;`,
   );
+}
+
+// BG_RESULTADOS es un require(...) numérico en producción. Las demás pantallas
+// usan strings/data URI. ImageBackground debe recibir cada tipo en su forma real.
+const safeSource = "source={typeof screenBackground === 'number' ? screenBackground : { uri: screenBackground }}";
+if (!ui.includes(safeSource)) {
+  const legacySource = 'source={{ uri: screenBackground }}';
+  if (!ui.includes(legacySource)) throw new Error('Results gallery: missing ImageBackground source anchor');
+  ui = ui.replace(legacySource, safeSource);
 }
 
 fs.writeFileSync(path, ui);
