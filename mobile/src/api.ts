@@ -232,8 +232,37 @@ export async function fetchRoster(club: string): Promise<RosterPlayer[]> {
   return result.players;
 }
 
-export function fetchLeague(): Promise<LeagueData> {
-  return apiRequest<LeagueData>('/api/v1/league');
+export function normalizeLeagueTeam(team: string): string {
+  const key = team.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return ['psg', 'paris saint germain', 'paris saint germain psg', 'paris saint germain fc'].includes(key)
+    ? 'Paris Saint-Germain' : team;
+}
+
+export function normalizeLeagueData(data: LeagueData): LeagueData {
+  const table = new Map<string, LeagueStanding>();
+  for (const row of data.standings) {
+    const team = normalizeLeagueTeam(row.team);
+    const current = table.get(team);
+    if (!current) {
+      table.set(team, { ...row, team });
+    } else {
+      // The API assigns each match to its exact stored team label. Merge the
+      // disjoint totals, including the empty row seeded by the club catalog.
+      for (const field of ['pj', 'pg', 'pe', 'pp', 'gf', 'gc', 'pts'] as const) {
+        current[field] += row[field];
+      }
+    }
+  }
+  const standings = [...table.values()];
+  for (const row of standings) row.dg = row.gf - row.gc;
+  standings.sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf || b.pg - a.pg
+    || (a.team.toLowerCase() < b.team.toLowerCase() ? -1 : a.team.toLowerCase() > b.team.toLowerCase() ? 1 : 0));
+  return { ...data, standings, scorers: data.scorers.map(row => ({ ...row, team: normalizeLeagueTeam(row.team) })) };
+}
+
+export async function fetchLeague(): Promise<LeagueData> {
+  return normalizeLeagueData(await apiRequest<LeagueData>('/api/v1/league'));
 }
 
 export async function fetchHistory(): Promise<TransferHistoryItem[]> {
