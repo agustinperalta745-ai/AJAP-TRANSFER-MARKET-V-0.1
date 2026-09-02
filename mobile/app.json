@@ -2,13 +2,20 @@
   "expo": {
     "name": "AJPA Transfer Market",
     "slug": "ajpa-transfer-market",
-    "version": "0.1.1",
+    "version": "0.1.2",
+    "runtimeVersion": "1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/ajpa-app-icon.png",
+    "updates": {
+      "enabled": true,
+      "url": "https://ajap-transfer-market-v-01-production.up.railway.app/api/v1/ota/manifest",
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0
+    },
     "android": {
       "package": "com.ajpa.transfermarket",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/ajpa-app-icon.png",
         "backgroundColor": "#000000"
