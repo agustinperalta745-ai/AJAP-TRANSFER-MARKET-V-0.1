@@ -5,6 +5,9 @@ from __future__ import annotations
 import discord
 
 import guild_isolation_patch as guild_isolation
+# Se importa después de league_result_feedback_patch: engancha el resultado ya
+# confirmado y publica FINAL DEL CLÁSICO en Radio Pasillo sin duplicados.
+import classic_result_radio_patch  # noqa: F401
 
 
 APP = None
