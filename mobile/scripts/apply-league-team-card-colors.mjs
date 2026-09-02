@@ -37,18 +37,7 @@ if (!league.includes(oldScorer)) {
 }
 league = league.replace(oldScorer, newScorer);
 
-// A bundled APK must not produce a false positive in the OTA smoke test.
-const heading = '<Text style={s.listHeading}>🏆 TABLA DE POSICIONES</Text>';
-if (!league.includes(heading)) throw new Error('AJPA OTA test: missing standings heading');
-league = league.replace(heading, `{Updates.isEnabled && !Updates.isEmbeddedLaunch && Updates.updateId ? (
-        <View style={{ backgroundColor: '#123c28', borderColor: '#55e595', borderWidth: 1, borderRadius: 12, padding: 12 }}>
-          <Text style={{ color: '#b9ffd5', fontSize: 16, fontWeight: '700' }}>🟢 Actualización de prueba 01 recibida</Text>
-        </View>
-      ) : null}
-      ${heading}`);
-
 ui = ui.slice(0, start) + league + ui.slice(end);
-ui = "import * as Updates from 'expo-updates';\n" + ui;
 
 for (const required of [
   '<TeamCardBackdrop club={row.team} />',
