@@ -49,14 +49,10 @@ async def _publish_event_locked(runtime, bot, guild, source_message_id: int) -> 
     if lock is None:
         lock = asyncio.Lock()
         _PUBLISH_LOCKS[key] = lock
-    try:
-        async with lock:
-            return await _BASE_PUBLISH_EVENT(runtime, bot, guild, int(source_message_id))
-    finally:
-        # No hace falta conservar locks de eventos que ya terminaron.
-        current = _PUBLISH_LOCKS.get(key)
-        if current is lock and not lock.locked():
-            _PUBLISH_LOCKS.pop(key, None)
+    # Se conserva el lock durante la vida del proceso. Son muy pocos objetos y
+    # evita que una tercera tarea cree otro candado mientras una segunda espera.
+    async with lock:
+        return await _BASE_PUBLISH_EVENT(runtime, bot, guild, int(source_message_id))
 
 
 # El wrapper original de Top 5 y los reintentos pasan también por el candado.
