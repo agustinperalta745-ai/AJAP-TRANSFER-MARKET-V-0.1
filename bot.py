@@ -114,4 +114,7 @@ import player_release_patch  # noqa: F401,E402
 import release_button_visual_patch  # noqa: F401,E402
 import market_access_role_patch  # noqa: F401,E402
 
+# Final layer: manager PES identity wins over in-game/unlicensed club-name OCR.
+import pes_username_link_patch  # noqa: F401,E402
+
 import run_bot  # noqa: F401,E402
