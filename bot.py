@@ -129,6 +129,9 @@ import league_openai_retry_patch  # noqa: F401,E402
 # A clear score must stay automatic even if player names are uncertain. The
 # result-only rescue validates teams/score separately and scorer OCR is optional.
 import league_result_autonomy_patch  # noqa: F401,E402
+# Free local OCR is the final reader: Railway/ONNX handles screenshots without a
+# paid API. OpenAI fallback is opt-in only via AJAP_VISION_ALLOW_PAID_FALLBACK=1.
+import league_local_ocr_patch  # noqa: F401,E402
 # One-time, tightly bounded correction for the Ajax 2-2 PSG capture reported on
 # 2026-09-03: Babel x2 / Pauleta x2. Never changes the official score.
 import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
@@ -138,6 +141,6 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-result-autonomy-recovery"
+AJAP_RESTART_MARKER = "2026-09-03T-local-ocr-no-paid-api"
 
 import run_bot  # noqa: F401,E402
