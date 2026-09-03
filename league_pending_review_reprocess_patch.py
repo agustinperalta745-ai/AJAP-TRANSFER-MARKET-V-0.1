@@ -1,21 +1,24 @@
-"""Automatically retry still-pending Liga screenshots after reader upgrades.
+"""Safe automatic recovery of old Liga review screenshots.
 
-This prevents admins from having to manually reconstruct results/goleadores that
-were already posted while an older OCR version was too strict.  On the first
-ready event of each process, AJAP revisits only unresolved manual-review rows
-that do not already have an official league_match, clears the stale review/hash
-state for that source message, and sends the ORIGINAL Discord message through
-the currently installed result pipeline.
-
-Already official matches are never touched.  If the new reader still cannot
-prove a result, the normal Staff review is recreated.
+Important rules:
+- NEVER resend a failed retry to Staff; the existing review card is enough.
+- NEVER duplicate a match that Staff already loaded manually under another source.
+- Analyze the original Discord images silently with the newest multisignal reader.
+- Only persist when teams + score are valid, the screen is clearly final, and the
+  uploader belongs to the match.
+- Recover scorer rows from the same payload when they are genuinely identified.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import mimetypes
+
+import discord
 
 import league_automation_patch as league
+import league_multisignal_result_patch as multisignal
 import league_result_evidence_patch as evidence
 import league_validation_admin_review_patch as strict
 
@@ -31,49 +34,16 @@ def _pending_rows(runtime, guild_id: int):
         return conn.execute(
             """
             SELECT r.source_message_id, r.source_channel_id,
-                   r.staff_channel_id, r.staff_message_id
+                   r.staff_channel_id, r.staff_message_id, r.reason
             FROM league_manual_reviews r
             LEFT JOIN league_matches m
               ON m.source_message_id = r.source_message_id
             WHERE UPPER(COALESCE(r.status, 'PENDIENTE'))='PENDIENTE'
               AND m.source_message_id IS NULL
             ORDER BY r.created_at ASC
-            LIMIT 200
+            LIMIT 250
             """
         ).fetchall()
-    finally:
-        conn.close()
-
-
-def _reset_pending_source(runtime, guild_id: int, source_message_id: int):
-    conn = league.db(runtime, guild_id)
-    try:
-        conn.execute("BEGIN IMMEDIATE")
-        # Never remove an already official match/scorers here.
-        official = conn.execute(
-            "SELECT 1 FROM league_matches WHERE source_message_id=? LIMIT 1",
-            (int(source_message_id),),
-        ).fetchone()
-        if official:
-            conn.rollback()
-            return False
-        conn.execute(
-            "DELETE FROM league_result_evidence WHERE source_message_id=?",
-            (int(source_message_id),),
-        )
-        conn.execute(
-            "DELETE FROM league_manual_reviews WHERE source_message_id=?",
-            (int(source_message_id),),
-        )
-        conn.execute(
-            "DELETE FROM league_image_hashes WHERE source_message_id=?",
-            (int(source_message_id),),
-        )
-        conn.commit()
-        return True
-    except Exception:
-        conn.rollback()
-        raise
     finally:
         conn.close()
 
@@ -88,17 +58,105 @@ async def _fetch_text_channel(bot, guild, channel_id: int):
         return None
 
 
-async def _disable_old_staff_card(bot, guild, row):
-    staff_channel_id = row["staff_channel_id"]
-    staff_message_id = row["staff_message_id"]
-    if not staff_channel_id or not staff_message_id:
+async def _read_images(message):
+    images, hashes = [], []
+    for att in message.attachments[: league.MAX_IMAGES]:
+        mime = (att.content_type or mimetypes.guess_type(att.filename)[0] or "").split(";")[0]
+        if not mime.startswith("image/"):
+            continue
+        if att.size and att.size > league.MAX_BYTES:
+            continue
+        try:
+            data = await att.read()
+        except Exception:
+            continue
+        if not data:
+            continue
+        images.append((data, mime))
+        hashes.append(hashlib.sha256(data).hexdigest())
+    return images, hashes
+
+
+def _same_official_pair(runtime, guild_id: int, score):
+    home, away, hg, ag = score
+    conn = league.db(runtime, guild_id)
+    try:
+        rows = conn.execute(
+            """
+            SELECT * FROM league_matches
+            WHERE (home_team=? AND away_team=?) OR (home_team=? AND away_team=?)
+            ORDER BY id DESC
+            """,
+            (home, away, away, home),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    exact = None
+    conflict = None
+    for row in rows:
+        if row["home_team"] == home and row["away_team"] == away:
+            same_score = int(row["home_goals"]) == int(hg) and int(row["away_goals"]) == int(ag)
+        else:
+            same_score = int(row["home_goals"]) == int(ag) and int(row["away_goals"]) == int(hg)
+        if same_score:
+            exact = row
+            break
+        conflict = conflict or row
+    return exact, conflict
+
+
+def _mark_review(runtime, guild_id: int, source_id: int, status: str, score=None):
+    conn = league.db(runtime, guild_id)
+    try:
+        if score:
+            home, away, hg, ag = score
+            conn.execute(
+                """
+                UPDATE league_manual_reviews
+                SET status=?, resolved_at=CURRENT_TIMESTAMP,
+                    home_team=?, away_team=?, home_goals=?, away_goals=?
+                WHERE source_message_id=?
+                """,
+                (status, home, away, int(hg), int(ag), int(source_id)),
+            )
+        else:
+            conn.execute(
+                "UPDATE league_manual_reviews SET status=?, resolved_at=CURRENT_TIMESTAMP WHERE source_message_id=?",
+                (status, int(source_id)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+async def _close_staff_card(bot, guild, row, text=None):
+    if not row["staff_channel_id"] or not row["staff_message_id"]:
         return
-    channel = await _fetch_text_channel(bot, guild, int(staff_channel_id))
+    channel = await _fetch_text_channel(bot, guild, int(row["staff_channel_id"]))
     if channel is None or not hasattr(channel, "fetch_message"):
         return
     try:
-        message = await channel.fetch_message(int(staff_message_id))
-        await message.edit(view=None)
+        message = await channel.fetch_message(int(row["staff_message_id"]))
+    except Exception:
+        return
+    try:
+        if text:
+            embed = discord.Embed(
+                title="✅ REVISIÓN CERRADA AUTOMÁTICAMENTE",
+                description=text,
+                color=discord.Color.green(),
+            )
+            await message.edit(embed=embed, view=None)
+        else:
+            await message.edit(view=None)
+    except Exception:
+        pass
+
+
+async def _mark_source_ok(source):
+    try:
+        await source.add_reaction("✅")
     except Exception:
         pass
 
@@ -112,52 +170,109 @@ async def _retry_guild(runtime, bot, guild):
     try:
         rows = _pending_rows(runtime, guild_id)
     except Exception as exc:
-        print(f"WARNING AJAP pending review scan guild={guild_id}: {exc}")
-        return
-    if not rows:
+        print(f"WARNING AJAP safe recovery scan guild={guild_id}: {exc}")
         return
 
     recovered = 0
-    retried = 0
+    already_loaded = 0
+    left_pending = 0
+
     for row in rows:
-        source_channel = await _fetch_text_channel(bot, guild, int(row["source_channel_id"]))
-        if source_channel is None or not hasattr(source_channel, "fetch_message"):
+        channel = await _fetch_text_channel(bot, guild, int(row["source_channel_id"]))
+        if channel is None or not hasattr(channel, "fetch_message"):
+            left_pending += 1
             continue
         try:
-            source = await source_channel.fetch_message(int(row["source_message_id"]))
+            source = await channel.fetch_message(int(row["source_message_id"]))
         except Exception:
+            left_pending += 1
             continue
-        if not getattr(source, "attachments", None):
+
+        images, hashes = await _read_images(source)
+        if not images:
+            left_pending += 1
             continue
 
         try:
-            await _disable_old_staff_card(bot, guild, row)
-            if not _reset_pending_source(runtime, guild_id, int(row["source_message_id"])):
-                continue
-            retried += 1
-            await league.handle(runtime, bot, source)
-
-            conn = league.db(runtime, guild_id)
+            payload = await multisignal.analyze_message(runtime, source, images)
             try:
-                now_official = conn.execute(
-                    "SELECT 1 FROM league_matches WHERE source_message_id=? LIMIT 1",
-                    (int(row["source_message_id"]),),
-                ).fetchone()
-            finally:
-                conn.close()
-            if now_official:
-                recovered += 1
+                confidence = float(payload.get("result_confidence") or payload.get("confidence") or 0.0)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            score, _error = strict._validated_score(payload)
+            state = str(payload.get("match_state") or "unknown").casefold()
+
+            # SILENT failure: keep the old review, do not create/repost anything.
+            if not score or confidence < league.MIN_CONF or state != "final":
+                left_pending += 1
+                continue
+            if not evidence._uploader_is_party(runtime, source, score[0], score[1]):
+                left_pending += 1
+                continue
+
+            exact, conflict = _same_official_pair(runtime, guild_id, score)
+            if exact is not None:
+                _mark_review(runtime, guild_id, int(row["source_message_id"]), "RESUELTO_YA_CARGADO", score)
+                await _mark_source_ok(source)
+                await _close_staff_card(
+                    bot, guild, row,
+                    f"Este partido ya estaba cargado en la Liga: **{exact['home_team']} {exact['home_goals']}–{exact['away_goals']} {exact['away_team']}**. No se duplicó.",
+                )
+                already_loaded += 1
+                continue
+
+            # Same pair with a different score needs human judgement, but it
+            # already HAS a review card. Never create another one.
+            if conflict is not None:
+                left_pending += 1
+                continue
+
+            # Persist directly instead of calling league.handle again. Calling
+            # the public handler was what recreated duplicate Staff reviews.
+            evidence._stage(runtime, source, score, payload, hashes, "FINAL_DETECTADO")
+            staged = evidence._row(runtime, guild_id, source_message_id=source.id)
+            ok, result_state, duplicate, scorers = evidence._persist_official(
+                runtime, guild_id, staged
+            )
+            if not ok:
+                # Race/late manual load: if it now matches, close as duplicate;
+                # otherwise leave the existing review untouched.
+                exact_now, _ = _same_official_pair(runtime, guild_id, score)
+                if exact_now is not None:
+                    _mark_review(runtime, guild_id, int(row["source_message_id"]), "RESUELTO_YA_CARGADO", score)
+                    await _mark_source_ok(source)
+                    await _close_staff_card(bot, guild, row, "El resultado ya estaba cargado. No se duplicó.")
+                    already_loaded += 1
+                else:
+                    left_pending += 1
+                continue
+
+            _mark_review(runtime, guild_id, int(row["source_message_id"]), "RESUELTO_AUTO", score)
+            await _mark_source_ok(source)
+            extra = f" • {scorers} goleador(es) recuperados" if scorers else ""
+            await _close_staff_card(
+                bot, guild, row,
+                f"Recuperado desde la captura original: **{score[0]} {score[2]}–{score[3]} {score[1]}**{extra}.",
+            )
+            recovered += 1
         except Exception as exc:
+            # No destructive reset, no new Staff message, no retry loop noise.
+            left_pending += 1
             print(
-                f"WARNING AJAP pending review retry source={row['source_message_id']}: "
+                f"WARNING AJAP safe recovery source={row['source_message_id']}: "
                 f"{type(exc).__name__}: {exc}"
             )
-        # Avoid a burst of Discord/API work when many old captures exist.
-        await asyncio.sleep(0.35)
+        await asyncio.sleep(0.20)
+
+    if recovered or already_loaded:
+        try:
+            await league.refresh(runtime, bot, guild_id)
+        except Exception:
+            pass
 
     print(
-        f"AJAP Liga pending review retry guild={guild_id}: "
-        f"reintentados={retried} recuperados={recovered}"
+        f"AJAP Liga SAFE recovery guild={guild_id}: "
+        f"recuperados={recovered} ya_cargados={already_loaded} pendientes_sin_spam={left_pending}"
     )
 
 
@@ -171,11 +286,9 @@ def install_pending_review_reprocess(runtime, bot):
 
     bot.add_listener(_on_ready, "on_ready")
     bot._ajap_pending_review_reprocess_listener = True
-    print("AJAP Liga: reproceso automático de revisiones pendientes ACTIVO")
+    print("AJAP Liga: recuperación segura de revisiones pendientes ACTIVA (sin reenvío Staff)")
 
 
-# Imported before run_bot creates the final runtime.  Hook Bot.run so the
-# listener is installed after all AJAP patches/views/handlers are ready.
 try:
     import sys
     from discord.ext import commands
@@ -188,11 +301,11 @@ try:
             try:
                 install_pending_review_reprocess(runtime, self)
             except Exception as exc:
-                print(f"WARNING AJAP pending review listener install: {exc}")
+                print(f"WARNING AJAP safe recovery listener install: {exc}")
         return _ORIGINAL_RUN(self, token, *args, **kwargs)
 
     if not getattr(commands.Bot.run, "_ajap_pending_review_reprocess", False):
         _run_with_pending_review_reprocess._ajap_pending_review_reprocess = True
         commands.Bot.run = _run_with_pending_review_reprocess
 except Exception as exc:
-    print(f"WARNING AJAP pending review patch import: {exc}")
+    print(f"WARNING AJAP safe recovery patch import: {exc}")
