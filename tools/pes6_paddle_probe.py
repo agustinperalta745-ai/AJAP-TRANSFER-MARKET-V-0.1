@@ -17,10 +17,13 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
 
 REGIONS = {
-    "home_team": (0.00, 0.045, 0.54, 0.23),
-    "away_team": (0.46, 0.045, 1.00, 0.23),
-    "home_score": (0.255, 0.18, 0.415, 0.43),
-    "away_score": (0.585, 0.18, 0.745, 0.43),
+    # PES6 result screen: keep these narrow so the detector does not confuse
+    # the centred "Resultado" title / usernames with the team banners.
+    "home_team": (0.00, 0.105, 0.40, 0.190),
+    "away_team": (0.60, 0.105, 1.00, 0.190),
+    # Large final-score glyphs only; deliberately exclude 1er/2do split rows.
+    "home_score": (0.24, 0.205, 0.36, 0.340),
+    "away_score": (0.64, 0.205, 0.76, 0.340),
     "result_state": (0.16, 0.08, 0.84, 0.73),
     "scorer_header": (0.15, 0.06, 0.85, 0.28),
     "scorer_left": (0.00, 0.16, 0.51, 0.78),
