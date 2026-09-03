@@ -46,6 +46,7 @@ import member_nickname_patch  # noqa: F401,E402
 import vacancy_nickname_patch  # noqa: F401,E402
 import selector_nickname_patch  # noqa: F401,E402
 import dt_resignation_patch  # noqa: F401,E402
+import mobile_resignation_discord_bridge_patch  # noqa: F401,E402
 
 # Liga + ciclo oficial comparten la misma DB aislada por servidor. El ciclo se
 # instala DESPUÉS de Liga para etiquetar resultados sin borrar el historial global.
