@@ -157,6 +157,9 @@ pes_links.analyze_with_pes_links = _analyze_local_only
 import league_pes6_structured_reader_patch  # noqa: F401,E402
 import league_pes6_score_geometry_patch  # noqa: F401,E402
 import league_tesseract_runtime_patch  # noqa: F401,E402
+# PES6 Result screens that show the second-period row (2nd/2do) are final.
+# This also recognises the English "Result / Exit match series / Match details" UI.
+import league_pes6_second_period_final_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
@@ -167,5 +170,5 @@ import league_historical_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + auditoría histórica + pendientes de goleadores + cero OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + auditoría histórica + pendientes de goleadores + cero OpenAI)"
 )
