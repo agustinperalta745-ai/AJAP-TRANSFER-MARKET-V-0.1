@@ -181,6 +181,9 @@ import league_disable_startup_reprocess_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
+# The scorer button is a Liga/Staff flow, not a Market flow. Its modal submit must
+# keep a stable ajap:league:* custom_id so the market-only channel gate exempts it.
+import league_manual_scorer_market_gate_fix_patch  # noqa: F401,E402
 # One-time authoritative correction for the latest bad automatic read. It rewrites
 # every persisted source representation from Feyenoord 2-2 Tottenham to the
 # user-confirmed Feyenoord 1-1 Real Zaragoza and removes untrusted scorer rows.
@@ -195,5 +198,5 @@ import league_integrity_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(OCR live <=10s + sin barrido histórico al iniciar + Tesseract PES6 + 2nd=final + sin inventar equipos + corrección Feyenoord/Zaragoza + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
+    "(OCR live <=10s + sin barrido histórico al iniciar + Tesseract PES6 + 2nd=final + sin inventar equipos + goleadores fuera del gate Mercado + corrección Feyenoord/Zaragoza + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
 )
