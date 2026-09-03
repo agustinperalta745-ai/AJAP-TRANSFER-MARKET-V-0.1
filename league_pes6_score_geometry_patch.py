@@ -1,6 +1,7 @@
 """Tight PES6 score/state crops for the final structured local reader."""
 
 import league_automation_patch as league
+import league_pes_unlicensed_aliases_patch  # noqa: F401
 import league_pes6_structured_reader_patch as structured
 
 
