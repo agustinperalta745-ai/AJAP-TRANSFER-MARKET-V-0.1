@@ -145,9 +145,20 @@ import league_runtime_result_rescue_patch  # noqa: F401,E402
 # Re-run unresolved historical review cards once per restart through the newest
 # reader so already-posted captures/results/goleadores are recovered automatically.
 import league_pending_review_reprocess_patch  # noqa: F401,E402
+
+# Load the complete active AJPA team catalog and every stock-PES alias before the
+# final local reader freezes its strict team-matching rules. This includes
+# Feyenoord and East London -> West Ham United.
+import league_team_catalog_patch  # noqa: F401,E402
+import league_pes_unlicensed_aliases_patch  # noqa: F401,E402
+
 # Safety bridge: pending recovery gets runtime rescue, and the Staff rehab test
 # can never delete an already official result/goleador record.
 import league_result_final_safety_patch  # noqa: F401,E402
+# One-time authoritative 03/09 audit: rebuild the current Pretemporada to the 38
+# verified matches, named scorers + 3 own goals, refresh Discord standings, and
+# wipe/repopulate the configured GES result channel cleanly.
+import league_authoritative_audit_reconcile_patch  # noqa: F401,E402
 # One-time, tightly bounded correction for the Ajax 2-2 PSG capture reported on
 # 2026-09-03: Babel x2 / Pauleta x2. Never changes the official score.
 import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
@@ -157,6 +168,6 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-result-final-safety"
+AJAP_RESTART_MARKER = "2026-09-03T-authoritative-audit-reconcile"
 
 import run_bot  # noqa: F401,E402
