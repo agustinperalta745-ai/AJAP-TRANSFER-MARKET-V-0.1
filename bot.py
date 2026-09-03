@@ -129,9 +129,12 @@ import league_openai_retry_patch  # noqa: F401,E402
 # One-time, tightly bounded correction for the Ajax 2-2 PSG capture reported on
 # 2026-09-03: Babel x2 / Pauleta x2. Never changes the official score.
 import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
+# Existing "Agregar goleador" cards must acknowledge Discord before DB/table work
+# so old persistent buttons do not expire with "application did not respond".
+import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-ajax-psg-scorer-fix"
+AJAP_RESTART_MARKER = "2026-09-03T-manual-scorer-button-timeout-fix"
 
 import run_bot  # noqa: F401,E402
