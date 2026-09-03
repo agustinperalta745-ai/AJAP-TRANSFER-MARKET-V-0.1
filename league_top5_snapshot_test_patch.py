@@ -138,3 +138,7 @@ def _apply_feedback_with_snapshot_test(runtime, bot):
 
 
 feedback.apply_league_result_feedback_patch = _apply_feedback_with_snapshot_test
+
+# Temporary operational freeze requested by the league admin: import this last so
+# every earlier image/text result wrapper remains bypassed until the reader is fixed.
+import league_result_intake_pause_patch  # noqa: F401,E402
