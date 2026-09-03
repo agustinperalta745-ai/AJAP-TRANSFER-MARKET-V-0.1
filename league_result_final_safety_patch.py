@@ -1,18 +1,26 @@
 """Last safety bridge for AJAP result recovery/testing.
 
 - Never let /rehabilitar_captura_prueba delete an already official match.
-- Make the silent historical pending-review recovery use the runtime rescue reader
-  (local OCR first, OpenAI fallback when available) with the same guild/author
-  identity context as a normal Discord upload.
+- Force every normal/retry result read through the local Railway OCR only.
+- OpenAI is never called from the league-result reader, even if an API key exists
+  or an old paid-fallback environment flag is still configured.
 """
 
 from __future__ import annotations
 
 import league_automation_patch as league
 import league_capture_rehab_patch as rehab
+import league_local_ocr_patch as local
 import league_multisignal_result_patch as multisignal
 import league_runtime_result_rescue_patch as rescue
 import pes_username_link_patch as pes_links
+
+
+# Hard runtime guarantee: the result reader is local-only.  Older modules keep
+# references to paid readers for backwards compatibility, but this final bridge
+# makes those paths unreachable for result screenshots.
+local.ALLOW_PAID_FALLBACK = False
+rescue._PAID_ANALYZE = None
 
 
 _BASE_CLEAR_SOURCE = rehab._clear_source
@@ -66,7 +74,55 @@ def _safe_clear_source(runtime, guild_id: int, source_message_id: int, hashes):
 rehab._clear_source = _safe_clear_source
 
 
-async def _analyze_message_with_runtime_rescue(runtime, message, images):
+async def _analyze_local_only(images):
+    """Run the local OCR and never enter any OpenAI/paid fallback path."""
+    try:
+        payload = await local.analyze_local_first(images)
+        if isinstance(payload, dict):
+            return payload
+    except Exception as exc:
+        print(
+            "WARNING AJAP local-only result reader: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return {
+            "kind": "unknown",
+            "match_state": "unknown",
+            "home_team": "",
+            "away_team": "",
+            "home_goals": None,
+            "away_goals": None,
+            "scorers": [],
+            "confidence": 0.0,
+            "result_confidence": 0.0,
+            "scorers_confidence": 0.0,
+            "notes": (
+                "AJAP local-only reader failed | "
+                f"local={type(exc).__name__}: {exc}"
+            )[:1000],
+        }
+
+    return {
+        "kind": "unknown",
+        "match_state": "unknown",
+        "home_team": "",
+        "away_team": "",
+        "home_goals": None,
+        "away_goals": None,
+        "scorers": [],
+        "confidence": 0.0,
+        "result_confidence": 0.0,
+        "scorers_confidence": 0.0,
+        "notes": "AJAP local-only reader returned no payload",
+    }
+
+
+# reliable_evidence_handle resolves this name dynamically from the rescue module,
+# so replacing it also removes OpenAI from ordinary new uploads, not only retries.
+rescue.analyze_with_runtime_rescue = _analyze_local_only
+
+
+async def _analyze_message_local_only(runtime, message, images):
     guild_id = getattr(getattr(message, "guild", None), "id", None)
     author = getattr(message, "author", None)
     author_id = getattr(author, "id", None)
@@ -80,21 +136,21 @@ async def _analyze_message_with_runtime_rescue(runtime, message, images):
     )
     display_token = multisignal._AUTHOR_DISPLAY.set(str(display))
     try:
-        return await rescue.analyze_with_runtime_rescue(images)
+        return await _analyze_local_only(images)
     finally:
         multisignal._AUTHOR_DISPLAY.reset(display_token)
         multisignal._AUTHOR_ID.reset(author_token)
         pes_links._RESULT_GUILD_ID.reset(guild_token)
 
 
-# league_pending_review_reprocess_patch calls this module attribute dynamically,
-# so replacing it here upgrades old pending reviews without rewriting that module.
-multisignal.analyze_message = _analyze_message_with_runtime_rescue
+# Pending-review recovery resolves this attribute dynamically as well.
+multisignal.analyze_message = _analyze_message_local_only
 
 # Reassert the final analyzer after every earlier reader patch has loaded.
-league.analyze = rescue.analyze_with_runtime_rescue
-pes_links.analyze_with_pes_links = rescue.analyze_with_runtime_rescue
+league.analyze = _analyze_local_only
+pes_links.analyze_with_pes_links = _analyze_local_only
 
 print(
-    "AJAP Liga: seguridad final activa (rehab no borra oficiales + pendientes usan runtime rescue)"
+    "AJAP Liga: seguridad final LOCAL-ONLY activa "
+    "(rehab no borra oficiales + cero fallback OpenAI)"
 )
