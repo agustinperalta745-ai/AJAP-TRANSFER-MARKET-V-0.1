@@ -157,8 +157,11 @@ pes_links.analyze_with_pes_links = _analyze_local_only
 import league_pes6_structured_reader_patch  # noqa: F401,E402
 import league_pes6_score_geometry_patch  # noqa: F401,E402
 import league_tesseract_runtime_patch  # noqa: F401,E402
+# If the official result is loaded but OCR misses one or more player names, Staff
+# gets an explicit persistent card showing exactly how many goals remain to assign.
+import league_scorer_pending_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + cero fallback OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + pendientes de goleadores + cero OpenAI)"
 )
