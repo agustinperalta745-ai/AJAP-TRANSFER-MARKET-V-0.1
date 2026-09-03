@@ -5,9 +5,6 @@ import { BG_RESULTADOS } from './bg_resultados';
 import { ClubBadge } from './teamBadges';
 import { initialResults, mergeResults, ResultCard } from './resultGalleryData';
 
-// Durante el build de la APK/OTA bg_resultados.ts se reescribe a un require(...)
-// del JPEG generado. En desarrollo sigue aceptando el data URI embebido. No depende
-// de red, Railway ni GitHub para mostrar el fondo.
 const RESULTS_BACKGROUND = typeof BG_RESULTADOS === 'number'
  ? BG_RESULTADOS
  : { uri: BG_RESULTADOS };
