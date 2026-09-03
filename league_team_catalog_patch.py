@@ -39,3 +39,8 @@ def apply_league_team_catalog_patch() -> None:
         "AJAP Liga: catálogo actualizado • nombres oficiales + aliases PES por defecto "
         "• AS Monaco/Feyenoord activos • Celta/AS Roma retirados"
     )
+
+
+# This module is imported by the final result-reader bootstrap. Apply immediately
+# so every reader built afterwards sees the same active club catalog.
+apply_league_team_catalog_patch()
