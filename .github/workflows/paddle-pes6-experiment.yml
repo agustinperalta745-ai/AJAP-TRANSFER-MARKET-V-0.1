@@ -7,7 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
-      - tests/fixtures/teesside_zaragoza_valid.jpg.b64
+      - tests/fixtures/tz320.jpg.b64
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -31,14 +31,14 @@ jobs:
           python -m pip install paddlepaddle==3.3.0
           python -m pip install -r requirements-paddle-experiment.txt
 
-      - name: Decode Teesside Zaragoza fixture
+      - name: Decode and verify Teesside Zaragoza fixture
         run: |
           mkdir -p .tmp-paddle
-          base64 --decode tests/fixtures/teesside_zaragoza_valid.jpg.b64 > .tmp-paddle/teesside-zaragoza-1-6.jpg
-          file .tmp-paddle/teesside-zaragoza-1-6.jpg
+          base64 --decode tests/fixtures/tz320.jpg.b64 > .tmp-paddle/teesside-zaragoza.jpg
           python - <<'PY'
           from PIL import Image
-          im = Image.open('.tmp-paddle/teesside-zaragoza-1-6.jpg')
+          p='.tmp-paddle/teesside-zaragoza.jpg'
+          im=Image.open(p)
           print('AJAP_FIXTURE_SIZE=', im.size)
           im.verify()
           print('AJAP_FIXTURE_VALID')
@@ -49,7 +49,7 @@ jobs:
           PADDLE_PDX_MODEL_SOURCE: BOS
         run: |
           set +e
-          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza-1-6.jpg > .tmp-paddle/result.json
+          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza.jpg > .tmp-paddle/result.json
           probe_code=$?
           set -e
           cat .tmp-paddle/result.json
