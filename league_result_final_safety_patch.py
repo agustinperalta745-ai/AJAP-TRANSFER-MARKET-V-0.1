@@ -167,8 +167,11 @@ import league_scorer_pending_patch  # noqa: F401,E402
 # changing official matches, and bulk-complete missing scorer attribution from
 # cards that already include the original screenshot.
 import league_historical_audit_patch  # noqa: F401,E402
+# Deep audit: re-read every historical screenshot and compare photo ↔ DB ↔ rebuilt
+# standings. This is strictly read-only and is available as /auditar_integridad.
+import league_integrity_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + auditoría histórica + pendientes de goleadores + cero OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
 )
