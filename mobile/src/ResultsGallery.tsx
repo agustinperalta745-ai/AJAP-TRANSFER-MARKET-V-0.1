@@ -25,7 +25,7 @@ export default function ResultsGallery() {
    const live=data.result_cards??data.matches;
    if(!Array.isArray(live))throw new Error('Resultados no disponibles');
    if(mounted.current){setResults(mergeResults(live));setError('');}
-  }catch{if(mounted.current)setError('No se pudo actualizar. Se conservan los resultados disponibles.');}
+  }catch{if(mounted.current)setError('No se pudo actualizar.');}
   finally{pending.current=false;if(mounted.current)setLoading(false);}
  },[]);
  useEffect(()=>{
