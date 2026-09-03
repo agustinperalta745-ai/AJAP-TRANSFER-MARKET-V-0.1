@@ -39,9 +39,24 @@ def league_payload(conn: sqlite3.Connection) -> dict:
         for team in teams
     }
 
+    match_where = ""
+    match_params: tuple = ()
+    active_competition = None
+    if "competition_cycle_state" in tables:
+        row = conn.execute(
+            "SELECT phase, competition_id FROM competition_cycle_state WHERE id=1 LIMIT 1"
+        ).fetchone()
+        if row and str(row["phase"] or "") in {"preseason", "season", "cup"} and row["competition_id"] is not None:
+            active_competition = int(row["competition_id"])
+            if "league_matches" in tables and "competition_id" in mobile_read_api._columns(conn, "league_matches"):
+                match_where = " WHERE competition_id=?"
+                match_params = (active_competition,)
+
+    result_cards = []
     if "league_matches" in tables:
         rows = conn.execute(
-            "SELECT home_team, away_team, home_goals, away_goals FROM league_matches ORDER BY id ASC"
+            "SELECT id, home_team, away_team, home_goals, away_goals, COALESCE(created_at, CURRENT_TIMESTAMP) AS created_at FROM league_matches" + match_where + " ORDER BY id ASC",
+            match_params,
         ).fetchall()
         for row in rows:
             home_name = str(row["home_team"] or "").strip()
@@ -55,6 +70,14 @@ def league_payload(conn: sqlite3.Connection) -> dict:
             if not home or not away:
                 continue
             hg, ag = int(row["home_goals"]), int(row["away_goals"])
+            result_cards.append({
+                "id": int(row["id"]),
+                "home_team": home_name,
+                "away_team": away_name,
+                "home_goals": hg,
+                "away_goals": ag,
+                "created_at": str(row["created_at"] or ""),
+            })
             home["pj"] += 1
             away["pj"] += 1
             home["gf"] += hg
@@ -90,14 +113,21 @@ def league_payload(conn: sqlite3.Connection) -> dict:
 
     scorers = []
     if "league_goal_events" in tables:
+        goal_where = ""
+        goal_params: tuple = ()
+        if active_competition is not None and "competition_id" in mobile_read_api._columns(conn, "league_goal_events"):
+            goal_where = " WHERE competition_id=?"
+            goal_params = (active_competition,)
         rows = conn.execute(
             """
             SELECT player, team, SUM(goals) AS goals
             FROM league_goal_events
+            """ + goal_where + """
             GROUP BY player COLLATE NOCASE, COALESCE(team, '') COLLATE NOCASE
             ORDER BY goals DESC, player COLLATE NOCASE ASC
             LIMIT 50
-            """
+            """,
+            goal_params,
         ).fetchall()
         scorers = [
             {
@@ -106,9 +136,10 @@ def league_payload(conn: sqlite3.Connection) -> dict:
                 "goals": int(row["goals"] or 0),
             }
             for row in rows
+            if str(row["player"] or "").strip()
         ]
 
-    return {"standings": standings, "scorers": scorers}
+    return {"standings": standings, "scorers": scorers, "result_cards": result_cards, "matches": result_cards}
 
 
 def history_payload(conn: sqlite3.Connection, limit: int = 100) -> dict:
