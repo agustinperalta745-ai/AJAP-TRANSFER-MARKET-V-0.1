@@ -1,16 +1,20 @@
 """Make the Staff manual-scorer interaction acknowledge Discord immediately.
 
 The old `Agregar goleador` button queried SQLite before opening its modal, and the
-modal submit refreshed league messages before acknowledging the interaction.  A
+modal submit refreshed league messages before acknowledging the interaction. A
 slow DB/message operation could therefore cross Discord's interaction deadline
 and show "La aplicación no ha respondido a tiempo" even though the feature was
 otherwise valid.
 
 This patch keeps the same persistent custom_id used by existing cards, so old
-buttons start working after deploy without recreating the result cards.
+buttons start working after deploy without recreating the result cards. It also
+re-enables recent resolved Staff cards on startup in case Discord is currently
+showing an old disabled/expired button on the message itself.
 """
 
 from __future__ import annotations
+
+import asyncio
 
 import discord
 
@@ -45,7 +49,7 @@ class FastManualScorerModal(discord.ui.Modal, title="Agregar goleador"):
     )
 
     def __init__(self, staff_message_id: int):
-        super().__init__()
+        super().__init__(custom_id="ajap:league:manual-scorer:modal")
         self.staff_message_id = int(staff_message_id)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -131,8 +135,8 @@ class FastManualScorerView(discord.ui.View):
         custom_id=entry.PREFIX + "add",
     )
     async def add(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Do NOT touch the DB here. Opening the modal is the interaction response
-        # and must happen inside Discord's short component deadline.
+        # Opening the modal is the interaction response and must happen inside
+        # Discord's short component deadline. Do not hit SQLite before this.
         if not interaction.guild_id or interaction.message is None:
             await interaction.response.send_message(
                 "⚠️ No pude identificar esta tarjeta.", ephemeral=True
@@ -141,6 +145,62 @@ class FastManualScorerView(discord.ui.View):
         await interaction.response.send_modal(
             FastManualScorerModal(interaction.message.id)
         )
+
+
+async def _reactivate_resolved_cards():
+    """Replace stale/disabled scorer components on recent resolved Staff cards."""
+    await asyncio.sleep(2)
+    runtime = APP or entry.APP or strict._runtime()
+    bot = BOT or entry.BOT or strict.BOT
+    if runtime is None or bot is None or not bot.user:
+        return
+
+    reactivated = 0
+    for guild in list(bot.guilds):
+        try:
+            conn = league.db(runtime, int(guild.id))
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT staff_channel_id, staff_message_id
+                    FROM league_manual_reviews
+                    WHERE UPPER(COALESCE(status, ''))='RESUELTO'
+                      AND staff_channel_id IS NOT NULL
+                      AND staff_message_id IS NOT NULL
+                    ORDER BY COALESCE(resolved_at, created_at) DESC
+                    LIMIT 25
+                    """
+                ).fetchall()
+            finally:
+                conn.close()
+        except Exception as exc:
+            print(
+                f"WARNING AJAP reactivar goleadores guild={guild.id}: "
+                f"DB {type(exc).__name__}: {exc}"
+            )
+            continue
+
+        for row in rows:
+            try:
+                channel = guild.get_channel(int(row["staff_channel_id"]))
+                if channel is None:
+                    channel = await bot.fetch_channel(int(row["staff_channel_id"]))
+                if channel is None or not hasattr(channel, "fetch_message"):
+                    continue
+                message = await channel.fetch_message(int(row["staff_message_id"]))
+                # Replacing the view re-enables the button even if an earlier
+                # process/message edit left the visible component disabled.
+                await message.edit(view=FastManualScorerView())
+                reactivated += 1
+            except (discord.NotFound, discord.Forbidden):
+                continue
+            except Exception as exc:
+                print(
+                    "WARNING AJAP reactivar botón goleador "
+                    f"message={row['staff_message_id']}: {type(exc).__name__}: {exc}"
+                )
+
+    print(f"AJAP Liga: botones Agregar goleador reactivados={reactivated}")
 
 
 def _install(runtime, bot):
@@ -156,8 +216,12 @@ def _install(runtime, bot):
     except Exception as exc:
         print(f"AJAP Liga: no se pudo registrar fix de botón goleador: {exc}")
 
+    if not getattr(bot, "_ajap_reactivate_scorer_cards_listener", False):
+        bot.add_listener(_reactivate_resolved_cards, "on_ready")
+        bot._ajap_reactivate_scorer_cards_listener = True
+
     runtime._ajap_manual_scorer_timeout_fix = True
-    print("AJAP Liga: botón Agregar goleador con ACK inmediato activo")
+    print("AJAP Liga: botón Agregar goleador con ACK inmediato + reactivación activo")
 
 
 _ORIGINAL_APPLY = guild_isolation.apply_guild_isolation_patch
