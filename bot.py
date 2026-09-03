@@ -165,6 +165,10 @@ import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
 # Existing "Agregar goleador" cards must acknowledge Discord before DB/table work
 # so old persistent buttons do not expire with "application did not respond".
 import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
+# Future PES scorer screens: detect name+minute tables even when OCR misses the
+# literal 'Goleador' header, validate players by roster, and repair the verified
+# Middlesbrough 1-6 Zaragoza scorer list that was already loaded without authors.
+import league_scorer_screen_reliability_patch  # noqa: F401,E402
 
 # Final Radio Pasillo layer: compare the official Top 5 before/after each NEW
 # league result. Only real overtakes within positions 1-5 create a post, with
@@ -179,6 +183,6 @@ import league_top5_snapshot_test_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-current-snapshot-test"
+AJAP_RESTART_MARKER = "2026-09-03T-scorer-screen-reliability-zaragoza-repair"
 
 import run_bot  # noqa: F401,E402
