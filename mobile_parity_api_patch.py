@@ -31,23 +31,17 @@ def league_payload(conn: sqlite3.Connection) -> dict:
         if state and str(state["phase"] or "") in {"preseason", "season", "cup"} and state["competition_id"] is not None:
             active_competition = int(state["competition_id"])
             if "league_matches" in tables and "competition_id" in mobile_read_api._columns(conn, "league_matches"):
-                match_where = " WHERE competition_id=?"
-                match_params = (active_competition,)
+                match_where, match_params = " WHERE competition_id=?", (active_competition,)
 
     result_cards = []
     if "league_matches" in tables:
         cols = mobile_read_api._columns(conn, "league_matches")
         created_expr = "created_at" if "created_at" in cols else "CURRENT_TIMESTAMP AS created_at"
-        rows = conn.execute(
-            f"SELECT id, home_team, away_team, home_goals, away_goals, {created_expr} FROM league_matches" + match_where + " ORDER BY id ASC",
-            match_params,
-        ).fetchall()
+        rows = conn.execute(f"SELECT id, home_team, away_team, home_goals, away_goals, {created_expr} FROM league_matches" + match_where + " ORDER BY id ASC", match_params).fetchall()
         for row in rows:
             home_name, away_name = str(row["home_team"] or "").strip(), str(row["away_team"] or "").strip()
-            if home_name and home_name not in table:
-                table[home_name] = {"team": home_name, "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "dg": 0, "pts": 0}
-            if away_name and away_name not in table:
-                table[away_name] = {"team": away_name, "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "dg": 0, "pts": 0}
+            if home_name and home_name not in table: table[home_name] = {"team": home_name, "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "dg": 0, "pts": 0}
+            if away_name and away_name not in table: table[away_name] = {"team": away_name, "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "dg": 0, "pts": 0}
             home, away = table.get(home_name), table.get(away_name)
             if not home or not away: continue
             hg, ag = int(row["home_goals"]), int(row["away_goals"])
@@ -66,11 +60,7 @@ def league_payload(conn: sqlite3.Connection) -> dict:
         goal_where, goal_params = "", ()
         if active_competition is not None and "competition_id" in mobile_read_api._columns(conn, "league_goal_events"):
             goal_where, goal_params = " WHERE competition_id=?", (active_competition,)
-        rows = conn.execute(
-            "SELECT player, team, SUM(goals) AS goals FROM league_goal_events" + goal_where +
-            " GROUP BY player COLLATE NOCASE, COALESCE(team, '') COLLATE NOCASE ORDER BY goals DESC, player COLLATE NOCASE ASC LIMIT 50",
-            goal_params,
-        ).fetchall()
+        rows = conn.execute("SELECT player, team, SUM(goals) AS goals FROM league_goal_events" + goal_where + " GROUP BY player COLLATE NOCASE, COALESCE(team, '') COLLATE NOCASE ORDER BY goals DESC, player COLLATE NOCASE ASC LIMIT 50", goal_params).fetchall()
         scorers = [{"player": str(row["player"]), "team": str(row["team"] or ""), "goals": int(row["goals"] or 0)} for row in rows if str(row["player"] or "").strip()]
 
     return {"standings": standings, "scorers": scorers, "result_cards": result_cards, "matches": result_cards}
@@ -86,19 +76,7 @@ def history_payload(conn: sqlite3.Connection, limit: int = 100) -> dict:
     items = []
     for row in rows:
         keys = set(row.keys())
-        items.append({
-            "id": int(row["id"]) if "id" in keys and row["id"] is not None else 0,
-            "player": str(row["player"] or "") if "player" in keys else "",
-            "seller": str(row["seller"] or "") if "seller" in keys else "",
-            "buyer": str(row["buyer"] or "") if "buyer" in keys else "",
-            "amount": str(row["amount"] or "$0") if "amount" in keys else "$0",
-            "status": str(row["status"] or "") if "status" in keys else "",
-            "operation_type": str(row["operation_type"] or "TRANSFERENCIA") if "operation_type" in keys else "TRANSFERENCIA",
-            "created_at": str(row["created_at"] or "") if "created_at" in keys else "",
-            "approved_at": str(row["approved_at"] or "") if "approved_at" in keys else "",
-            "applied_at": str(row["applied_at"] or "") if "applied_at" in keys else "",
-            "notes": str(row["notes"] or "") if "notes" in keys else "",
-        })
+        items.append({"id": int(row["id"]) if "id" in keys and row["id"] is not None else 0, "player": str(row["player"] or "") if "player" in keys else "", "seller": str(row["seller"] or "") if "seller" in keys else "", "buyer": str(row["buyer"] or "") if "buyer" in keys else "", "amount": str(row["amount"] or "$0") if "amount" in keys else "$0", "status": str(row["status"] or "") if "status" in keys else "", "operation_type": str(row["operation_type"] or "TRANSFERENCIA") if "operation_type" in keys else "TRANSFERENCIA", "created_at": str(row["created_at"] or "") if "created_at" in keys else "", "approved_at": str(row["approved_at"] or "") if "approved_at" in keys else "", "applied_at": str(row["applied_at"] or "") if "applied_at" in keys else "", "notes": str(row["notes"] or "") if "notes" in keys else ""})
     return {"items": items}
 
 
@@ -118,19 +96,8 @@ def assignments_payload(conn: sqlite3.Connection) -> dict:
 
 def set_market_state(conn: sqlite3.Connection, session: dict, opened: bool) -> dict:
     value = 1 if opened else 0
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS market_state (
-            id INTEGER PRIMARY KEY CHECK (id = 1), is_open INTEGER NOT NULL DEFAULT 0,
-            updated_by INTEGER, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE IF NOT EXISTS market_state_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, is_open INTEGER NOT NULL,
-            changed_by INTEGER, changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        INSERT OR IGNORE INTO market_state (id, is_open) VALUES (1, 0);
-    """)
-    previous = conn.execute("SELECT is_open FROM market_state WHERE id=1").fetchone()
-    old = int(previous["is_open"]) if previous else None
+    conn.executescript("""CREATE TABLE IF NOT EXISTS market_state (id INTEGER PRIMARY KEY CHECK (id = 1), is_open INTEGER NOT NULL DEFAULT 0, updated_by INTEGER, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP); CREATE TABLE IF NOT EXISTS market_state_history (id INTEGER PRIMARY KEY AUTOINCREMENT, is_open INTEGER NOT NULL, changed_by INTEGER, changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT OR IGNORE INTO market_state (id, is_open) VALUES (1, 0);""")
+    previous = conn.execute("SELECT is_open FROM market_state WHERE id=1").fetchone(); old = int(previous["is_open"]) if previous else None
     conn.execute("INSERT INTO market_state (id,is_open,updated_by,updated_at) VALUES (1,?,?,CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET is_open=excluded.is_open,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP", (value, int(session["user_id"])))
     if old != value: conn.execute("INSERT INTO market_state_history (is_open, changed_by) VALUES (?, ?)", (value, int(session["user_id"])))
     return {"ok": True, "market_open": bool(value)}
@@ -140,7 +107,6 @@ def apply_mobile_parity_api_patch() -> None:
     handler = mobile_read_api.MobileReadHandler
     if getattr(handler, "_ajpa_mobile_parity_api_patch", False): return
     original_get, original_post = handler.do_GET, handler.do_POST
-
     def get(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
         try:
@@ -154,11 +120,8 @@ def apply_mobile_parity_api_patch() -> None:
                 with mobile_write_api.write_db() as conn: _staff_session(self.headers, conn); self._json(assignments_payload(conn))
                 return
         except mobile_write_api.ApiFailure as exc: self._json({"error": "request", "message": exc.message}, exc.status); return
-        except Exception as exc:
-            print(f"AJPA mobile parity GET error: {type(exc).__name__}: {exc}")
-            self._json({"error": "internal_error", "message": "No se pudo cargar esta sección."}, HTTPStatus.INTERNAL_SERVER_ERROR); return
+        except Exception as exc: print(f"AJPA mobile parity GET error: {type(exc).__name__}: {exc}"); self._json({"error": "internal_error", "message": "No se pudo cargar esta sección."}, HTTPStatus.INTERNAL_SERVER_ERROR); return
         return original_get(self)
-
     def post(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
         if path != "/api/v1/admin/market": return original_post(self)
@@ -178,7 +141,5 @@ def apply_mobile_parity_api_patch() -> None:
             if conn is not None:
                 try: conn.rollback()
                 except Exception: pass
-            print(f"AJPA mobile parity POST error: {type(exc).__name__}: {exc}")
-            self._json({"error": "internal_error", "message": "No se pudo completar la operación."}, HTTPStatus.INTERNAL_SERVER_ERROR)
-
+            print(f"AJPA mobile parity POST error: {type(exc).__name__}: {exc}"); self._json({"error": "internal_error", "message": "No se pudo completar la operación."}, HTTPStatus.INTERNAL_SERVER_ERROR)
     handler.do_GET = get; handler.do_POST = post; handler.do_PUT = post; handler.do_PATCH = post; handler._ajpa_mobile_parity_api_patch = True
