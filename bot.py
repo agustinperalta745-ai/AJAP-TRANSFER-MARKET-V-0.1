@@ -166,8 +166,13 @@ import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
 # so old persistent buttons do not expire with "application did not respond".
 import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
+# Final Radio Pasillo layer: compare the official Top 5 before/after each NEW
+# league result. Only real overtakes within positions 1-5 create a post, with
+# team emojis and a locally-rendered Top 5 image.
+import league_top5_overtake_radio_patch  # noqa: F401,E402
+
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-authoritative-audit-reconcile"
+AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-overtakes"
 
 import run_bot  # noqa: F401,E402
