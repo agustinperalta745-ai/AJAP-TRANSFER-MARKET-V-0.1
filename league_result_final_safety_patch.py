@@ -4,9 +4,12 @@
 - Force every normal/retry result read through the local Railway OCR only.
 - OpenAI is never called from the league-result reader, even if an API key exists
   or an old paid-fallback environment flag is still configured.
+- Live result OCR has a hard time budget so Discord never stays loading forever.
 """
 
 from __future__ import annotations
+
+import asyncio
 
 import league_automation_patch as league
 import league_capture_rehab_patch as rehab
@@ -16,11 +19,16 @@ import league_runtime_result_rescue_patch as rescue
 import pes_username_link_patch as pes_links
 
 
-# Hard runtime guarantee: the result reader is local-only.  Older modules keep
+# Hard runtime guarantee: the result reader is local-only. Older modules keep
 # references to paid readers for backwards compatibility, but this final bridge
 # makes those paths unreachable for result screenshots.
 local.ALLOW_PAID_FALLBACK = False
 rescue._PAID_ANALYZE = None
+
+# A bad/odd screenshot must never leave the live intake apparently frozen. The
+# local worker may continue winding down internally, but the Discord workflow gets
+# a deterministic unknown payload within this budget and can route it to review.
+LIVE_OCR_TIMEOUT_SECONDS = 10.0
 
 
 _BASE_CLEAR_SOURCE = rehab._clear_source
@@ -74,34 +82,7 @@ def _safe_clear_source(runtime, guild_id: int, source_message_id: int, hashes):
 rehab._clear_source = _safe_clear_source
 
 
-async def _analyze_local_only(images):
-    """Run the local OCR and never enter any OpenAI/paid fallback path."""
-    try:
-        payload = await local.analyze_local_first(images)
-        if isinstance(payload, dict):
-            return payload
-    except Exception as exc:
-        print(
-            "WARNING AJAP local-only result reader: "
-            f"{type(exc).__name__}: {exc}"
-        )
-        return {
-            "kind": "unknown",
-            "match_state": "unknown",
-            "home_team": "",
-            "away_team": "",
-            "home_goals": None,
-            "away_goals": None,
-            "scorers": [],
-            "confidence": 0.0,
-            "result_confidence": 0.0,
-            "scorers_confidence": 0.0,
-            "notes": (
-                "AJAP local-only reader failed | "
-                f"local={type(exc).__name__}: {exc}"
-            )[:1000],
-        }
-
+def _unknown_payload(note: str):
     return {
         "kind": "unknown",
         "match_state": "unknown",
@@ -113,8 +94,38 @@ async def _analyze_local_only(images):
         "confidence": 0.0,
         "result_confidence": 0.0,
         "scorers_confidence": 0.0,
-        "notes": "AJAP local-only reader returned no payload",
+        "notes": str(note or "AJAP local-only reader returned no payload")[:1000],
     }
+
+
+async def _analyze_local_only(images):
+    """Run local OCR only, with a hard upper bound for live Discord intake."""
+    try:
+        payload = await asyncio.wait_for(
+            local.analyze_local_first(images),
+            timeout=LIVE_OCR_TIMEOUT_SECONDS,
+        )
+        if isinstance(payload, dict):
+            return payload
+    except asyncio.TimeoutError:
+        print(
+            "WARNING AJAP local-only result reader: "
+            f"timeout>{LIVE_OCR_TIMEOUT_SECONDS:.0f}s"
+        )
+        return _unknown_payload(
+            f"AJAP local-only timeout after {LIVE_OCR_TIMEOUT_SECONDS:.0f}s; enviar a revisión sin bloquear Discord"
+        )
+    except Exception as exc:
+        print(
+            "WARNING AJAP local-only result reader: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return _unknown_payload(
+            "AJAP local-only reader failed | "
+            f"local={type(exc).__name__}: {exc}"
+        )
+
+    return _unknown_payload("AJAP local-only reader returned no payload")
 
 
 # reliable_evidence_handle resolves this name dynamically from the rescue module,
@@ -164,6 +175,9 @@ import league_pes6_second_period_final_patch  # noqa: F401,E402
 # merely from the Discord uploader's club. Unknown/kitserver-mismatched labels go
 # to Staff unless an exact alias/team name or linked PES username proves the side.
 import league_no_guess_team_patch  # noqa: F401,E402
+# Never re-OCR up to 250 historical review screenshots during on_ready. That old
+# startup sweep competed with brand-new uploads and made the bot appear frozen.
+import league_disable_startup_reprocess_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
@@ -181,5 +195,5 @@ import league_integrity_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + sin inventar equipos + corrección Feyenoord/Zaragoza + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
+    "(OCR live <=10s + sin barrido histórico al iniciar + Tesseract PES6 + 2nd=final + sin inventar equipos + corrección Feyenoord/Zaragoza + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
 )
