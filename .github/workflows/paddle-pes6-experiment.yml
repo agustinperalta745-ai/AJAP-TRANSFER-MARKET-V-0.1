@@ -35,34 +35,45 @@ jobs:
       - name: Rebuild real PES6 fixtures
         run: |
           mkdir -p .tmp-paddle
-          cat \
-            tests/fixtures/tzparts/part01.b64 \
-            tests/fixtures/tzparts/part02.b64 \
-            tests/fixtures/tzparts/part03.b64 \
-            tests/fixtures/tzparts/part04.b64 \
-            tests/fixtures/tzparts/part05a.b64 \
-            tests/fixtures/tzparts/part05b.b64 \
-            tests/fixtures/tzparts/part06.b64 \
-            tests/fixtures/tzparts/part07a.b64 \
-            tests/fixtures/tzparts/part07b.b64 \
-            | tr -d '\n\r ' | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
-          for name in mbv_res sb_res ve_res; do
-            tr -d '\n\r ' < "tests/fixtures/${name}.jpg.b64" | base64 --decode > ".tmp-paddle/${name}.jpg"
-          done
           python - <<'PY'
+          import base64
+          from pathlib import Path
           from PIL import Image
-          paths = [
-              '.tmp-paddle/teesside-zaragoza.jpg',
-              '.tmp-paddle/mbv_res.jpg',
-              '.tmp-paddle/sb_res.jpg',
-              '.tmp-paddle/ve_res.jpg',
+
+          out = Path('.tmp-paddle')
+          out.mkdir(exist_ok=True)
+
+          # The older Teesside fixture is split into small text chunks.
+          parts = [
+              'part01.b64','part02.b64','part03.b64','part04.b64',
+              'part05a.b64','part05b.b64','part06.b64','part07a.b64','part07b.b64',
           ]
-          for p in paths:
-              im = Image.open(p)
-              size = im.size
-              fmt = im.format
-              im.load()
-              print('AJAP_FIXTURE_VALID', p, size, fmt)
+          teesside_text = ''.join(
+              ''.join((Path('tests/fixtures/tzparts') / name).read_text().split())
+              for name in parts
+          )
+          mappings = {
+              'teesside-zaragoza': teesside_text,
+              'mbv_res': ''.join(Path('tests/fixtures/mbv_res.jpg.b64').read_text().split()),
+              've_res': ''.join(Path('tests/fixtures/ve_res.jpg.b64').read_text().split()),
+              'sb_res': ''.join(Path('tests/fixtures/sb_res.jpg.b64').read_text().split()),
+          }
+
+          failures = []
+          for name, encoded in mappings.items():
+              try:
+                  clean = encoded + ('=' * (-len(encoded) % 4))
+                  raw = base64.b64decode(clean, validate=False)
+                  dst = out / f'{name}.jpg'
+                  dst.write_bytes(raw)
+                  with Image.open(dst) as im:
+                      im.load()
+                      print('AJAP_FIXTURE_VALID', name, 'b64_chars=', len(encoded), 'bytes=', len(raw), 'size=', im.size, 'format=', im.format)
+              except Exception as exc:
+                  print('AJAP_FIXTURE_INVALID', name, 'b64_chars=', len(encoded), type(exc).__name__, str(exc))
+                  failures.append(name)
+          if failures:
+              raise SystemExit('INVALID_FIXTURES: ' + ', '.join(failures))
           PY
 
       - name: Run real fixture batch
@@ -90,7 +101,12 @@ jobs:
           }
           failures = []
           for name, wanted in expected.items():
-              data = json.loads(Path(f'.tmp-paddle/result-{name}.json').read_text())
+              path = Path(f'.tmp-paddle/result-{name}.json')
+              if not path.exists() or not path.read_text().strip():
+                  failures.append(f'{name}:no_output')
+                  print('AJAP_RESULT', name, 'NO_OUTPUT')
+                  continue
+              data = json.loads(path.read_text())
               got = (data.get('home_team'), data.get('home_goals'), data.get('away_goals'), data.get('away_team'))
               checks = {
                   'exact_result': got == wanted,
@@ -98,16 +114,20 @@ jobs:
                   'screen_kind_result': data.get('screen_kind') == 'result',
                   'complete': data.get('result_complete') is True,
               }
-              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
+              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'score_source=', data.get('score_source'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
               failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
 
-          safety = json.loads(Path('.tmp-paddle/result-sb_res.json').read_text())
-          safety_checks = {
-              'does_not_create_official_result': safety.get('result_complete') is False,
-              'not_classified_as_result': safety.get('screen_kind') != 'result',
-          }
-          print('AJAP_SAFETY sporting-borussia', safety_checks, 'raw=', (safety.get('home_team_raw'), safety.get('away_team_raw')))
-          failures.extend(f'safety:{key}' for key, ok in safety_checks.items() if not ok)
+          safety_path = Path('.tmp-paddle/result-sb_res.json')
+          if not safety_path.exists() or not safety_path.read_text().strip():
+              failures.append('safety:no_output')
+          else:
+              safety = json.loads(safety_path.read_text())
+              safety_checks = {
+                  'does_not_create_official_result': safety.get('result_complete') is False,
+                  'not_classified_as_result': safety.get('screen_kind') != 'result',
+              }
+              print('AJAP_SAFETY sporting-borussia', safety_checks, 'raw=', (safety.get('home_team_raw'), safety.get('away_team_raw')), 'resolved=', (safety.get('home_team'), safety.get('away_team')))
+              failures.extend(f'safety:{key}' for key, ok in safety_checks.items() if not ok)
 
           if failures:
               raise SystemExit('FAILED: ' + ', '.join(failures))
