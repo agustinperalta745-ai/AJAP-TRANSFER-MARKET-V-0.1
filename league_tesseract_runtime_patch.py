@@ -1,7 +1,9 @@
-"""Minimal local Tesseract backend for AJAP PES6 result screenshots.
+"""Fast local OCR routing for AJAP PES6 result screenshots.
 
-Live intake must be fast and deterministic. We only read fixed PES6 regions,
-never scan scorer rows, and never run a matrix of OCR modes/variants.
+RapidOCR is the reliable primary reader because it already understands full PES6
+screens, phone letterboxing and scorer tables. Tesseract remains a lightweight
+fixed-region fallback, but a Tesseract miss must never turn a clearly readable
+capture into an artificial 0% result.
 """
 from __future__ import annotations
 
@@ -19,6 +21,10 @@ import league_pes6_structured_reader_patch as structured
 
 _TESS = shutil.which("tesseract")
 _BASE_LOCAL_PAYLOAD = local._local_payload
+# The structured reader captured the original full-image RapidOCR payload before
+# installing its own fallback. Calling it directly avoids recursion back through
+# this Tesseract layer while preserving current dynamic crop/scorer helpers.
+_RAPID_LOCAL_PAYLOAD = getattr(structured, "_BASE_LOCAL_PAYLOAD", _BASE_LOCAL_PAYLOAD)
 
 
 def _box(image, frac):
@@ -49,7 +55,7 @@ def _prepared(crop, scale=3, *, binary=False):
     return gray
 
 
-def _run(image, psm, whitelist=None, timeout=2):
+def _run(image, psm, whitelist=None, timeout=1):
     if not _TESS:
         raise RuntimeError("Tesseract no está instalado en Railway")
     buf = io.BytesIO()
@@ -70,22 +76,20 @@ def _run(image, psm, whitelist=None, timeout=2):
 
 
 def _recognize_line(image, frac):
-    """Exactly one OCR process for a known one-line PES6 region."""
     try:
-        text = _run(_prepared(_box(image, frac), scale=3), 7, timeout=2)
+        text = _run(_prepared(_box(image, frac), scale=3), 7, timeout=1)
     except Exception:
         return []
     return [(text, 0.93)] if text else []
 
 
 def _digit_from_crop(image, frac):
-    """Exactly one single-character OCR pass."""
     try:
         text = _run(
             _prepared(_box(image, frac), scale=7, binary=True),
             10,
             "0123456789",
-            timeout=2,
+            timeout=1,
         )
     except Exception:
         return None, ""
@@ -102,7 +106,6 @@ def _score_side(image, side):
         if side == "home"
         else ((0.625, 0.225, 0.725, 0.360), (0.605, 0.205, 0.745, 0.385))
     )
-    # Tight crop first. Only pay for the wider crop if the tight one is blank.
     for index, frac in enumerate(boxes):
         value, text = _digit_from_crop(image, frac)
         if value is not None:
@@ -111,11 +114,10 @@ def _score_side(image, side):
 
 
 def _state(image):
-    """One OCR block contains period labels + post-match menu."""
     reads = []
     try:
         crop = _box(image, (0.18, 0.145, 0.82, 0.72))
-        text = _run(_prepared(crop, scale=2), 6, timeout=2)
+        text = _run(_prepared(crop, scale=2), 6, timeout=1)
         if text:
             reads.append((text, 0.94))
     except Exception:
@@ -136,42 +138,96 @@ def _state(image):
     return "unknown", reads
 
 
-def _no_blocking_scorer_scan(_frames, _result_index, _guild_id, _payload):
-    return [], 0.0
-
-
+# Keep the cheap fixed-region Tesseract mechanics available to the structured
+# fallback. Crucially, DO NOT replace structured._read_scorers: scorer-table
+# reading remains enabled for result+goleador uploads.
 structured._recognize_line = _recognize_line
 structured._read_score_side = _score_side
 structured._read_state = _state
-structured._read_scorers = _no_blocking_scorer_scan
 
 
-def _tesseract_first(images):
+def _confidence(payload):
+    if not isinstance(payload, dict):
+        return 0.0
     try:
-        return structured._structured_payload(images)
+        return float(payload.get("result_confidence") or payload.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _valid_result(payload):
+    return bool(
+        isinstance(payload, dict)
+        and league.parsed_score(payload)
+        and _confidence(payload) >= league.MIN_CONF
+    )
+
+
+def _append_note(payload, note):
+    if not isinstance(payload, dict):
+        return payload
+    out = dict(payload)
+    current = str(out.get("notes") or "").strip()
+    out["notes"] = (current + (" | " if current else "") + str(note))[:1000]
+    return out
+
+
+def _rapidocr_first(images):
+    """Use the full reliable reader first; Tesseract is only a second chance."""
+    rapid_payload = None
+    rapid_error = None
+    try:
+        rapid_payload = _RAPID_LOCAL_PAYLOAD(images)
+        if _valid_result(rapid_payload):
+            return rapid_payload
     except Exception as exc:
-        # Do not cascade into another expensive OCR implementation during live
-        # intake. Return a weak payload immediately; the evidence workflow sends
-        # uncertain captures to Staff instead of keeping Discord loading.
-        print(f"WARNING AJAP Tesseract MINIMAL: {type(exc).__name__}: {exc}")
-        return {
-            "kind": "unknown",
-            "match_state": "unknown",
-            "home_team": "",
-            "away_team": "",
-            "home_goals": None,
-            "away_goals": None,
-            "scorers": [],
-            "confidence": 0.0,
-            "result_confidence": 0.0,
-            "scorers_confidence": 0.0,
-            "notes": f"AJAP Tesseract minimal no concluyente: {type(exc).__name__}",
-        }
+        rapid_error = exc
+        print(f"WARNING AJAP RapidOCR primary: {type(exc).__name__}: {exc}")
+
+    tess_payload = None
+    tess_error = None
+    try:
+        tess_payload = structured._structured_payload(images)
+        if isinstance(tess_payload, dict):
+            return _append_note(tess_payload, "AJAP fallback Tesseract fixed regions")
+    except Exception as exc:
+        tess_error = exc
+        print(f"WARNING AJAP Tesseract fallback: {type(exc).__name__}: {exc}")
+
+    # If RapidOCR at least produced diagnostics/partial fields, preserve them
+    # rather than erasing everything to a synthetic 0% Tesseract payload.
+    if isinstance(rapid_payload, dict):
+        details = []
+        if tess_error is not None:
+            details.append(f"tesseract={type(tess_error).__name__}")
+        return _append_note(
+            rapid_payload,
+            "AJAP OCR fallback agotado" + ((" | " + " | ".join(details)) if details else ""),
+        )
+
+    details = []
+    if rapid_error is not None:
+        details.append(f"rapidocr={type(rapid_error).__name__}: {rapid_error}")
+    if tess_error is not None:
+        details.append(f"tesseract={type(tess_error).__name__}: {tess_error}")
+    return {
+        "kind": "unknown",
+        "match_state": "unknown",
+        "home_team": "",
+        "away_team": "",
+        "home_goals": None,
+        "away_goals": None,
+        "scorers": [],
+        "confidence": 0.0,
+        "result_confidence": 0.0,
+        "scorers_confidence": 0.0,
+        "notes": ("AJAP lectores locales no concluyentes | " + " | ".join(details))[:1000],
+    }
 
 
-local._local_payload = _tesseract_first
+local._local_payload = _rapidocr_first
 
 print(
-    "AJAP Liga: Tesseract MINIMAL primario "
-    "(pocas regiones fijas + sin fallback pesado + sin goleadores bloqueantes + cero API)"
+    "AJAP Liga: RapidOCR primario + Tesseract fallback activo "
+    "(capturas claras no caen a 0% por un fallo de Tesseract + goleadores habilitados + cero API)"
 )
