@@ -7,7 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
-      - tests/fixtures/psg_feyenoord_1_1_probe.jpg.b64
+      - tests/fixtures/teesside_zaragoza_1_6_tiny.jpg.b64
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -31,51 +31,44 @@ jobs:
           python -m pip install paddlepaddle==3.3.0
           python -m pip install -r requirements-paddle-experiment.txt
 
-      - name: Decode real AJAP PES6 fixture
+      - name: Decode Teesside Zaragoza fixture
         run: |
           mkdir -p .tmp-paddle
-          base64 --decode tests/fixtures/psg_feyenoord_1_1_probe.jpg.b64 > .tmp-paddle/psg-feyenoord-1-1.jpg
-          file .tmp-paddle/psg-feyenoord-1-1.jpg
+          base64 --decode tests/fixtures/teesside_zaragoza_1_6_tiny.jpg.b64 > .tmp-paddle/teesside-zaragoza-1-6.jpg
+          file .tmp-paddle/teesside-zaragoza-1-6.jpg
 
       - name: Run isolated PP-OCRv6 tiny probe
         env:
           PADDLE_PDX_MODEL_SOURCE: BOS
         run: |
           set +e
-          python tools/pes6_paddle_probe.py .tmp-paddle/psg-feyenoord-1-1.jpg > .tmp-paddle/result.json
+          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza-1-6.jpg > .tmp-paddle/result.json
           probe_code=$?
           set -e
           cat .tmp-paddle/result.json
           echo "probe_exit_code=$probe_code"
 
-      - name: Validate the known 1-1 fixture
+      - name: Validate stock PES6 aliases and 1-6 score
         run: |
           python - <<'PY'
           import json
-          import unicodedata
           from pathlib import Path
-
           data = json.loads(Path('.tmp-paddle/result.json').read_text())
-          def norm(value):
-              value = unicodedata.normalize('NFKD', str(value or ''))
-              value = ''.join(ch for ch in value if not unicodedata.combining(ch))
-              return value.casefold()
-
-          home = norm(data.get('home_team_raw'))
-          away = norm(data.get('away_team_raw'))
           checks = {
-              'home_has_paris': 'paris' in home,
-              'away_has_feyenoord': 'feyenoord' in away,
+              'teesside_to_middlesbrough': data.get('home_team') == 'Middlesbrough',
+              'r_zaragoza_to_real_zaragoza': data.get('away_team') == 'Real Zaragoza',
               'home_score_1': data.get('home_goals') == 1,
-              'away_score_1': data.get('away_goals') == 1,
+              'away_score_6': data.get('away_goals') == 6,
               'final_detected': data.get('is_final') is True,
+              'screen_kind_result': data.get('screen_kind') == 'result',
           }
           print('AJAP_EXPECTED_CHECKS=' + json.dumps(checks, ensure_ascii=False))
+          print('AJAP_RAW_TEAMS=' + repr((data.get('home_team_raw'), data.get('away_team_raw'))))
           print('AJAP_ELAPSED_SECONDS=' + str(data.get('elapsed_seconds')))
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
               raise SystemExit('FAILED: ' + ', '.join(failed))
-          print('AJAP_PADDLE_FIXTURE_OK')
+          print('AJAP_PADDLE_ALIAS_FIXTURE_OK')
           PY
 
       - name: Upload probe output
