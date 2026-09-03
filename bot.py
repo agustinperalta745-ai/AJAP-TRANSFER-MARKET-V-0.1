@@ -124,4 +124,8 @@ import pes_market_entry_gate_patch  # noqa: F401,E402
 # next visual row with the player-name cell blank. Recover only clear continuations.
 import league_scorer_continuation_rows_patch  # noqa: F401,E402
 
+# Operational restart marker: keep this at the entry point so a source-only
+# redeploy restarts the Discord gateway without altering any persisted AJAP data.
+AJAP_RESTART_MARKER = "2026-09-03T-emergency-restart"
+
 import run_bot  # noqa: F401,E402
