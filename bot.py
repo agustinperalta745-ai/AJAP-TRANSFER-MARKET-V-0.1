@@ -120,12 +120,15 @@ import market_access_role_patch  # noqa: F401,E402
 # active manager must have that link before entering the rest of /mercado.
 import pes_username_link_patch  # noqa: F401,E402
 import pes_market_entry_gate_patch  # noqa: F401,E402
-# Final result-reader enrichment: PES6 may continue a scorer's minutes on the
-# next visual row with the player-name cell blank. Recover only clear continuations.
+# Final result-reader enrichment: recover clearly visible PES6 scorers without
+# attributing blank-name goal rows to the player above them.
 import league_scorer_continuation_rows_patch  # noqa: F401,E402
+# OpenAI can transiently refuse a vision request (429/5xx/timeout). Retry both
+# the main result read and the dedicated scorer-detail pass before giving up.
+import league_openai_retry_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-emergency-restart"
+AJAP_RESTART_MARKER = "2026-09-03T-scorer-api-retry"
 
 import run_bot  # noqa: F401,E402
