@@ -160,6 +160,10 @@ import league_tesseract_runtime_patch  # noqa: F401,E402
 # PES6 Result screens that show the second-period row (2nd/2do) are final.
 # This also recognises the English "Result / Exit match series / Match details" UI.
 import league_pes6_second_period_final_patch  # noqa: F401,E402
+# Final team-identity safety: no loose fuzzy guess and no filling a missing side
+# merely from the Discord uploader's club. Unknown/kitserver-mismatched labels go
+# to Staff unless an exact alias/team name or linked PES username proves the side.
+import league_no_guess_team_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
@@ -173,5 +177,5 @@ import league_integrity_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + sin inventar equipos + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
 )
