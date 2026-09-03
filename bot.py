@@ -70,6 +70,7 @@ import league_channel_panel_patch  # noqa: F401,E402
 import league_result_confirmation_patch  # noqa: F401,E402
 import league_validation_admin_review_patch  # noqa: F401,E402
 import league_result_evidence_patch  # noqa: F401,E402
+import league_middlebrook_bolton_fix_patch  # noqa: F401,E402
 import league_capture_rehab_patch  # noqa: F401,E402
 import league_market_channel_exemption_patch  # noqa: F401,E402
 import guild_report_channel_bridge_patch  # noqa: F401,E402
