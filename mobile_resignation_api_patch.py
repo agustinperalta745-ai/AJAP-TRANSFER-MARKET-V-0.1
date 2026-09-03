@@ -1,8 +1,9 @@
 """Secure club resignation endpoint for AJPA Mobile.
 
-The mobile action only changes the authoritative AJPA assignment and audit trail.
-It never deletes or moves the club roster/economy. Discord-side role/nickname
-cleanup remains handled by the existing Discord resignation flow when used there.
+The mobile action changes the authoritative AJPA assignment and audit trail
+without deleting or moving the club roster/economy. It also writes a durable
+Discord outbox event in the same transaction so the bot can publish the vacancy
+after the HTTP request has finished.
 """
 
 from __future__ import annotations
@@ -26,6 +27,28 @@ def _ensure_history(conn: sqlite3.Connection) -> None:
             actor_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+        """
+    )
+
+
+def ensure_discord_outbox(conn: sqlite3.Connection) -> None:
+    """Create the durable queue used to bridge mobile resignations to Discord."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS mobile_resignation_discord_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            club TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_mobile_resignation_outbox_pending
+        ON mobile_resignation_discord_outbox(status, next_attempt_at, id);
         """
     )
 
@@ -68,6 +91,19 @@ def _resign(conn: sqlite3.Connection, session: dict) -> dict:
         """,
         (user_id, current, user_id),
     )
+
+    # Queue Discord publication in the very same DB transaction. If the API
+    # commit succeeds, the event cannot be lost just because Discord is
+    # temporarily disconnected or the public channel is unavailable.
+    ensure_discord_outbox(conn)
+    conn.execute(
+        """
+        INSERT INTO mobile_resignation_discord_outbox(user_id, club)
+        VALUES(?, ?)
+        """,
+        (user_id, current),
+    )
+
     return {
         "ok": True,
         "club": current,
