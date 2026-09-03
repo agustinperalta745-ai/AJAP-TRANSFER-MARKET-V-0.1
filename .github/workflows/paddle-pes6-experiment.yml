@@ -46,89 +46,72 @@ jobs:
             tests/fixtures/tzparts/part07a.b64 \
             tests/fixtures/tzparts/part07b.b64 \
             | tr -d '\n\r ' | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
+          for name in mbv_res sb_res ve_res; do
+            tr -d '\n\r ' < "tests/fixtures/${name}.jpg.b64" | base64 --decode > ".tmp-paddle/${name}.jpg"
+          done
           python - <<'PY'
-          import base64
-          from pathlib import Path
           from PIL import Image
-
-          src = Path('tests/fixtures/psg_feyenoord_1_1_probe.jpg.b64')
-          raw = ''.join(src.read_text().split())
-          raw += '=' * (-len(raw) % 4)
-          Path('.tmp-paddle/psg-feyenoord.jpg').write_bytes(base64.b64decode(raw, validate=False))
-
-          for p in ('.tmp-paddle/teesside-zaragoza.jpg', '.tmp-paddle/psg-feyenoord.jpg'):
+          paths = [
+              '.tmp-paddle/teesside-zaragoza.jpg',
+              '.tmp-paddle/mbv_res.jpg',
+              '.tmp-paddle/sb_res.jpg',
+              '.tmp-paddle/ve_res.jpg',
+          ]
+          for p in paths:
               im = Image.open(p)
               size = im.size
               fmt = im.format
-              im.verify()
+              im.load()
               print('AJAP_FIXTURE_VALID', p, size, fmt)
           PY
 
-      - name: Run Teesside Zaragoza probe
+      - name: Run real fixture batch
         env:
           PADDLE_PDX_MODEL_SOURCE: BOS
           PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
         run: |
           set +e
-          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza.jpg > .tmp-paddle/result-teesside.json
-          probe_code=$?
+          for item in teesside-zaragoza mbv_res ve_res sb_res; do
+            python tools/pes6_paddle_probe.py ".tmp-paddle/${item}.jpg" > ".tmp-paddle/result-${item}.json"
+            echo "AJAP_PROBE_EXIT ${item} $?"
+          done
           set -e
-          cat .tmp-paddle/result-teesside.json
-          echo "probe_exit_code=$probe_code"
 
-      - name: Validate Teesside 1-6 Zaragoza
+      - name: Validate result batch and safe rejection
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path('.tmp-paddle/result-teesside.json').read_text())
-          checks = {
-              'teesside_to_middlesbrough': data.get('home_team') == 'Middlesbrough',
-              'r_zaragoza_to_real_zaragoza': data.get('away_team') == 'Real Zaragoza',
-              'home_score_1': data.get('home_goals') == 1,
-              'away_score_6': data.get('away_goals') == 6,
-              'final_detected': data.get('is_final') is True,
-              'screen_kind_result': data.get('screen_kind') == 'result',
-          }
-          print('AJAP_TEESSIDE_CHECKS=' + json.dumps(checks, ensure_ascii=False))
-          failed = [name for name, ok in checks.items() if not ok]
-          if failed:
-              raise SystemExit('FAILED: ' + ', '.join(failed))
-          print('AJAP_TEESSIDE_OK')
-          PY
 
-      - name: Run PSG Feyenoord probe
-        env:
-          PADDLE_PDX_MODEL_SOURCE: BOS
-          PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
-        run: |
-          set +e
-          python tools/pes6_paddle_probe.py .tmp-paddle/psg-feyenoord.jpg > .tmp-paddle/result-psg.json
-          probe_code=$?
-          set -e
-          cat .tmp-paddle/result-psg.json
-          echo "probe_exit_code=$probe_code"
-
-      - name: Validate PSG 1-1 Feyenoord
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path('.tmp-paddle/result-psg.json').read_text())
-          checks = {
-              'psg': data.get('home_team') == 'París Saint-Germain (PSG)',
-              'feyenoord': data.get('away_team') == 'Feyenoord',
-              'home_score_1': data.get('home_goals') == 1,
-              'away_score_1': data.get('away_goals') == 1,
-              'final_detected': data.get('is_final') is True,
-              'screen_kind_result': data.get('screen_kind') == 'result',
+          expected = {
+              'teesside-zaragoza': ('Middlesbrough', 1, 6, 'Real Zaragoza'),
+              'mbv_res': ('Manchester City', 1, 0, 'Villarreal'),
+              've_res': ('Villarreal', 3, 1, 'West Ham United'),
           }
-          print('AJAP_PSG_CHECKS=' + json.dumps(checks, ensure_ascii=False))
-          print('AJAP_PSG_RAW=' + repr((data.get('home_team_raw'), data.get('away_team_raw'), data.get('state_raw'))))
-          failed = [name for name, ok in checks.items() if not ok]
-          if failed:
-              raise SystemExit('FAILED: ' + ', '.join(failed))
-          print('AJAP_PSG_OK')
+          failures = []
+          for name, wanted in expected.items():
+              data = json.loads(Path(f'.tmp-paddle/result-{name}.json').read_text())
+              got = (data.get('home_team'), data.get('home_goals'), data.get('away_goals'), data.get('away_team'))
+              checks = {
+                  'exact_result': got == wanted,
+                  'final': data.get('is_final') is True,
+                  'screen_kind_result': data.get('screen_kind') == 'result',
+                  'complete': data.get('result_complete') is True,
+              }
+              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
+              failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
+
+          safety = json.loads(Path('.tmp-paddle/result-sb_res.json').read_text())
+          safety_checks = {
+              'does_not_create_official_result': safety.get('result_complete') is False,
+              'not_classified_as_result': safety.get('screen_kind') != 'result',
+          }
+          print('AJAP_SAFETY sporting-borussia', safety_checks, 'raw=', (safety.get('home_team_raw'), safety.get('away_team_raw')))
+          failures.extend(f'safety:{key}' for key, ok in safety_checks.items() if not ok)
+
+          if failures:
+              raise SystemExit('FAILED: ' + ', '.join(failures))
+          print('AJAP_PADDLE_BATCH_OK')
           PY
 
       - name: Upload probe outputs
