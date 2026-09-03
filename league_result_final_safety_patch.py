@@ -154,6 +154,7 @@ pes_links.analyze_with_pes_links = _analyze_local_only
 # payload function used by the analyzer above; persistence/duplicate/season logic
 # remains unchanged.
 import league_pes6_structured_reader_patch  # noqa: F401,E402
+import league_pes6_score_geometry_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
