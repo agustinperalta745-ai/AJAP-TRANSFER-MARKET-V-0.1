@@ -1,4 +1,20 @@
-"""Use free local Tesseract as the OCR backend for AJAP's structured PES6 reader."""
+"""Fast local Tesseract backend for AJAP's structured PES6 result reader.
+
+The previous implementation spawned Tesseract many times for every crop (several
+pre-processing variants x several PSM modes) and then scanned dozens of scorer
+rows before returning the match.  A single screenshot could therefore launch
+hundreds of subprocesses, making result intake slow and also increasing the
+chance of contradictory OCR guesses.
+
+This version keeps the same fixed PES6 geometry and validation rules, but:
+- uses one primary OCR pass per known text region, with one fallback only if blank;
+- reads score digits from two tight crops per side instead of dozens of votes;
+- reads the post-match menu in one block, with one header fallback;
+- does NOT block the official result on scorer-table OCR. Missing scorers stay in
+  AJAP's existing Staff completion flow instead of delaying/corrupting the score.
+
+No external API is used.
+"""
 from __future__ import annotations
 
 import io
@@ -16,133 +32,203 @@ import league_pes6_structured_reader_patch as structured
 
 _TESS = shutil.which("tesseract")
 _BASE_LOCAL_PAYLOAD = local._local_payload
+_BASE_READ_SCORERS = structured._read_scorers
 
 
 def _box(image, frac):
     x0, y0, x1, y1 = frac
     w, h = image.size
     return image.crop((
-        max(0, int(w*x0)), max(0, int(h*y0)),
-        min(w, max(1, int(w*x1))), min(h, max(1, int(h*y1))),
+        max(0, int(w * x0)), max(0, int(h * y0)),
+        min(w, max(1, int(w * x1))), min(h, max(1, int(h * y1))),
     ))
 
 
-def _variants(crop, scale=3):
-    raw = crop.resize((max(1, crop.width*scale), max(1, crop.height*scale)), Image.Resampling.LANCZOS)
-    raw = ImageOps.autocontrast(raw)
-    gray = ImageOps.grayscale(raw)
-    gray = ImageEnhance.Contrast(gray).enhance(1.45)
-    gray = gray.filter(ImageFilter.UnsharpMask(radius=1.0, percent=150, threshold=2))
-    out = [raw, gray]
-    try:
-        import cv2
-        arr = np.asarray(gray)
-        th = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        out.append(Image.fromarray(th))
-    except Exception:
-        pass
-    return out
+def _prepared(crop, scale=3, *, binary=False):
+    """One stable high-contrast image instead of a large variant matrix."""
+    target = crop.resize(
+        (max(1, crop.width * int(scale)), max(1, crop.height * int(scale))),
+        Image.Resampling.LANCZOS,
+    )
+    gray = ImageOps.grayscale(ImageOps.autocontrast(target))
+    gray = ImageEnhance.Contrast(gray).enhance(1.55)
+    gray = gray.filter(ImageFilter.UnsharpMask(radius=1.0, percent=155, threshold=2))
+    if binary:
+        try:
+            import cv2
+            arr = np.asarray(gray)
+            arr = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            return Image.fromarray(arr)
+        except Exception:
+            pass
+    return gray
 
 
-def _run(image, psm, whitelist=None):
+def _run(image, psm, whitelist=None, timeout=4):
     if not _TESS:
         raise RuntimeError("Tesseract no está instalado en Railway")
-    buf = io.BytesIO(); image.save(buf, format="PNG")
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
     cmd = [_TESS, "stdin", "stdout", "-l", "eng", "--psm", str(int(psm))]
     if whitelist:
         cmd += ["-c", f"tessedit_char_whitelist={whitelist}"]
-    proc = subprocess.run(cmd, input=buf.getvalue(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
+    proc = subprocess.run(
+        cmd,
+        input=buf.getvalue(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=max(1, int(timeout)),
+    )
     if proc.returncode:
         raise RuntimeError(proc.stderr.decode("utf-8", "replace")[:250])
-    return proc.stdout.decode("utf-8", "replace").strip()
+    return re.sub(r"[ \t]+", " ", proc.stdout.decode("utf-8", "replace")).strip()
 
 
 def _recognize_line(image, frac):
-    """Same interface as the old RapidOCR region reader: [(text, confidence), ...]."""
+    """Fast fixed-region OCR. Normally one Tesseract process, at most two."""
     crop = _box(image, frac)
-    seen = []
-    for variant in _variants(crop, scale=3):
-        for psm in (6, 7, 11, 12, 13):
-            try:
-                text = _run(variant, psm)
-            except Exception:
-                continue
-            text = re.sub(r"[ \t]+", " ", str(text or "")).strip()
-            if text and text not in seen:
-                seen.append(text)
-    # Match confidence is established later against official teams/rosters. This
-    # value only says the local OCR returned a concrete string from a fixed region.
-    return [(text, 0.92) for text in seen]
+    reads = []
+
+    try:
+        text = _run(_prepared(crop, scale=3), 7)
+        if text:
+            reads.append(text)
+    except Exception:
+        pass
+
+    # Only pay for a second process when the first pass returned nothing.
+    if not reads:
+        try:
+            text = _run(_prepared(crop, scale=3, binary=True), 6)
+            if text:
+                reads.append(text)
+        except Exception:
+            pass
+
+    return [(text, 0.93) for text in reads]
 
 
-def _digit_votes(image, side):
-    boxes = (
-        ((0.295,0.245,0.355,0.350),(0.285,0.235,0.365,0.360),(0.275,0.225,0.375,0.370))
-        if side == "home" else
-        ((0.635,0.245,0.715,0.350),(0.625,0.235,0.725,0.360),(0.615,0.225,0.735,0.370))
-    )
-    votes, raw = [], []
-    for frac in boxes:
-        crop = _box(image, frac)
-        for variant in _variants(crop, scale=8):
-            for psm in (6, 7, 10, 13):
-                try:
-                    text = _run(variant, psm, "0123456789")
-                except Exception:
-                    continue
-                if text: raw.append(text)
-                nums = re.findall(r"\d{1,2}", text or "")
-                if nums:
-                    value = int(nums[0])
-                    if 0 <= value <= 20: votes.append(value)
-    if not votes:
-        return None
-    value, count = Counter(votes).most_common(1)[0]
-    return value, (0.96 if count >= 2 else 0.88), " / ".join(raw[:6])
+def _digit_from_crop(image, frac):
+    crop = _box(image, frac)
+    texts = []
+    # PSM 10 is specifically for one character and is much more stable for the
+    # two large PES6 score digits than multi-mode voting.
+    for binary in (True, False):
+        try:
+            text = _run(
+                _prepared(crop, scale=7, binary=binary),
+                10,
+                "0123456789",
+                timeout=3,
+            )
+        except Exception:
+            continue
+        if text:
+            texts.append(text)
+        nums = re.findall(r"\d{1,2}", text or "")
+        if nums:
+            value = int(nums[0])
+            if 0 <= value <= 20:
+                return value, text
+        # Do not run the second variant when the first one already produced a
+        # non-empty but unusable string; wider fallback crops handle that case.
+        if text:
+            break
+    return None, " / ".join(texts[:2])
 
 
 def _score_side(image, side):
-    return _digit_votes(image, side)
+    # First crop is tight around the large final digit. Second is a modest safety
+    # margin for different resolutions/letterbox crops. No broad OCR voting.
+    boxes = (
+        ((0.275, 0.225, 0.375, 0.360), (0.255, 0.205, 0.395, 0.385))
+        if side == "home"
+        else ((0.625, 0.225, 0.725, 0.360), (0.605, 0.205, 0.745, 0.385))
+    )
+    values = []
+    raw = []
+    for frac in boxes:
+        value, text = _digit_from_crop(image, frac)
+        if text:
+            raw.append(text)
+        if value is not None:
+            values.append(value)
+            # A clean tight-crop read is enough. The second crop is only a
+            # consistency check and must never outvote a valid first digit.
+            if len(values) == 1 and frac == boxes[0]:
+                continue
+    if not values:
+        return None
+    value = values[0]
+    agree = sum(1 for item in values if item == value)
+    conf = 0.97 if agree >= 2 else 0.91
+    return value, conf, " / ".join(raw[:3])
 
 
 def _state(image):
     reads = []
-    # Header + post-match menu. Tesseract can tolerate the translucent PES UI.
-    for frac in (
-        (0.30,0.035,0.70,0.155),
-        (0.20,0.39,0.82,0.72),
-    ):
-        reads.extend(_recognize_line(image, frac))
-    text = " ".join(x[0] for x in reads)
-    key = league.norm(text)
-    if any(x in key for x in ("entretiempo","medio tiempo","half time","primer tiempo","1er tiempo")):
+    # One block for the post-match menu is faster and more reliable than five
+    # separate line subprocesses.
+    menu_frac = (0.20, 0.39, 0.82, 0.72)
+    try:
+        crop = _box(image, menu_frac)
+        text = _run(_prepared(crop, scale=3), 6)
+        if text:
+            reads.append((text, 0.94))
+    except Exception:
+        pass
+
+    key = league.norm(" ".join(x[0] for x in reads))
+    if any(x in key for x in (
+        "entretiempo", "medio tiempo", "half time", "primer tiempo", "1er tiempo"
+    )):
         return "partial", reads
-    if (
-        ("resultado" in key and ("terminar" in key or "detalles del partido" in key or "jugar otro" in key))
-        or "terminar juego" in key
-        or "resultado final" in key
-        or "fin del partido" in key
-    ):
+    if any(x in key for x in (
+        "resultado", "terminar juego", "jugar otro partido",
+        "detalles del partido", "fin del partido", "match details",
+        "exit match series", "result",
+    )):
+        return "final", reads
+
+    # Small header fallback only when the menu did not prove state.
+    try:
+        crop = _box(image, (0.30, 0.035, 0.70, 0.155))
+        text = _run(_prepared(crop, scale=3), 7)
+        if text:
+            reads.append((text, 0.92))
+    except Exception:
+        pass
+    key = league.norm(" ".join(x[0] for x in reads))
+    if any(x in key for x in ("resultado", "result", "fin del partido")):
         return "final", reads
     return "unknown", reads
 
 
-# Replace only OCR mechanics. Team aliases, PES username linking, roster matching,
-# official-score ceilings and persistence remain the existing AJAP logic.
+def _no_blocking_scorer_scan(_frames, _result_index, _guild_id, _payload):
+    """Result correctness/latency wins; Staff completion handles missing scorers."""
+    return [], 0.0
+
+
+# Replace only OCR mechanics. Team aliases, linked PES usernames, strict team
+# identity, official-score ceilings and persistence remain the existing AJAP logic.
 structured._recognize_line = _recognize_line
 structured._read_score_side = _score_side
 structured._read_state = _state
+structured._read_scorers = _no_blocking_scorer_scan
 
 
 def _tesseract_first(images):
     try:
         return structured._structured_payload(images)
     except Exception as exc:
-        print(f"WARNING AJAP Tesseract -> lector legado: {type(exc).__name__}: {exc}")
+        # Legacy full-image OCR is now a real fallback, never the first gate.
+        print(f"WARNING AJAP Tesseract FAST -> lector legado: {type(exc).__name__}: {exc}")
         return _BASE_LOCAL_PAYLOAD(images)
 
 
-# Important: do not make a failed RapidOCR detector the first gate anymore.
 local._local_payload = _tesseract_first
 
-print("AJAP Liga: Tesseract local PRIMARIO en lector PES6 estructurado (cero API)")
+print(
+    "AJAP Liga: Tesseract FAST primario "
+    "(regiones fijas + score directo + sin barrido bloqueante de goleadores + cero API)"
+)
