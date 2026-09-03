@@ -152,11 +152,13 @@ pes_links.analyze_with_pes_links = _analyze_local_only
 
 # Install the deterministic PES6 region reader last. It only replaces the local
 # payload function used by the analyzer above; persistence/duplicate/season logic
-# remains unchanged.
+# remains unchanged. Tesseract then replaces only the OCR mechanics of that
+# structured reader, keeping all AJAP validation rules intact.
 import league_pes6_structured_reader_patch  # noqa: F401,E402
 import league_pes6_score_geometry_patch  # noqa: F401,E402
+import league_tesseract_runtime_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + lector PES6 estructurado + cero fallback OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + cero fallback OpenAI)"
 )
