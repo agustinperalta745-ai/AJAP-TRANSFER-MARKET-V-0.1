@@ -61,4 +61,8 @@ def _local_state(pages):
 structured._read_state = _structured_state
 local._match_state = _local_state
 
-print("AJAP Liga: 2nd/2do visible => FINAL sin OCR adicional")
+# Install after the Tesseract runtime layer: clear single-result screenshots get
+# a four-call bounded proof before the heavier RapidOCR/structured fallback.
+import league_fast_single_result_patch  # noqa: F401,E402
+
+print("AJAP Liga: 2nd/2do visible => FINAL sin OCR adicional + fast result reader")
