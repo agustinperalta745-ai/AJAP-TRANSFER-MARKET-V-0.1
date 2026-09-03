@@ -1,27 +1,54 @@
-"""Keep new result intake responsive by disabling the historical OCR sweep on startup.
+"""Keep live AJAP result intake responsive while rescuing the newest failed upload.
 
-The old pending-review recovery listener can scan up to 250 historical screenshots
-on every bot restart. Each screenshot invokes local OCR, so during deploy/restart it
-can consume CPU for minutes and make a brand-new result look like it is stuck.
+The old recovery listener could OCR up to 250 historical pending screenshots on
+startup. That competed with new uploads and made Discord look frozen.
 
-Historical recovery remains available explicitly through the audit/review tools;
-it must not compete with live result uploads.
+New rule:
+- on startup, retry ONLY the newest pending result once;
+- never sweep the historical backlog automatically;
+- audits/manual review remain responsible for older pending captures.
 """
 from __future__ import annotations
 
+import league_automation_patch as league
 import league_pending_review_reprocess_patch as pending
 
 
-def _disabled_install(runtime, bot):
-    # Mark the bot so any repeated wrapper call is also a no-op.
+_ORIGINAL_INSTALL = pending.install_pending_review_reprocess
+
+
+def _latest_pending_row(runtime, guild_id: int):
+    pending.evidence._ensure_schema(runtime, guild_id)
+    pending.strict._ensure_schema(runtime, guild_id)
+    conn = league.db(runtime, guild_id)
     try:
-        bot._ajap_pending_review_reprocess_listener = True
-    except Exception:
-        pass
-    print("AJAP Liga: barrido OCR histórico al iniciar DESACTIVADO; prioridad a resultados nuevos")
+        return conn.execute(
+            """
+            SELECT r.source_message_id, r.source_channel_id,
+                   r.staff_channel_id, r.staff_message_id, r.reason
+            FROM league_manual_reviews r
+            LEFT JOIN league_matches m
+              ON m.source_message_id = r.source_message_id
+            WHERE UPPER(COALESCE(r.status, 'PENDIENTE'))='PENDIENTE'
+              AND m.source_message_id IS NULL
+            ORDER BY datetime(r.created_at) DESC, r.source_message_id DESC
+            LIMIT 1
+            """
+        ).fetchall()
+    finally:
+        conn.close()
 
 
-# The Bot.run wrapper in league_pending_review_reprocess_patch resolves this global
-# function at runtime, so replacing it here (before run_bot starts Discord) prevents
-# the expensive on_ready sweep from being installed at all.
-pending.install_pending_review_reprocess = _disabled_install
+def _install_latest_only(runtime, bot):
+    # pending._retry_guild resolves _pending_rows dynamically, so constraining
+    # this selector to one row preserves all existing duplicate/persistence
+    # safety while removing the expensive 250-image startup sweep.
+    pending._pending_rows = _latest_pending_row
+    _ORIGINAL_INSTALL(runtime, bot)
+    print(
+        "AJAP Liga: recuperación al iniciar limitada a la ÚLTIMA captura pendiente "
+        "(1 solo reintento; sin barrido histórico)"
+    )
+
+
+pending.install_pending_review_reprocess = _install_latest_only
