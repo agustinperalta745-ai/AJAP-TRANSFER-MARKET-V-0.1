@@ -11,9 +11,11 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 import league_automation_patch as league
+import league_local_ocr_patch as local
 import league_pes6_structured_reader_patch as structured
 
 _TESS = shutil.which("tesseract")
+_BASE_LOCAL_PAYLOAD = local._local_payload
 
 
 def _box(image, frac):
@@ -131,4 +133,16 @@ structured._recognize_line = _recognize_line
 structured._read_score_side = _score_side
 structured._read_state = _state
 
-print("AJAP Liga: Tesseract local activo en lector PES6 estructurado (cero API)")
+
+def _tesseract_first(images):
+    try:
+        return structured._structured_payload(images)
+    except Exception as exc:
+        print(f"WARNING AJAP Tesseract -> lector legado: {type(exc).__name__}: {exc}")
+        return _BASE_LOCAL_PAYLOAD(images)
+
+
+# Important: do not make a failed RapidOCR detector the first gate anymore.
+local._local_payload = _tesseract_first
+
+print("AJAP Liga: Tesseract local PRIMARIO en lector PES6 estructurado (cero API)")
