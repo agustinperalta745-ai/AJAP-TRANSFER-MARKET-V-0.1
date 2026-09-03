@@ -70,7 +70,8 @@ import league_channel_panel_patch  # noqa: F401,E402
 import league_result_confirmation_patch  # noqa: F401,E402
 import league_validation_admin_review_patch  # noqa: F401,E402
 import league_result_evidence_patch  # noqa: F401,E402
-import league_middlebrook_bolton_fix_patch  # noqa: F401,E402
+# Historical Zaragoza/Bolton corrections are score/date bounded. Future team
+# identity is resolved through linked PES usernames, not a permanent Middlesbrough rewrite.
 import league_zaragoza_bolton_history_fix_patch  # noqa: F401,E402
 import league_capture_rehab_patch  # noqa: F401,E402
 import league_market_channel_exemption_patch  # noqa: F401,E402
@@ -115,7 +116,9 @@ import player_release_patch  # noqa: F401,E402
 import release_button_visual_patch  # noqa: F401,E402
 import market_access_role_patch  # noqa: F401,E402
 
-# Final layer: manager PES identity wins over in-game/unlicensed club-name OCR.
+# Final identity layers: PES username wins over the in-game club label, and every
+# active manager must have that link before entering the rest of /mercado.
 import pes_username_link_patch  # noqa: F401,E402
+import pes_market_entry_gate_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
