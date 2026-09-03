@@ -1,5 +1,8 @@
 # Isolated PES6 OCR experiment only. Production requirements.txt is untouched.
--r requirements.txt
+# Keep this environment intentionally small so we can measure whether PaddleOCR
+# is realistic on a CPU service similar to Railway.
+Pillow>=10.4.0,<13.0.0
+numpy>=1.26.0,<3.0.0
 paddleocr==3.7.0
-# PaddlePaddle CPU 3.3.0 must be installed from its official CPU index on Linux:
-# python -m pip install paddlepaddle==3.3.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
+# PaddlePaddle itself is installed separately by the experiment workflow:
+# python -m pip install paddlepaddle==3.3.0
