@@ -173,9 +173,12 @@ import league_top5_overtake_radio_patch  # noqa: F401,E402
 # Persistence bridge: the same Top 5 event must also fire when a result becomes
 # official later through evidence buttons, rival confirmation or Staff review.
 import league_top5_persistence_bridge_patch  # noqa: F401,E402
+# One-time end-to-end test: on the next ready event publish the current Top 5
+# snapshot to Radio Pasillo without modifying any league data.
+import league_top5_snapshot_test_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-persistence-bridge"
+AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-current-snapshot-test"
 
 import run_bot  # noqa: F401,E402
