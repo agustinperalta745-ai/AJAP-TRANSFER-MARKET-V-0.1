@@ -1,0 +1,5 @@
+# Isolated PES6 OCR experiment only. Production requirements.txt is untouched.
+-r requirements.txt
+paddleocr==3.7.0
+# PaddlePaddle CPU 3.3.0 must be installed from its official CPU index on Linux:
+# python -m pip install paddlepaddle==3.3.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/
