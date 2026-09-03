@@ -89,8 +89,6 @@ def _canonical_team(text: str):
         return exact[key]
     if key in ALIASES:
         return ALIASES[key]
-    # OCR regions can contain extra text. First accept only a known literal
-    # team/alias appearing as a complete normalized phrase.
     padded = f" {key} "
     candidates = []
     for alias, team in known.items():
@@ -99,9 +97,7 @@ def _canonical_team(text: str):
     if candidates:
         return max(candidates)[1]
 
-    # PES6 banners are a closed vocabulary. Allow a conservative OCR repair
-    # only for aliases >= 6 chars, with a high unique similarity. This handles
-    # glyph swaps such as Zaragoza -> Zara8oza without fuzzy-inventing clubs.
+    # Closed PES6 vocabulary: tolerate only a high, unique OCR similarity.
     fuzzy = []
     for alias, team in known.items():
         if len(alias) < 6:
@@ -212,25 +208,25 @@ def _read_region(ocr, crop: Image.Image, label: str) -> dict:
     return {"texts": [x for x in texts if x], "scores": scores, "text": " | ".join(x for x in texts if x)}
 
 
-def _read_recognition(recognizer, crop: Image.Image, label: str) -> dict:
-    """Recognition-only path for already-isolated score glyphs."""
-    with tempfile.TemporaryDirectory(prefix="ajap_paddle_rec_") as tmp:
-        path = Path(tmp) / f"{label}.png"
-        crop.save(path)
-        texts, scores = [], []
-        for res in recognizer.predict(input=str(path), batch_size=1):
-            t, s = _result_payload(res)
-            texts.extend(t); scores.extend(s)
-    return {"texts": [x for x in texts if x], "scores": scores, "text": " | ".join(x for x in texts if x)}
-
-
 def _parse_digit(text: str):
     vals = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or "")) if 0 <= int(x) <= 20]
     return vals[0] if len(vals) == 1 else None
 
 
+def _state_score_tail(texts):
+    """Last two clean numeric OCR tokens before the PES6 result menu."""
+    nums = []
+    for raw in texts or []:
+        value = str(raw or "").strip()
+        if re.fullmatch(r"\d{1,2}", value):
+            number = int(value)
+            if 0 <= number <= 20:
+                nums.append(number)
+    return tuple(nums[-2:]) if len(nums) >= 2 else None
+
+
 def probe(image_path: Path) -> dict:
-    from paddleocr import PaddleOCR, TextRecognition
+    from paddleocr import PaddleOCR
     image = Image.open(image_path).convert("RGB")
     frame = _crop_phone_letterbox(image)
     started = time.perf_counter()
@@ -244,28 +240,52 @@ def probe(image_path: Path) -> dict:
         enable_mkldnn=False,
         device="cpu",
     )
-    digit_recognizer = TextRecognition(
-        model_name="PP-OCRv6_tiny_rec",
-        enable_mkldnn=False,
-        device="cpu",
-    )
+
     reads = {}
-    for name, frac in REGIONS.items():
-        prepared = _prepare(_crop(frame, frac), digit=name.endswith("_score"))
-        if name.endswith("_score"):
-            reads[name] = _read_recognition(digit_recognizer, prepared, name)
-        else:
-            reads[name] = _read_region(ocr, prepared, name)
+    for name in ("home_team", "away_team", "home_score", "away_score", "result_state"):
+        frac = REGIONS[name]
+        reads[name] = _read_region(ocr, _prepare(_crop(frame, frac), digit=name.endswith("_score")), name)
 
     result_key = _norm(reads["result_state"]["text"])
-    scorer_key = _norm(reads["scorer_header"]["text"])
     is_final = any(_norm(marker) in result_key for marker in FINAL_MARKERS)
-    is_scorers = any(_norm(marker) in scorer_key for marker in SCORER_MARKERS)
     home = _canonical_team(reads["home_team"]["text"])
     away = _canonical_team(reads["away_team"]["text"])
     hg = _parse_digit(reads["home_score"]["text"])
     ag = _parse_digit(reads["away_score"]["text"])
+
+    score_tail = _state_score_tail(reads["result_state"]["texts"])
+    score_source = "regions"
+    if score_tail is not None and (hg is None or ag is None):
+        tail_h, tail_a = score_tail
+        checks = []
+        if hg is not None:
+            checks.append(hg == tail_h)
+        if ag is not None:
+            checks.append(ag == tail_a)
+        # Fill a missing side only when at least one isolated score crop proves
+        # the corresponding tail pair. If neither crop reads, remain unknown.
+        if checks and all(checks):
+            hg = tail_h if hg is None else hg
+            ag = tail_a if ag is None else ag
+            score_source = "cross_checked_state_tail"
+
     result_complete = bool(home and away and home != away and hg is not None and ag is not None and is_final)
+
+    # Do not scan scorer tables on a valid result screen. This keeps the live
+    # route bounded. Scorer OCR is only attempted when result parsing did not
+    # complete and the scorer header itself is detected.
+    reads["scorer_header"] = {"texts": [], "scores": [], "text": ""}
+    reads["scorer_left"] = {"texts": [], "scores": [], "text": ""}
+    reads["scorer_right"] = {"texts": [], "scores": [], "text": ""}
+    is_scorers = False
+    if not result_complete:
+        reads["scorer_header"] = _read_region(ocr, _prepare(_crop(frame, REGIONS["scorer_header"])), "scorer_header")
+        scorer_key = _norm(reads["scorer_header"]["text"])
+        is_scorers = any(_norm(marker) in scorer_key for marker in SCORER_MARKERS)
+        if is_scorers:
+            for name in ("scorer_left", "scorer_right"):
+                reads[name] = _read_region(ocr, _prepare(_crop(frame, REGIONS[name])), name)
+
     screen_kind = "result" if result_complete else ("scorers" if is_scorers else "unknown")
     return {
         "source": str(image_path),
@@ -278,6 +298,8 @@ def probe(image_path: Path) -> dict:
         "away_team": away,
         "home_goals": hg,
         "away_goals": ag,
+        "score_tail": list(score_tail) if score_tail else None,
+        "score_source": score_source,
         "is_final": is_final,
         "is_scorers": is_scorers,
         "scorer_left_raw": reads["scorer_left"]["texts"],
