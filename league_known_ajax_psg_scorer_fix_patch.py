@@ -16,6 +16,11 @@ The official score is never modified.
 
 from __future__ import annotations
 
+# Must load after league_authoritative_audit_reconcile_patch and before run_bot
+# installs the guild wrappers. This retargets the one-time audit to the same live
+# guild used by AJPA Mobile and makes the GES cleanup verifiable.
+import league_authoritative_audit_target_fix_patch  # noqa: F401
+
 import guild_isolation_patch as guild_isolation
 import league_automation_patch as league
 import league_ges_scorer_details_patch as ges_details
