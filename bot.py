@@ -170,9 +170,12 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 # league result. Only real overtakes within positions 1-5 create a post, with
 # team emojis and a locally-rendered Top 5 image.
 import league_top5_overtake_radio_patch  # noqa: F401,E402
+# Persistence bridge: the same Top 5 event must also fire when a result becomes
+# official later through evidence buttons, rival confirmation or Staff review.
+import league_top5_persistence_bridge_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-overtakes"
+AJAP_RESTART_MARKER = "2026-09-03T-top5-radio-persistence-bridge"
 
 import run_bot  # noqa: F401,E402
