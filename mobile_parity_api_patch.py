@@ -1,8 +1,4 @@
-"""Extra endpoints used by the mobile Discord-parity screens.
-
-Keeps public Liga/history reads read-only and exposes only narrowly scoped Staff
-operations behind the same paired mobile session used by the market API.
-"""
+"""Extra endpoints used by the mobile Discord-parity screens."""
 
 from __future__ import annotations
 
@@ -22,17 +18,14 @@ def league_payload(conn: sqlite3.Connection) -> dict:
     tables = _tables(conn)
     teams = list(mobile_read_api._live_mobile_club_names(conn))
     table = {team: {"team": team, "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "dg": 0, "pts": 0} for team in teams}
-
     active_competition = None
-    match_where = ""
-    match_params: tuple = ()
+    match_where, match_params = "", ()
     if "competition_cycle_state" in tables:
         state = conn.execute("SELECT phase, competition_id FROM competition_cycle_state WHERE id=1 LIMIT 1").fetchone()
         if state and str(state["phase"] or "") in {"preseason", "season", "cup"} and state["competition_id"] is not None:
             active_competition = int(state["competition_id"])
             if "league_matches" in tables and "competition_id" in mobile_read_api._columns(conn, "league_matches"):
                 match_where, match_params = " WHERE competition_id=?", (active_competition,)
-
     result_cards = []
     if "league_matches" in tables:
         cols = mobile_read_api._columns(conn, "league_matches")
@@ -50,11 +43,9 @@ def league_payload(conn: sqlite3.Connection) -> dict:
             if hg > ag: home["pg"] += 1; away["pp"] += 1; home["pts"] += 3
             elif ag > hg: away["pg"] += 1; home["pp"] += 1; away["pts"] += 3
             else: home["pe"] += 1; away["pe"] += 1; home["pts"] += 1; away["pts"] += 1
-
     standings = list(table.values())
     for row in standings: row["dg"] = int(row["gf"]) - int(row["gc"])
     standings.sort(key=lambda row: (-int(row["pts"]), -int(row["dg"]), -int(row["gf"]), -int(row["pg"]), str(row["team"]).casefold()))
-
     scorers = []
     if "league_goal_events" in tables:
         goal_where, goal_params = "", ()
@@ -62,7 +53,6 @@ def league_payload(conn: sqlite3.Connection) -> dict:
             goal_where, goal_params = " WHERE competition_id=?", (active_competition,)
         rows = conn.execute("SELECT player, team, SUM(goals) AS goals FROM league_goal_events" + goal_where + " GROUP BY player COLLATE NOCASE, COALESCE(team, '') COLLATE NOCASE ORDER BY goals DESC, player COLLATE NOCASE ASC LIMIT 50", goal_params).fetchall()
         scorers = [{"player": str(row["player"]), "team": str(row["team"] or ""), "goals": int(row["goals"] or 0)} for row in rows if str(row["player"] or "").strip()]
-
     return {"standings": standings, "scorers": scorers, "result_cards": result_cards, "matches": result_cards}
 
 
