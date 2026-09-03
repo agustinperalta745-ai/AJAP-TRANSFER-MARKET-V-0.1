@@ -126,9 +126,12 @@ import league_scorer_continuation_rows_patch  # noqa: F401,E402
 # OpenAI can transiently refuse a vision request (429/5xx/timeout). Retry both
 # the main result read and the dedicated scorer-detail pass before giving up.
 import league_openai_retry_patch  # noqa: F401,E402
+# One-time, tightly bounded correction for the Ajax 2-2 PSG capture reported on
+# 2026-09-03: Babel x2 / Pauleta x2. Never changes the official score.
+import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-scorer-api-retry"
+AJAP_RESTART_MARKER = "2026-09-03T-ajax-psg-scorer-fix"
 
 import run_bot  # noqa: F401,E402
