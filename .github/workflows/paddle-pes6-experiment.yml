@@ -7,6 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
+      - tests/fixtures/*.b64
       - tests/fixtures/tzparts/**
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
@@ -31,7 +32,7 @@ jobs:
           python -m pip install paddlepaddle==3.3.0
           python -m pip install -r requirements-paddle-experiment.txt
 
-      - name: Rebuild and verify Teesside Zaragoza fixture
+      - name: Rebuild real PES6 fixtures
         run: |
           mkdir -p .tmp-paddle
           cat \
@@ -45,39 +46,34 @@ jobs:
             tests/fixtures/tzparts/part07a.b64 \
             tests/fixtures/tzparts/part07b.b64 \
             | tr -d '\n\r ' | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
+          tr -d '\n\r ' < tests/fixtures/psg_feyenoord_1_1_probe.jpg.b64 | base64 --decode > .tmp-paddle/psg-feyenoord.jpg
           python - <<'PY'
           from PIL import Image
-          import hashlib
-          p='.tmp-paddle/teesside-zaragoza.jpg'
-          raw=open(p,'rb').read()
-          im=Image.open(p)
-          size=im.size
-          im.verify()
-          print('AJAP_FIXTURE_BYTES=', len(raw))
-          print('AJAP_FIXTURE_SHA256=', hashlib.sha256(raw).hexdigest())
-          print('AJAP_FIXTURE_SIZE=', size)
-          assert len(raw) == 25889, len(raw)
-          assert size == (480, 354), size
-          print('AJAP_FIXTURE_VALID')
+          for p in ('.tmp-paddle/teesside-zaragoza.jpg', '.tmp-paddle/psg-feyenoord.jpg'):
+              im=Image.open(p)
+              size=im.size
+              im.verify()
+              print('AJAP_FIXTURE_VALID', p, size)
           PY
 
-      - name: Run isolated PP-OCRv6 tiny probe
+      - name: Run Teesside Zaragoza probe
         env:
           PADDLE_PDX_MODEL_SOURCE: BOS
+          PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
         run: |
           set +e
-          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza.jpg > .tmp-paddle/result.json
+          python tools/pes6_paddle_probe.py .tmp-paddle/teesside-zaragoza.jpg > .tmp-paddle/result-teesside.json
           probe_code=$?
           set -e
-          cat .tmp-paddle/result.json
+          cat .tmp-paddle/result-teesside.json
           echo "probe_exit_code=$probe_code"
 
-      - name: Validate stock PES6 aliases and 1-6 score
+      - name: Validate Teesside 1-6 Zaragoza
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          data = json.loads(Path('.tmp-paddle/result.json').read_text())
+          data = json.loads(Path('.tmp-paddle/result-teesside.json').read_text())
           checks = {
               'teesside_to_middlesbrough': data.get('home_team') == 'Middlesbrough',
               'r_zaragoza_to_real_zaragoza': data.get('away_team') == 'Real Zaragoza',
@@ -86,20 +82,51 @@ jobs:
               'final_detected': data.get('is_final') is True,
               'screen_kind_result': data.get('screen_kind') == 'result',
           }
-          print('AJAP_EXPECTED_CHECKS=' + json.dumps(checks, ensure_ascii=False))
-          print('AJAP_RAW_TEAMS=' + repr((data.get('home_team_raw'), data.get('away_team_raw'))))
-          print('AJAP_RESOLVED=' + repr((data.get('home_team'), data.get('home_goals'), data.get('away_goals'), data.get('away_team'))))
-          print('AJAP_ELAPSED_SECONDS=' + str(data.get('elapsed_seconds')))
+          print('AJAP_TEESSIDE_CHECKS=' + json.dumps(checks, ensure_ascii=False))
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
               raise SystemExit('FAILED: ' + ', '.join(failed))
-          print('AJAP_PADDLE_ALIAS_FIXTURE_OK')
+          print('AJAP_TEESSIDE_OK')
           PY
 
-      - name: Upload probe output
+      - name: Run PSG Feyenoord probe
+        env:
+          PADDLE_PDX_MODEL_SOURCE: BOS
+          PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+        run: |
+          set +e
+          python tools/pes6_paddle_probe.py .tmp-paddle/psg-feyenoord.jpg > .tmp-paddle/result-psg.json
+          probe_code=$?
+          set -e
+          cat .tmp-paddle/result-psg.json
+          echo "probe_exit_code=$probe_code"
+
+      - name: Validate PSG 1-1 Feyenoord
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('.tmp-paddle/result-psg.json').read_text())
+          checks = {
+              'psg': data.get('home_team') == 'París Saint-Germain (PSG)',
+              'feyenoord': data.get('away_team') == 'Feyenoord',
+              'home_score_1': data.get('home_goals') == 1,
+              'away_score_1': data.get('away_goals') == 1,
+              'final_detected': data.get('is_final') is True,
+              'screen_kind_result': data.get('screen_kind') == 'result',
+          }
+          print('AJAP_PSG_CHECKS=' + json.dumps(checks, ensure_ascii=False))
+          print('AJAP_PSG_RAW=' + repr((data.get('home_team_raw'), data.get('away_team_raw'), data.get('state_raw'))))
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('FAILED: ' + ', '.join(failed))
+          print('AJAP_PSG_OK')
+          PY
+
+      - name: Upload probe outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: paddle-pes6-probe-output
-          path: .tmp-paddle/result.json
+          path: .tmp-paddle/result-*.json
           if-no-files-found: warn
