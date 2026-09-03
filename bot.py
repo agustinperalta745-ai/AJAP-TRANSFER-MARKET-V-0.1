@@ -129,15 +129,19 @@ import league_openai_retry_patch  # noqa: F401,E402
 # A clear score must stay automatic even if player names are uncertain. The
 # result-only rescue validates teams/score separately and scorer OCR is optional.
 import league_result_autonomy_patch  # noqa: F401,E402
-# Free local OCR is the final reader: Railway/ONNX handles screenshots without a
-# paid API. OpenAI fallback is opt-in only via AJAP_VISION_ALLOW_PAID_FALLBACK=1.
+# Free local OCR is the first reader: Railway/ONNX handles screenshots locally.
 import league_local_ocr_patch  # noqa: F401,E402
 # Normalize full-phone screenshots before OCR so the PES frame is large enough
 # and username/team/score coordinates are measured against the game image.
 import league_phone_screenshot_crop_patch  # noqa: F401,E402
-# Final reliability layer: official teams + numeric PES score are sufficient to
-# leave Staff review; scorer OCR is recovered independently against real rosters.
+# Official teams + numeric PES score are sufficient to accept a structurally
+# valid result, while scorer OCR remains independent.
 import league_result_acceptance_guard_patch  # noqa: F401,E402
+# Combine photo geometry, team text, uploader club and linked PES username.
+import league_multisignal_result_patch  # noqa: F401,E402
+# Final runtime reliability: local/multisignal first, automatic OpenAI rescue on
+# failure/weak reads, and concrete exception diagnostics instead of generic errors.
+import league_runtime_result_rescue_patch  # noqa: F401,E402
 # Re-run unresolved historical review cards once per restart through the newest
 # reader so already-posted captures/results/goleadores are recovered automatically.
 import league_pending_review_reprocess_patch  # noqa: F401,E402
@@ -150,6 +154,6 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-result-recovery-reprocess"
+AJAP_RESTART_MARKER = "2026-09-03T-runtime-result-rescue"
 
 import run_bot  # noqa: F401,E402
