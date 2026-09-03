@@ -7,7 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
-      - tests/fixtures/tzparts/part01.b64
+      - tests/fixtures/tzparts/**
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -31,20 +31,35 @@ jobs:
           python -m pip install paddlepaddle==3.3.0
           python -m pip install -r requirements-paddle-experiment.txt
 
-      - name: Decode and verify Teesside Zaragoza fixture
+      - name: Rebuild and verify Teesside Zaragoza fixture
         run: |
           mkdir -p .tmp-paddle
-          tr -d '\n\r ' < tests/fixtures/tzparts/part01.b64 | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
+          cat \
+            tests/fixtures/tzparts/part01.b64 \
+            tests/fixtures/tzparts/part02.b64 \
+            tests/fixtures/tzparts/part03.b64 \
+            tests/fixtures/tzparts/part04.b64 \
+            tests/fixtures/tzparts/part05a.b64 \
+            tests/fixtures/tzparts/part05b.b64 \
+            tests/fixtures/tzparts/part06.b64 \
+            tests/fixtures/tzparts/part07a.b64 \
+            tests/fixtures/tzparts/part07b.b64 \
+            | tr -d '\n\r ' | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
           python - <<'PY'
           from PIL import Image
           import hashlib
           p='.tmp-paddle/teesside-zaragoza.jpg'
           raw=open(p,'rb').read()
-          print('AJAP_FIXTURE_BYTES=', len(raw))
-          print('AJAP_FIXTURE_SHA256=', hashlib.sha256(raw).hexdigest())
+          digest=hashlib.sha256(raw).hexdigest()
           im=Image.open(p)
-          print('AJAP_FIXTURE_SIZE=', im.size)
+          size=im.size
           im.verify()
+          print('AJAP_FIXTURE_BYTES=', len(raw))
+          print('AJAP_FIXTURE_SHA256=', digest)
+          print('AJAP_FIXTURE_SIZE=', size)
+          assert len(raw) == 25889, len(raw)
+          assert digest == 'b652a70fe2393362d55cb11cb30ef3b602b10da34bf3da22c3b25371bf80899', digest
+          assert size == (480, 354), size
           print('AJAP_FIXTURE_VALID')
           PY
 
