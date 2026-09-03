@@ -1,20 +1,19 @@
-"""Repair PES 6 scorer tables where a player's minutes continue on blank-name rows.
+"""PES 6 scorer-detail guard: unnamed goals stay unattributed.
 
-PES 6 can wrap one scorer across multiple visual rows. Example::
+League truth and player-scorer truth are intentionally separate:
+- the official PES score is authoritative for the match, standings and team stats;
+- a goal is credited to an individual player only when that player's name is
+  actually visible/readable in the scorer evidence;
+- a blank-name row is NEVER inherited by the player above it. Its goal still
+  exists in the match score, but it creates no ``league_goal_events`` player row.
 
-    Hamann   6'  41'
-             43' 79'
+This layer keeps a narrow high-detail scorer pass for cases where the primary
+vision pass missed a genuinely readable player name. It can enrich named scorer
+metadata, but it can never alter the result or fill missing goals by inference.
 
-The second row has no player name, but it is still Hamann. The normal vision
-reader can miss that relationship and persist only two of the four goals.
-
-This final layer does two things:
-- for future screenshots, when identified scorer goals do not cover the final
-  score, run a narrow second vision pass focused only on the scorer table and
-  continuation rows; never invent a name merely to make totals match;
-- repair the already-loaded West Ham 0-6 Manchester City example shown by the
-  league owner, but only when its persisted scorer pattern is exactly the known
-  partial reading (Samaras 1, Hamann 2, Vassel 1). The repair is idempotent.
+It also reverses the one historical West Ham 0-6 Manchester City backfill from
+an earlier rule that incorrectly changed Hamann 2 -> 4. The rollback is tightly
+bounded to that exact match/date/scorer state and is idempotent.
 """
 
 from __future__ import annotations
@@ -74,6 +73,12 @@ def _current_scorer_totals(payload):
 
 
 def _needs_repair(payload):
+    """Try a detail pass when named goals do not cover the official score.
+
+    A shortfall is not itself an error: it can simply mean that PES displayed
+    one or more goals with no readable player name. The extra pass only tries to
+    recover names that are genuinely visible at higher detail.
+    """
     if not isinstance(payload, dict):
         return False
     limits = _score_limits(payload)
@@ -87,7 +92,7 @@ def _needs_repair(payload):
 
 
 def _repair_vision_sync(images, payload):
-    """Second, scorer-only vision pass. It cannot change the match result."""
+    """Second scorer-only vision pass. It cannot change the match result."""
     api_key = league.os.getenv("OPENAI_API_KEY")
     if not api_key:
         return None
@@ -106,24 +111,30 @@ HOME = {home}, goles HOME = {hg}
 AWAY = {away}, goles AWAY = {ag}
 
 Devolvé SOLO JSON válido, sin markdown:
-{{"scorers":[{{"player":"","side":"home|away","goals":1}}],"confidence":0.0,"continuation_rows":false,"notes":""}}
+{{"scorers":[{{"player":"","side":"home|away","goals":1}}],"confidence":0.0,"unnamed_home":0,"unnamed_away":0,"notes":""}}
 
-REGLA CRÍTICA DE PES 6 SOBRE FILAS CONTINUADAS:
-- La pantalla de Goleador puede mostrar un jugador en una fila y continuar sus minutos en la fila inmediatamente inferior dejando VACÍA la celda del nombre.
-- Esa fila vacía NO es un goleador desconocido: si está visualmente dentro de la misma columna/equipo y continúa inmediatamente debajo del jugador, sus minutos pertenecen al ÚLTIMO JUGADOR CON NOMBRE que aparece arriba en esa misma columna.
-- Ejemplo inequívoco: `Hamann | 6' 41'` y justo debajo `         | 43' 79'` significa Hamann x4.
-- Contá CADA minuto visible como un gol del jugador correspondiente, incluso cuando los minutos están repartidos en dos filas visuales.
-- Aplicá la continuidad solamente cuando la relación visual sea clara: misma columna de equipo, fila consecutiva y celda de jugador realmente vacía. Si hay duda, NO asignes esos goles.
+REGLA CRÍTICA — GOLES SIN NOMBRE:
+- Si una fila/minuto de gol aparece SIN nombre de jugador, ese gol cuenta para el MARCADOR DEL EQUIPO, pero NO se asocia a ningún jugador.
+- NUNCA heredes el nombre del jugador de la fila anterior, aunque la fila vacía esté inmediatamente debajo o alineada en la misma columna.
+- NUNCA supongas que una fila vacía es una continuación del jugador superior.
+- NUNCA inventes un nombre para hacer coincidir la suma de goleadores con el marcador.
+- Los goles sin nombre NO deben aparecer dentro de `scorers`.
+- Contalos solamente en `unnamed_home` o `unnamed_away` como dato de auditoría.
+
+Ejemplo:
+`Hamann | 6' 41'` y debajo `        | 43' 79'` significa:
+- Hamann = 2 goles identificados.
+- 2 goles adicionales del equipo = sin autor identificado.
+- El marcador del equipo puede ser 4, pero Hamann NO pasa a tener 4.
 
 Reglas adicionales:
-- Leé todos los goleadores visibles, no solo la fila continuada.
-- `side=home` corresponde a la columna/equipo HOME; `side=away` a AWAY.
-- Consolidá a un mismo jugador en una sola entrada con el total de minutos/goles visibles.
-- La suma de los goleadores de un lado NO puede superar {hg} para home ni {ag} para away.
-- No inventes nombres para completar el marcador. Si la captura no identifica quién hizo un gol, simplemente dejalo fuera.
-- No uses conocimiento externo de fútbol ni de plantillas.
-- `continuation_rows=true` solo si realmente detectaste al menos una fila sin nombre que continúa al jugador superior.
-- confidence mide la certeza de esta lectura específica de goleadores.
+- Incluí en `scorers` solamente nombres que sean realmente visibles y legibles en la captura.
+- `side=home` corresponde a HOME y `side=away` a AWAY.
+- Consolidá un mismo jugador en una sola entrada si su NOMBRE sí aparece en varias filas.
+- La suma de goleadores identificados de un lado NO puede superar {hg} para home ni {ag} para away.
+- No uses conocimiento externo de fútbol ni de plantillas para completar nombres.
+- Si hay duda sobre un nombre, dejá ese gol sin atribuir.
+- confidence mide la certeza de esta lectura específica de los NOMBRES visibles.
 """
 
     content = [{"type": "input_text", "text": prompt}]
@@ -157,7 +168,7 @@ Reglas adicionales:
             response = json.loads(res.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:400]
-        raise RuntimeError(f"OpenAI scorer repair HTTP {exc.code}: {detail}") from exc
+        raise RuntimeError(f"OpenAI scorer detail HTTP {exc.code}: {detail}") from exc
 
     text = league.response_text(response)
     if not text:
@@ -171,6 +182,7 @@ Reglas adicionales:
 
 
 def _merge_repair(payload, repair):
+    """Merge only positively named scorer evidence; preserve existing names."""
     if not isinstance(repair, dict):
         return payload
     try:
@@ -184,9 +196,31 @@ def _merge_repair(payload, repair):
     if not limits:
         return payload
 
-    # Aggregate the targeted pass by player + side. Use the largest count when
-    # the model accidentally emits the same player twice; never add duplicates.
     merged = {}
+
+    # Start from the primary pass so the detail pass can never erase an already
+    # identified scorer merely because it omitted that player on retry.
+    for item in payload.get("scorers") or []:
+        if not isinstance(item, dict):
+            continue
+        side = _canonical_side_for_team(payload, item.get("team"))
+        player = str(item.get("player") or "").strip()
+        if side not in {"home", "away"} or not player:
+            continue
+        try:
+            goals = int(item.get("goals") or 1)
+        except (TypeError, ValueError):
+            continue
+        if not (1 <= goals <= 30):
+            continue
+        key = (league.norm(player), side)
+        if key[0]:
+            merged[key] = {"player": player[:100], "side": side, "goals": goals}
+
+    current_totals = _current_scorer_totals(payload)
+
+    # Add/improve only rows with an explicit player name returned by the focused
+    # pass. Blank/unknown rows are intentionally ignored here.
     for item in repair.get("scorers") or []:
         if not isinstance(item, dict):
             continue
@@ -204,26 +238,21 @@ def _merge_repair(payload, repair):
         if not key[0]:
             continue
         prior = merged.get(key)
-        if prior is None or goals > prior["goals"]:
+        if prior is None or goals > int(prior["goals"]):
             merged[key] = {"player": player[:100], "side": side, "goals": goals}
-
-    if not merged:
-        return payload
 
     repaired_totals = {"home": 0, "away": 0}
     for item in merged.values():
         repaired_totals[item["side"]] += int(item["goals"])
+
     if any(repaired_totals[side] > limits[side] for side in ("home", "away")):
         return payload
 
-    current_totals = _current_scorer_totals(payload)
     current_known = sum(min(current_totals[s], limits[s]) for s in ("home", "away"))
     repaired_known = sum(repaired_totals.values())
     if repaired_known <= current_known:
         return payload
 
-    # A second pass is allowed to improve only scorer detail. Team/result/PES-user
-    # identity remains exactly as resolved by the primary pipeline.
     repaired_items = []
     for item in merged.values():
         team = payload.get("home_team") if item["side"] == "home" else payload.get("away_team")
@@ -235,13 +264,18 @@ def _merge_repair(payload, repair):
     out["scorers"] = repaired_items
     if str(out.get("kind") or "").casefold() == "result":
         out["kind"] = "both"
-    out["scorer_continuation_repair"] = bool(repair.get("continuation_rows"))
+    out["scorer_detail_repair"] = True
     out["scorer_repair_confidence"] = confidence
+    try:
+        out["unnamed_home"] = max(0, int(repair.get("unnamed_home") or 0))
+        out["unnamed_away"] = max(0, int(repair.get("unnamed_away") or 0))
+    except (TypeError, ValueError):
+        pass
     notes = str(out.get("notes") or "").strip()
     audit = (
-        "AJAP scorer repair: "
-        f"home {current_totals['home']}->{repaired_totals['home']}, "
-        f"away {current_totals['away']}->{repaired_totals['away']}"
+        "AJAP scorer detail: "
+        f"home identificados {current_totals['home']}->{repaired_totals['home']}/{limits['home']}, "
+        f"away identificados {current_totals['away']}->{repaired_totals['away']}/{limits['away']}"
     )
     out["notes"] = (notes + (" | " if notes else "") + audit)[:1000]
     return out
@@ -252,7 +286,7 @@ def _install_future_repair(runtime):
     if getattr(current, "_ajap_pes_scorer_continuation", False):
         return
 
-    async def analyze_with_scorer_continuations(images):
+    async def analyze_with_named_scorer_guard(images):
         payload = await current(images)
         if not _needs_repair(payload):
             return payload
@@ -260,15 +294,16 @@ def _install_future_repair(runtime):
             repair = await league.asyncio.to_thread(_repair_vision_sync, images, payload)
             return _merge_repair(payload, repair)
         except Exception as exc:
-            # The scorer pass is enrichment only. Never reject an otherwise valid
-            # result because this extra pass failed.
-            print(f"WARNING AJAP scorer continuation repair: {type(exc).__name__}: {exc}")
+            # Scorer detail is enrichment only. The official result remains valid
+            # even when one or more goals have no identified author.
+            print(f"WARNING AJAP scorer detail pass: {type(exc).__name__}: {exc}")
             return payload
 
-    analyze_with_scorer_continuations.__name__ = getattr(current, "__name__", "analyze")
-    analyze_with_scorer_continuations._ajap_pes_scorer_continuation = True
-    analyze_with_scorer_continuations._ajap_pes_scorer_continuation_base = current
-    league.analyze = analyze_with_scorer_continuations
+    analyze_with_named_scorer_guard.__name__ = getattr(current, "__name__", "analyze")
+    # Keep the historical marker name so repeated installs remain idempotent.
+    analyze_with_named_scorer_guard._ajap_pes_scorer_continuation = True
+    analyze_with_named_scorer_guard._ajap_pes_scorer_continuation_base = current
+    league.analyze = analyze_with_named_scorer_guard
 
 
 def _surname_key(player):
@@ -279,8 +314,8 @@ def _surname_key(player):
     return value
 
 
-def _repair_known_city_match(runtime, guild_id: int):
-    """Repair only the exact persisted pattern proven by the supplied screenshot."""
+def _undo_wrong_city_backfill(runtime, guild_id: int):
+    """Undo only the exact Hamann 2->4 attribution introduced by prior code."""
     conn = league.db(runtime, int(guild_id))
     changed = 0
     try:
@@ -327,25 +362,28 @@ def _repair_known_city_match(runtime, guild_id: int):
                 ids.setdefault(key, []).append((int(row["id"]), goals))
                 total_city += goals
 
-            # Exact before-state from the screenshot/current GES card. If any
-            # other scorer exists, or somebody already edited the data, do nothing.
-            if total_city != 4 or totals != {"samaras": 1, "hamann": 2, "vassel": 1}:
+            # Exact erroneous after-state created by the previous deployment.
+            # Legitimate data with any other pattern is left untouched.
+            if total_city != 6 or totals != {"samaras": 1, "hamann": 4, "vassel": 1}:
                 continue
 
             hamann_rows = ids.get("hamann") or []
             if not hamann_rows:
                 continue
             first_id, first_goals = hamann_rows[0]
+            if first_goals < 3:
+                continue
+
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 "UPDATE league_goal_events SET goals=? WHERE id=?",
-                (int(first_goals) + 2, int(first_id)),
+                (int(first_goals) - 2, int(first_id)),
             )
             conn.commit()
             changed += 1
             print(
-                "AJAP scorer backfill: West Ham 0-6 Manchester City "
-                f"source={source_id} • Hamann 2->4"
+                "AJAP scorer correction: West Ham 0-6 Manchester City "
+                f"source={source_id} • Hamann 4->2 • 2 goles quedan sin autor"
             )
     except Exception:
         try:
@@ -359,7 +397,6 @@ def _repair_known_city_match(runtime, guild_id: int):
 
 
 async def _refresh_optional_ges_cards(runtime, bot):
-    """Refresh existing GES cards only when that optional patch is already loaded."""
     details = sys.modules.get("league_ges_scorer_details_patch")
     if details is None:
         return
@@ -373,23 +410,23 @@ async def _refresh_optional_ges_cards(runtime, bot):
             details.BOT = bot
         await refresher()
     except Exception as exc:
-        print(f"WARNING AJAP scorer backfill GES refresh: {type(exc).__name__}: {exc}")
+        print(f"WARNING AJAP scorer correction GES refresh: {type(exc).__name__}: {exc}")
 
 
-async def _repair_known_city_on_ready():
+async def _undo_wrong_city_on_ready():
     if APP is None or BOT is None:
         return
     any_changed = False
     for guild in list(BOT.guilds):
         try:
-            changed = _repair_known_city_match(APP, guild.id)
+            changed = _undo_wrong_city_backfill(APP, guild.id)
             if not changed:
                 continue
             any_changed = True
             await league.refresh(APP, BOT, guild.id)
         except Exception as exc:
             print(
-                f"WARNING AJAP scorer backfill guild={getattr(guild, 'id', '?')}: "
+                f"WARNING AJAP scorer correction guild={getattr(guild, 'id', '?')}: "
                 f"{type(exc).__name__}: {exc}"
             )
     if any_changed:
@@ -404,12 +441,12 @@ def _install(runtime, bot):
 
     _install_future_repair(runtime)
     if not getattr(bot, "_ajap_scorer_continuation_backfill_listener", False):
-        bot.add_listener(_repair_known_city_on_ready, "on_ready")
+        bot.add_listener(_undo_wrong_city_on_ready, "on_ready")
         bot._ajap_scorer_continuation_backfill_listener = True
 
     runtime._ajap_scorer_continuation_rows_patch = True
     print(
-        "AJAP goleadores PES6: filas continuadas activas + backfill seguro City 0-6"
+        "AJAP goleadores PES6: goles sin nombre cuentan al marcador pero no a jugadores"
     )
 
 
