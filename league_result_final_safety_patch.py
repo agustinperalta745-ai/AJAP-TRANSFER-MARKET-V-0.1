@@ -160,8 +160,12 @@ import league_tesseract_runtime_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
+# Staff can audit the entire historical Results channel oldest-to-newest without
+# changing official matches, and bulk-complete missing scorer attribution from
+# cards that already include the original screenshot.
+import league_historical_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + pendientes de goleadores + cero OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + auditoría histórica + pendientes de goleadores + cero OpenAI)"
 )
