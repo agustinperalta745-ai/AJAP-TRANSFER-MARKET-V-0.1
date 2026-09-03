@@ -11,6 +11,7 @@ import re
 import tempfile
 import time
 import unicodedata
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import numpy as np
@@ -83,18 +84,38 @@ def _canonical_team(text: str):
     if not key:
         return None
     exact = {_norm(team): team for team in OFFICIAL_TEAMS}
+    known = {**exact, **ALIASES}
     if key in exact:
         return exact[key]
     if key in ALIASES:
         return ALIASES[key]
-    # OCR regions can contain Resultado/user text. Only accept a known literal
-    # team/alias appearing as a complete normalized phrase; never fuzzy-invent.
+    # OCR regions can contain extra text. First accept only a known literal
+    # team/alias appearing as a complete normalized phrase.
     padded = f" {key} "
     candidates = []
-    for alias, team in {**exact, **ALIASES}.items():
+    for alias, team in known.items():
         if f" {alias} " in padded:
             candidates.append((len(alias), team))
-    return max(candidates)[1] if candidates else None
+    if candidates:
+        return max(candidates)[1]
+
+    # PES6 banners are a closed vocabulary. Allow a conservative OCR repair
+    # only for aliases >= 6 chars, with a high unique similarity. This handles
+    # glyph swaps such as Zaragoza -> Zara8oza without fuzzy-inventing clubs.
+    fuzzy = []
+    for alias, team in known.items():
+        if len(alias) < 6:
+            continue
+        score = SequenceMatcher(None, key, alias).ratio()
+        fuzzy.append((score, alias, team))
+    fuzzy.sort(reverse=True)
+    if fuzzy and fuzzy[0][0] >= 0.88:
+        best_score, _, best_team = fuzzy[0]
+        second = fuzzy[1] if len(fuzzy) > 1 else None
+        second_score = second[0] if second and second[2] != best_team else 0.0
+        if best_score - second_score >= 0.06:
+            return best_team
+    return None
 
 
 def _merge_regions(indices, max_gap: int):
@@ -147,7 +168,7 @@ def _prepare(crop: Image.Image, *, digit=False) -> Image.Image:
     target = crop.resize((max(1, crop.width*scale), max(1, crop.height*scale)), Image.Resampling.BICUBIC if digit else Image.Resampling.LANCZOS)
     if digit:
         gray = ImageOps.autocontrast(ImageOps.grayscale(target))
-        return ImageEnhance.Contrast(gray).enhance(1.45).convert("RGB")
+        return ImageEnhance.Contrast(gray).enhance(1.30).convert("RGB")
     return ImageOps.autocontrast(target.convert("RGB"))
 
 
@@ -173,8 +194,10 @@ def _result_payload(res):
             try: scores = [float(x) for x in list(scores)] if scores is not None else []
             except Exception: scores = []
             return texts, scores
-        if inner.get("rec_text"):
-            return [str(inner["rec_text"]).strip()], [float(inner.get("rec_score") or 0.0)]
+        if inner.get("rec_text") is not None:
+            text = str(inner.get("rec_text") or "").strip()
+            score = float(inner.get("rec_score") or 0.0)
+            return ([text] if text else []), [score]
     return [], []
 
 
@@ -189,13 +212,25 @@ def _read_region(ocr, crop: Image.Image, label: str) -> dict:
     return {"texts": [x for x in texts if x], "scores": scores, "text": " | ".join(x for x in texts if x)}
 
 
+def _read_recognition(recognizer, crop: Image.Image, label: str) -> dict:
+    """Recognition-only path for already-isolated score glyphs."""
+    with tempfile.TemporaryDirectory(prefix="ajap_paddle_rec_") as tmp:
+        path = Path(tmp) / f"{label}.png"
+        crop.save(path)
+        texts, scores = [], []
+        for res in recognizer.predict(input=str(path), batch_size=1):
+            t, s = _result_payload(res)
+            texts.extend(t); scores.extend(s)
+    return {"texts": [x for x in texts if x], "scores": scores, "text": " | ".join(x for x in texts if x)}
+
+
 def _parse_digit(text: str):
     vals = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or "")) if 0 <= int(x) <= 20]
     return vals[0] if len(vals) == 1 else None
 
 
 def probe(image_path: Path) -> dict:
-    from paddleocr import PaddleOCR
+    from paddleocr import PaddleOCR, TextRecognition
     image = Image.open(image_path).convert("RGB")
     frame = _crop_phone_letterbox(image)
     started = time.perf_counter()
@@ -209,9 +244,18 @@ def probe(image_path: Path) -> dict:
         enable_mkldnn=False,
         device="cpu",
     )
+    digit_recognizer = TextRecognition(
+        model_name="PP-OCRv6_tiny_rec",
+        enable_mkldnn=False,
+        device="cpu",
+    )
     reads = {}
     for name, frac in REGIONS.items():
-        reads[name] = _read_region(ocr, _prepare(_crop(frame, frac), digit=name.endswith("_score")), name)
+        prepared = _prepare(_crop(frame, frac), digit=name.endswith("_score"))
+        if name.endswith("_score"):
+            reads[name] = _read_recognition(digit_recognizer, prepared, name)
+        else:
+            reads[name] = _read_region(ocr, prepared, name)
 
     result_key = _norm(reads["result_state"]["text"])
     scorer_key = _norm(reads["scorer_header"]["text"])
