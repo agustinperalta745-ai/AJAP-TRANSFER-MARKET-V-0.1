@@ -167,6 +167,10 @@ import league_no_guess_team_patch  # noqa: F401,E402
 # If the official result is loaded but OCR misses one or more player names, Staff
 # gets an explicit persistent card showing exactly how many goals remain to assign.
 import league_scorer_pending_patch  # noqa: F401,E402
+# One-time authoritative correction for the latest bad automatic read. It rewrites
+# every persisted source representation from Feyenoord 2-2 Tottenham to the
+# user-confirmed Feyenoord 1-1 Real Zaragoza and removes untrusted scorer rows.
+import league_feyenoord_zaragoza_result_fix_patch  # noqa: F401,E402
 # Staff can audit the entire historical Results channel oldest-to-newest without
 # changing official matches, and bulk-complete missing scorer attribution from
 # cards that already include the original screenshot.
@@ -177,5 +181,5 @@ import league_integrity_audit_patch  # noqa: F401,E402
 
 print(
     "AJAP Liga: seguridad final LOCAL-ONLY activa "
-    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + sin inventar equipos + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
+    "(rehab no borra oficiales + Tesseract PES6 + 2nd=final + sin inventar equipos + corrección Feyenoord/Zaragoza + auditoría histórica/integridad + pendientes de goleadores + cero OpenAI)"
 )
