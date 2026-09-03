@@ -33,7 +33,7 @@ def _ensure_history(conn: sqlite3.Connection) -> None:
 
 def ensure_discord_outbox(conn: sqlite3.Connection) -> None:
     """Create the durable queue used to bridge mobile resignations to Discord."""
-    conn.executescript(
+    conn.execute(
         """
         CREATE TABLE IF NOT EXISTS mobile_resignation_discord_outbox (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,10 +45,13 @@ def ensure_discord_outbox(conn: sqlite3.Connection) -> None:
             next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             processed_at DATETIME
-        );
-
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_mobile_resignation_outbox_pending
-        ON mobile_resignation_discord_outbox(status, next_attempt_at, id);
+        ON mobile_resignation_discord_outbox(status, next_attempt_at, id)
         """
     )
 
