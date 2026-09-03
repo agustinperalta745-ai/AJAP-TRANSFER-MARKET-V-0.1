@@ -135,6 +135,9 @@ import league_local_ocr_patch  # noqa: F401,E402
 # Normalize full-phone screenshots before OCR so the PES frame is large enough
 # and username/team/score coordinates are measured against the game image.
 import league_phone_screenshot_crop_patch  # noqa: F401,E402
+# Final reliability layer: official teams + numeric PES score are sufficient to
+# leave Staff review; scorer OCR is recovered independently against real rosters.
+import league_result_acceptance_guard_patch  # noqa: F401,E402
 # One-time, tightly bounded correction for the Ajax 2-2 PSG capture reported on
 # 2026-09-03: Babel x2 / Pauleta x2. Never changes the official score.
 import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
@@ -144,6 +147,6 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-phone-result-crop-fix"
+AJAP_RESTART_MARKER = "2026-09-03T-structural-result-acceptance"
 
 import run_bot  # noqa: F401,E402
