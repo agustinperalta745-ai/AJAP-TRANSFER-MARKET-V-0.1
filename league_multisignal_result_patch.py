@@ -49,7 +49,6 @@ def _score_from_page_big_digits(rows):
     w = float(rows[0].get("w") or 1.0)
     h = float(rows[0].get("h") or 1.0)
 
-    # Combined score OCR remains strongest when available.
     combined = []
     for row in rows:
         text = str(row.get("text") or "")
@@ -62,7 +61,7 @@ def _score_from_page_big_digits(rows):
         xn = float(row.get("x") or 0) / w
         yn = float(row.get("y") or 0) / h
         if 0.18 <= xn <= 0.82 and 0.12 <= yn <= 0.62:
-            bw, bh = _bbox_size(row)
+            _bw, bh = _bbox_size(row)
             combined.append((float(row.get("conf") or 0), bh / h, hg, ag))
     if combined:
         combined.sort(reverse=True)
@@ -101,21 +100,18 @@ def _score_from_page_big_digits(rows):
                 continue
             if abs(left["yn"] - right["yn"]) > 0.07:
                 continue
-            # Full-time digits are visibly larger than the 1er/2do cells. Box
-            # height is therefore the strongest discriminator.
             size = min(left["bh"], right["bh"])
             symmetry = 1.0 - min(1.0, abs((0.5-left["xn"]) - (right["xn"]-0.5)) * 2.5)
             y_pref = 1.0 - min(1.0, abs(((left["yn"]+right["yn"])/2.0) - 0.30) * 2.5)
-            score = size * 10.0 + left["conf"] + right["conf"] + symmetry * 0.35 + y_pref * 0.25
-            if score > best_score:
-                best_score = score
+            pair_score = size * 10.0 + left["conf"] + right["conf"] + symmetry * 0.35 + y_pref * 0.25
+            if pair_score > best_score:
+                best_score = pair_score
                 best = (left["value"], right["value"], min(left["conf"], right["conf"]))
     if best:
         return best[0], best[1], max(0.88, best[2])
     return None
 
 
-# Improve score selection globally for the local reader.
 local._score_from_page = _score_from_page_big_digits
 
 
@@ -123,8 +119,6 @@ def _team_from_display_name(display):
     key = league.norm(display)
     if not key:
         return None
-    # Nicknames are normally "usuario | Equipo". Prefer exact suffix/contained
-    # official names; aliases are only a fallback.
     ranked = []
     for team in league.TEAMS:
         t = league.norm(team)
@@ -228,8 +222,6 @@ def _username_side(pages, username):
             seen = True
             xn = float(row.get("x") or 0) / w
             yn = float(row.get("y") or 0) / h
-            # Only the top player panel proves side. Chat lines still prove that
-            # the linked PES identity is present, but not which side it belongs to.
             if yn <= 0.30:
                 side = "home" if xn < 0.47 else "away" if xn > 0.53 else None
                 if side and (best is None or ratio > best[0]):
@@ -242,9 +234,6 @@ def _resolve_links_without_zeroing(runtime, guild_id, payload):
     out = _BASE_RESOLVE_LINKS(runtime, guild_id, payload)
     if not isinstance(out, dict):
         return out
-    # Old code intentionally set global confidence=0 when a linked username was
-    # visible but side-ambiguous. That is too destructive: retain the ambiguity
-    # flag for audit, but let team/score evidence decide result validity.
     if out.get("pes_link_ambiguous") and not out.get("pes_link_applied"):
         try:
             prior = float(before.get("result_confidence") or before.get("confidence") or 0.0)
@@ -278,7 +267,6 @@ def _complete_from_context(images, payload):
     home = league.canonical_team(out.get("home_team"))
     away = league.canonical_team(out.get("away_team"))
 
-    # Strongest visible official team on each side.
     side_best = {}
     for item in occurrences:
         side = item["side"]
@@ -291,26 +279,16 @@ def _complete_from_context(images, payload):
     if not away and "away" in side_best:
         away = side_best["away"]["team"]
 
-    # Exact linked username in the top player panel is authoritative.
     if author_club and author_side == "home":
         home = author_club
     elif author_club and author_side == "away":
         away = author_club
 
-    # If one side is visible and differs from the uploader's official club, the
-    # uploader supplies the missing side. This is the common rescue for a team
-    # label OCR miss while preserving score orientation.
     if author_club:
         if home and not away and home != author_club:
             away = author_club
         elif away and not home and away != author_club:
             home = author_club
-
-        # A linked PES username visibly present anywhere is enough to establish
-        # that the uploader's AJAP identity belongs to this screenshot. When two
-        # in-game labels were read but neither is the uploader's current club,
-        # replace only a side explicitly indicated by the top panel; otherwise do
-        # not guess.
         if author_username_seen and author_side == "home":
             home = author_club
         elif author_username_seen and author_side == "away":
@@ -321,8 +299,6 @@ def _complete_from_context(images, payload):
     if away in league.TEAMS:
         out["away_team"] = away
 
-    # Re-read the score with the large-digit selector even if the earlier pass
-    # chose a 1er/2do cell or failed to find a pair.
     preferred_page = None
     if "home" in side_best and "away" in side_best and side_best["home"]["page"] == side_best["away"]["page"]:
         preferred_page = side_best["home"]["page"]
@@ -354,9 +330,6 @@ def _complete_from_context(images, payload):
             sources.append("score-geometry")
         if state in {"final", "partial"}:
             sources.append("screen-state")
-
-        # Two official teams + numeric score is enough to leave Staff review.
-        # Final/partial state is handled by the normal evidence workflow.
         conf = 0.94 if state in {"final", "partial"} else 0.88
         out["result_confidence"] = max(float(out.get("result_confidence") or 0.0), conf)
         out["confidence"] = out["result_confidence"]
@@ -375,6 +348,11 @@ def _local_payload_multisignal(images):
 
 
 local._local_payload = _local_payload_multisignal
+
+# CRITICAL startup-order fix: pes_username_link_patch installs its analyzer again
+# when guild isolation is applied. Point that install target at the local reader,
+# so runtime startup cannot silently revert to the older paid/API analyzer.
+pes_links.analyze_with_pes_links = local.analyze_local_first
 
 
 async def _feedback_with_author_context(runtime, bot, message):
@@ -395,10 +373,6 @@ feedback._feedback_handle = _feedback_with_author_context
 
 
 async def analyze_message(runtime, message, images):
-    """Analyze an existing Discord result message with the same live contexts.
-
-    Used by the safe backlog recovery path; it does not post to Staff by itself.
-    """
     guild_id = getattr(getattr(message, "guild", None), "id", None)
     author = getattr(message, "author", None)
     author_id = getattr(author, "id", None)
@@ -407,7 +381,9 @@ async def analyze_message(runtime, message, images):
     author_token = _AUTHOR_ID.set(int(author_id) if author_id is not None else None)
     display_token = _AUTHOR_DISPLAY.set(str(display))
     try:
-        return await league.analyze(images)
+        # Use the local function directly so historical recovery cannot be
+        # affected by any stale league.analyze assignment from startup order.
+        return await local.analyze_local_first(images)
     finally:
         _AUTHOR_DISPLAY.reset(display_token)
         _AUTHOR_ID.reset(author_token)
