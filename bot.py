@@ -120,5 +120,8 @@ import market_access_role_patch  # noqa: F401,E402
 # active manager must have that link before entering the rest of /mercado.
 import pes_username_link_patch  # noqa: F401,E402
 import pes_market_entry_gate_patch  # noqa: F401,E402
+# Final result-reader enrichment: PES6 may continue a scorer's minutes on the
+# next visual row with the player-name cell blank. Recover only clear continuations.
+import league_scorer_continuation_rows_patch  # noqa: F401,E402
 
 import run_bot  # noqa: F401,E402
