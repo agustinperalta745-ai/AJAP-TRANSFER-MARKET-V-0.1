@@ -7,7 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
-      - tests/fixtures/tz320.jpg.b64
+      - tests/fixtures/tzparts/part01.b64
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -34,10 +34,14 @@ jobs:
       - name: Decode and verify Teesside Zaragoza fixture
         run: |
           mkdir -p .tmp-paddle
-          base64 --decode tests/fixtures/tz320.jpg.b64 > .tmp-paddle/teesside-zaragoza.jpg
+          tr -d '\n\r ' < tests/fixtures/tzparts/part01.b64 | base64 --decode > .tmp-paddle/teesside-zaragoza.jpg
           python - <<'PY'
           from PIL import Image
+          import hashlib
           p='.tmp-paddle/teesside-zaragoza.jpg'
+          raw=open(p,'rb').read()
+          print('AJAP_FIXTURE_BYTES=', len(raw))
+          print('AJAP_FIXTURE_SHA256=', hashlib.sha256(raw).hexdigest())
           im=Image.open(p)
           print('AJAP_FIXTURE_SIZE=', im.size)
           im.verify()
