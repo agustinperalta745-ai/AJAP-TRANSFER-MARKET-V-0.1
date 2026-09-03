@@ -7,7 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - requirements-paddle-experiment.txt
-      - tests/fixtures/teesside_zaragoza_1_6_tiny.jpg.b64
+      - tests/fixtures/teesside_zaragoza_valid.jpg.b64
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -34,8 +34,15 @@ jobs:
       - name: Decode Teesside Zaragoza fixture
         run: |
           mkdir -p .tmp-paddle
-          base64 --decode tests/fixtures/teesside_zaragoza_1_6_tiny.jpg.b64 > .tmp-paddle/teesside-zaragoza-1-6.jpg
+          base64 --decode tests/fixtures/teesside_zaragoza_valid.jpg.b64 > .tmp-paddle/teesside-zaragoza-1-6.jpg
           file .tmp-paddle/teesside-zaragoza-1-6.jpg
+          python - <<'PY'
+          from PIL import Image
+          im = Image.open('.tmp-paddle/teesside-zaragoza-1-6.jpg')
+          print('AJAP_FIXTURE_SIZE=', im.size)
+          im.verify()
+          print('AJAP_FIXTURE_VALID')
+          PY
 
       - name: Run isolated PP-OCRv6 tiny probe
         env:
@@ -64,6 +71,7 @@ jobs:
           }
           print('AJAP_EXPECTED_CHECKS=' + json.dumps(checks, ensure_ascii=False))
           print('AJAP_RAW_TEAMS=' + repr((data.get('home_team_raw'), data.get('away_team_raw'))))
+          print('AJAP_RESOLVED=' + repr((data.get('home_team'), data.get('home_goals'), data.get('away_goals'), data.get('away_team'))))
           print('AJAP_ELAPSED_SECONDS=' + str(data.get('elapsed_seconds')))
           failed = [name for name, ok in checks.items() if not ok]
           if failed:
