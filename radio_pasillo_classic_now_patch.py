@@ -174,3 +174,9 @@ if not getattr(
 ):
     _apply_guild_isolation_then_classic_now._ajap_classic_now_wrapped = True
     guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_classic_now
+
+
+# Public utility commands are loaded here, immediately before run_bot starts.
+# The module hooks the final guild-isolation installer and registers /dado on
+# the real runtime bot without touching Radio Pasillo state.
+import dice_challenge_patch  # noqa: F401,E402
