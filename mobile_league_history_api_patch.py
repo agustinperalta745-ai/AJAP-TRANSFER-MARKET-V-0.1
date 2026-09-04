@@ -3,7 +3,8 @@
 The mobile client already reads standings and scorers from `/api/v1/league`.
 This patch extends that same read-only payload with `matches`, sourced directly
 from `league_matches`, so the app and Discord history always share one source of
-truth. No result is copied or mutated here.
+truth. Histories are rebuilt on every read from every stored official result;
+there is no rolling result limit and no parallel history table to become stale.
 """
 
 from __future__ import annotations
@@ -42,17 +43,30 @@ def _team_key(raw: str) -> str:
     return _MOBILE_HISTORY_TEAM_ALIASES.get(key, key)
 
 
-def _canonical_mobile_team(conn: sqlite3.Connection, raw: str) -> str:
+def _mobile_team_lookup(conn: sqlite3.Connection) -> dict[str, str]:
+    """Map every known historical spelling to its current mobile club name."""
+    lookup: dict[str, str] = {}
+    for canonical in mobile_read_api._live_mobile_club_names(conn):
+        for candidate in mobile_read_api._candidate_db_club_names(canonical):
+            key = _team_key(candidate)
+            if key:
+                lookup.setdefault(key, canonical)
+        key = _team_key(canonical)
+        if key:
+            lookup[key] = canonical
+    return lookup
+
+
+def _canonical_mobile_team(
+    conn: sqlite3.Connection,
+    raw: str,
+    lookup: dict[str, str] | None = None,
+) -> str:
     value = str(raw or "").strip()
     if not value:
         return value
-
-    wanted = _team_key(value)
-    for canonical in mobile_read_api._live_mobile_club_names(conn):
-        candidates = mobile_read_api._candidate_db_club_names(canonical)
-        if any(_team_key(candidate) == wanted for candidate in candidates):
-            return canonical
-    return value
+    team_lookup = lookup if lookup is not None else _mobile_team_lookup(conn)
+    return team_lookup.get(_team_key(value), value)
 
 
 def _parse_time(raw) -> datetime | None:
@@ -134,6 +148,7 @@ def _is_classic_at(periods: list[dict], home: str, away: str, created_at) -> boo
 
 
 def matches_payload(conn: sqlite3.Connection) -> list[dict]:
+    """Return every official match, canonicalized and newest first."""
     if "league_matches" not in parity._tables(conn):
         return []
 
@@ -147,17 +162,17 @@ def matches_payload(conn: sqlite3.Connection) -> list[dict]:
         f"""
         SELECT id, home_team, away_team, home_goals, away_goals, {created}
         FROM league_matches
-        ORDER BY id DESC
-        LIMIT 500
+        ORDER BY datetime(created_at) DESC, id DESC
         """
     ).fetchall()
     classics = _classic_periods(conn)
+    team_lookup = _mobile_team_lookup(conn)
 
     return [
         {
             "id": int(row["id"]),
-            "home_team": _canonical_mobile_team(conn, row["home_team"]),
-            "away_team": _canonical_mobile_team(conn, row["away_team"]),
+            "home_team": _canonical_mobile_team(conn, row["home_team"], team_lookup),
+            "away_team": _canonical_mobile_team(conn, row["away_team"], team_lookup),
             "home_goals": int(row["home_goals"]),
             "away_goals": int(row["away_goals"]),
             "created_at": str(row["created_at"] or ""),
@@ -183,20 +198,21 @@ HIDDEN_RESULT_CARD_SOURCE_IDS = frozenset({
 
 
 def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
-    """Closed results posted by the bot, including pending GES entries."""
+    """All closed results posted by the bot, including pending GES entries."""
     if "league_ges_result_queue" not in parity._tables(conn):
         return matches_payload(conn)
     rows = conn.execute(
         """SELECT source_message_id, home_team, away_team, home_goals,
                   away_goals, created_at
            FROM league_ges_result_queue WHERE ges_message_id IS NOT NULL
-           ORDER BY created_at DESC, source_message_id DESC LIMIT 500"""
+           ORDER BY datetime(created_at) DESC, source_message_id DESC"""
     ).fetchall()
     classics = _classic_periods(conn)
+    team_lookup = _mobile_team_lookup(conn)
     return [dict(
         id=str(row["source_message_id"]),
-        home_team=_canonical_mobile_team(conn, row["home_team"]),
-        away_team=_canonical_mobile_team(conn, row["away_team"]),
+        home_team=_canonical_mobile_team(conn, row["home_team"], team_lookup),
+        away_team=_canonical_mobile_team(conn, row["away_team"], team_lookup),
         home_goals=int(row["home_goals"]), away_goals=int(row["away_goals"]),
         created_at=str(row["created_at"] or ""),
         is_classic=_is_classic_at(
