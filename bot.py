@@ -181,8 +181,12 @@ import league_top5_persistence_bridge_patch  # noqa: F401,E402
 # snapshot to Radio Pasillo without modifying any league data.
 import league_top5_snapshot_test_patch  # noqa: F401,E402
 
+# Emergency kill switch requested by Staff: import LAST so no screenshot/text
+# result reader can run in the configured Liga result channel.
+import league_result_intake_pause_patch  # noqa: F401,E402
+
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-03T-scorer-screen-reliability-zaragoza-repair"
+AJAP_RESTART_MARKER = "2026-09-03T-results-hard-paused"
 
 import run_bot  # noqa: F401,E402
