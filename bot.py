@@ -8,6 +8,13 @@ before Discord connects.
 import os
 import time
 
+# Official AJPA Mobile download used by the periodic Radio Pasillo ad. Railway
+# may override it later with AJPA_APP_DOWNLOAD_URL without requiring a code edit.
+os.environ.setdefault(
+    "AJPA_APP_DOWNLOAD_URL",
+    "https://www.mediafire.com/file/m13t4jblgeb473c/AJPA-Transfer-Market-Actualizador.apk/file",
+)
+
 PRIMARY_RAILWAY_PROJECT_ID = (
     os.getenv("AJAP_PRIMARY_RAILWAY_PROJECT_ID")
     or "6abcd5b2-6995-4e18-b7f1-be32f6298fdc"
