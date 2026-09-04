@@ -1,13 +1,11 @@
-"""Safe resume gate for AJAP Liga result intake.
+"""AJAP Liga result intake resume state.
 
-Startup remains paused only long enough to apply/verify the Staff checkpoint for
-the four matches received while the bot was disabled. Once Pretemporada has at
-least 60 official matches and the checkpoint marker exists, the exact active
-handlers that were present before the emergency pause are restored.
+The emergency hard pause was explicitly lifted by Staff. This module now keeps
+the exact active screenshot/text result pipeline that existed immediately before
+the old pause layer, so new captures are processed again on startup.
 
-If the checkpoint cannot be applied or the DB is unexpectedly below 60 matches,
-intake stays paused instead of accepting new results on top of an incomplete
-history.
+The historical checkpoint remains available for diagnostics, but it no longer
+blocks live intake or replaces the active reader with the paused handler.
 """
 from __future__ import annotations
 
@@ -36,14 +34,14 @@ try:
 except Exception:
     rescue = None
 
-# Capture the real active pipeline before installing the temporary startup gate.
+# Capture the real active pipeline. This is now the pipeline we KEEP active.
 _ACTIVE_LEAGUE_HANDLE = league.handle
 _ACTIVE_FEEDBACK_HANDLE = getattr(feedback, "_feedback_handle", None) if feedback is not None else None
 _ACTIVE_EVIDENCE_HANDLE = getattr(evidence, "evidence_handle", None) if evidence is not None else None
 _ACTIVE_RESCUE_HANDLE = getattr(rescue, "reliable_evidence_handle", None) if rescue is not None else None
 
-# Importing this module arms the one-time additive DB checkpoint. It wraps guild
-# isolation and registers its on_ready listener before the resume listener below.
+# Keep the old checkpoint module loaded so its schema/marker remains compatible
+# with the data already written during the pause period. It is no longer a gate.
 import league_post_pause_checkpoint_60_patch as checkpoint  # noqa: E402
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
@@ -67,7 +65,7 @@ async def _safe_reaction(message, emoji: str) -> None:
 
 
 async def _paused_result_handle(runtime, bot, message):
-    """Ignore result intake while the startup checkpoint is still unresolved."""
+    """Legacy paused handler kept only for compatibility; it is not installed."""
     if not getattr(message, "guild", None):
         return
     if getattr(getattr(message, "author", None), "bot", False):
@@ -101,6 +99,7 @@ async def _paused_result_handle(runtime, bot, message):
 
 
 def _install_startup_gate() -> None:
+    """Legacy function retained for compatibility. Do not call while intake is live."""
     league.handle = _paused_result_handle
     if feedback is not None:
         feedback._feedback_handle = _paused_result_handle
@@ -141,22 +140,18 @@ def _checkpoint_ready(runtime, guild_id: int) -> tuple[bool, int | None]:
 
 
 async def _resume_after_checkpoint():
+    """Reassert live intake on every ready event; checkpoint is informational only."""
     if APP is None or BOT is None:
         return
+    _restore_active_pipeline()
     guild = BOT.get_guild(int(guild_isolation.LEGACY_GUILD_ID))
     if guild is None:
+        print("AJAP Liga: RESULTADOS REACTIVADOS; lector de capturas activo")
         return
     ready, count = _checkpoint_ready(APP, guild.id)
-    if not ready:
-        print(
-            "AJAP Liga: STARTUP GATE SIGUE EN PAUSA; "
-            f"checkpoint incompleto (matches={count!r}, esperado>=60)"
-        )
-        return
-    _restore_active_pipeline()
     print(
-        "AJAP Liga: RESULTADOS REACTIVADOS; "
-        f"checkpoint verificado con {count} partidos + lector PES6 v2 activo"
+        "AJAP Liga: RESULTADOS REACTIVADOS; lector de capturas activo | "
+        f"checkpoint_ready={ready} matches={count!r}"
     )
 
 
@@ -171,7 +166,8 @@ def _install(runtime, bot):
     runtime._ajap_result_resume_gate = True
 
 
-_install_startup_gate()
+# IMPORTANT: do NOT install the emergency pause. Keep the current reader live.
+_restore_active_pipeline()
 
 _PREVIOUS = guild_isolation.apply_guild_isolation_patch
 
@@ -185,4 +181,4 @@ if not getattr(guild_isolation.apply_guild_isolation_patch, "_ajap_result_resume
     _apply._ajap_result_resume_gate_wrapper = True
     guild_isolation.apply_guild_isolation_patch = _apply
 
-print("AJAP Liga: startup gate armado; reactivación automática después del checkpoint 60")
+print("AJAP Liga: captura de resultados REHABILITADA; emergencia de pausa desactivada")
