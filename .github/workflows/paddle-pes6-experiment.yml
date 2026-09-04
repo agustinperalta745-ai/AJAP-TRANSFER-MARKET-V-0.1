@@ -126,7 +126,7 @@ jobs:
                   'screen_kind_result': data.get('screen_kind') == 'result',
                   'complete': data.get('result_complete') is True,
               }
-              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'score_source=', data.get('score_source'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
+              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'score_tail=', data.get('score_tail'), 'score_reads=', (data.get('reads', {}).get('home_score', {}).get('text'), data.get('reads', {}).get('away_score', {}).get('text')), 'score_source=', data.get('score_source'), 'state=', data.get('state_raw'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
               failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
 
           safety_path = Path('.tmp-paddle/result-sb_res.json')
@@ -153,3 +153,4 @@ jobs:
           name: paddle-pes6-probe-output
           path: .tmp-paddle/result-*.json
           if-no-files-found: warn
+          include-hidden-files: true
