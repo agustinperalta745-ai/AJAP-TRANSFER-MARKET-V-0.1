@@ -195,3 +195,6 @@ if not getattr(
 # The module hooks the final guild-isolation installer and registers /dado on
 # the real runtime bot without touching Radio Pasillo state.
 import dice_challenge_patch  # noqa: F401,E402
+# Final command-registry repair: create a fresh guild-scoped /dado after every
+# ready event so Discord mobile receives the slash suggestion immediately.
+import dice_guild_sync_fix_patch  # noqa: F401,E402
