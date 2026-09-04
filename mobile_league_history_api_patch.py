@@ -8,20 +8,48 @@ truth. No result is copied or mutated here.
 
 from __future__ import annotations
 
+import re
 import sqlite3
+import unicodedata
 
 import mobile_parity_api_patch as parity
 import mobile_read_api
+
+
+# Historical OCR/manual spellings that must resolve to one live club. Keep this
+# deliberately small: it is only for known unambiguous club-name variants.
+_MOBILE_HISTORY_TEAM_ALIASES = {
+    "fullam": "fulham",
+}
+
+
+def _team_key(raw: str) -> str:
+    value = unicodedata.normalize("NFKD", str(raw or "").strip().casefold())
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = re.sub(r"[^a-z0-9]+", " ", value).strip()
+    if not value:
+        return ""
+
+    parts = value.split()
+    # Club suffix/prefixes are presentation details and have historically
+    # varied between JSON rosters, OCR results and old DB rows.
+    while parts and parts[0] in {"fc", "cf"}:
+        parts.pop(0)
+    while parts and parts[-1] in {"fc", "cf"}:
+        parts.pop()
+    key = " ".join(parts)
+    return _MOBILE_HISTORY_TEAM_ALIASES.get(key, key)
 
 
 def _canonical_mobile_team(conn: sqlite3.Connection, raw: str) -> str:
     value = str(raw or "").strip()
     if not value:
         return value
-    wanted = value.casefold()
+
+    wanted = _team_key(value)
     for canonical in mobile_read_api._live_mobile_club_names(conn):
         candidates = mobile_read_api._candidate_db_club_names(canonical)
-        if any(str(candidate).strip().casefold() == wanted for candidate in candidates):
+        if any(_team_key(candidate) == wanted for candidate in candidates):
             return canonical
     return value
 
