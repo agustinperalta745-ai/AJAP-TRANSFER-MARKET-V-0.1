@@ -46,14 +46,12 @@ if (!gallery.includes(resultImport)) {
   gallery = gallery.replace(apiImport, `${apiImport}\n${resultImport}`);
 }
 
-const localSource = `const RESULTS_BACKGROUND = typeof BG_RESULTADOS === 'number'\n ? BG_RESULTADOS\n : { uri: BG_RESULTADOS };`;
-if (!gallery.includes(localSource)) {
-  const sourceBlock = /const RESULTS_BACKGROUND\s*=\s*[\s\S]*?;\n\nexport default function ResultsGallery/;
+const localSource = `const RESULTS_BACKGROUND = typeof BG_RESULTADOS === 'number'\n  ? BG_RESULTADOS\n  : { uri: BG_RESULTADOS };`;
+const alreadyLocal = /const RESULTS_BACKGROUND\s*=\s*typeof BG_RESULTADOS\s*===\s*['"]number['"]\s*\?\s*BG_RESULTADOS\s*:\s*\{\s*uri:\s*BG_RESULTADOS\s*\}\s*;/.test(gallery);
+if (!alreadyLocal) {
+  const sourceBlock = /const RESULTS_BACKGROUND\s*=\s*[\s\S]*?;\s*(?=export default function ResultsGallery)/;
   if (!sourceBlock.test(gallery)) throw new Error('Results gallery: missing background source block');
-  gallery = gallery.replace(
-    sourceBlock,
-    `${localSource}\n\nexport default function ResultsGallery`,
-  );
+  gallery = gallery.replace(sourceBlock, `${localSource}\n`);
 }
 fs.writeFileSync(galleryPath, gallery);
 
