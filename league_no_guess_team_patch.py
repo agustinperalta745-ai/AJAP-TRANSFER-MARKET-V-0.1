@@ -4,11 +4,10 @@ A team may be accepted automatically only when there is actual evidence for it:
 - an exact/near-exact official team name or configured PES alias in the team label; or
 - a registered PES username recognized on that scoreboard side.
 
-Do NOT fill a missing side merely from the Discord uploader's club, and do NOT
-accept loose fuzzy matches.  If a kitserver shows a wrong/unrelated club label
-(e.g. Borussia Dortmund while the AJAP club is Feyenoord), the linked PES username
-must resolve that side; otherwise the screenshot goes to Staff review instead of
-inventing an opponent.
+Uploader club is allowed only as a constrained fallback already implemented by
+``league_multisignal_result_patch``: one scoreboard side/opponent must first be
+strongly proven and the uploader must be the other different AJPA club. This keeps
+cropped PES6 result screens working without restoring loose fuzzy guesses.
 """
 
 from __future__ import annotations
@@ -46,8 +45,6 @@ def _strict_team_match(text):
         elif min(len(key), len(wanted)) >= 4 and (wanted in key or key in wanted):
             score = 0.97
         else:
-            # OCR is allowed a small spelling error, but only at a very high
-            # similarity threshold and only when the winner is clearly unique.
             score = difflib.SequenceMatcher(None, key, wanted).ratio()
         ranked.append((score, team, wanted))
 
@@ -95,12 +92,12 @@ local._team_match = _strict_team_match
 multisignal._weak_team_match = _strict_team_match
 structured._match_link_text = _strict_link_text
 
-# Critical: the uploader's Discord club alone is NOT visual proof that either side
-# of the screenshot is that club.  Side identity must come from team text/alias or
-# from a PES username actually visible and linked on that side.
-multisignal._author_club = lambda guild_id: None
+# IMPORTANT: keep multisignal._author_club intact. Its fallback is constrained:
+# it only completes a missing side when the other side is already strongly proven
+# and differs from the uploader's AJPA club, or when the linked PES username proves
+# the uploader's scoreboard side. This is required for cropped PES6 screenshots.
 
 print(
     "AJAP Liga: anti-invencion de equipos ACTIVO "
-    "(sin fuzzy debil + sin completar rival por club del uploader)"
+    "(sin fuzzy debil + fallback seguro por DT cuando el rival ya esta probado)"
 )
