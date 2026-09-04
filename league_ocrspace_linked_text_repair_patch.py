@@ -16,6 +16,7 @@ from __future__ import annotations
 import league_automation_patch as league
 import league_ocrspace_result_bridge_patch as bridge
 import league_ocrspace_text_rescue_patch as text_rescue
+import league_scorer_screen_reliability_patch as scorer_reliability
 import pes_username_link_patch as pes_links
 
 
@@ -120,7 +121,31 @@ def _payload_with_link_repair(images, engine: str, guild_id: int | None):
 
 bridge._payload_with_engine = _payload_with_link_repair
 
+# A 1-0 / 0-1 scorer screen naturally has only one minute-formatted row. The
+# previous robust parser required two such rows when OCR missed the literal
+# "Goleador" header, so it skipped clear entries such as "John 44'" entirely.
+# One minute marker is enough to inspect the page because the scorer is still
+# accepted only after mandatory roster-side validation downstream.
+_BASE_SCORER_SHAPE = scorer_reliability._page_has_scorer_shape
+
+
+def _single_goal_scorer_shape(rows):
+    if _BASE_SCORER_SHAPE(rows):
+        return True
+    if not rows:
+        return False
+    h = float(rows[0].get("h") or 1.0)
+    for row in rows:
+        yn = float(row.get("y") or 0.0) / max(1.0, h)
+        if 0.12 <= yn <= 0.80 and scorer_reliability._minute_count(row.get("text")) > 0:
+            return True
+    return False
+
+
+scorer_reliability._page_has_scorer_shape = _single_goal_scorer_shape
+
 print(
     "AJPA Liga: OCR.Space linked-username ParsedText repair ACTIVO | "
-    "un lado oficial + username(s) enlazado(s) pueden recuperar el rival"
+    "un lado oficial + username(s) enlazado(s) pueden recuperar el rival | "
+    "goleador unico por minuto habilitado"
 )
