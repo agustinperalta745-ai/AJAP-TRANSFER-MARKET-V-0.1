@@ -20,9 +20,20 @@ import discord
 from discord import app_commands
 
 import guild_isolation_patch as guild_isolation
+import market_usage_channel_patch as market_gate
 
 
 _TIMEOUT_SECONDS = 180
+
+# /dado is a public utility, not a market action. It must bypass the global
+# market-channel gate in General/Buscar Rival, including its Accept/Reject
+# buttons. The command itself still enforces those two allowed channels below.
+market_gate.EXEMPT_COMMANDS.add("dado")
+if "ajpa:dice:" not in market_gate.EXEMPT_COMPONENT_PREFIXES:
+    market_gate.EXEMPT_COMPONENT_PREFIXES = (
+        *market_gate.EXEMPT_COMPONENT_PREFIXES,
+        "ajpa:dice:",
+    )
 
 
 def _roll_die() -> int:
@@ -135,7 +146,12 @@ class DiceChallengeView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="Aceptar", emoji="✅", style=discord.ButtonStyle.success)
+    @discord.ui.button(
+        label="Aceptar",
+        emoji="✅",
+        style=discord.ButtonStyle.success,
+        custom_id="ajpa:dice:accept",
+    )
     async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = int(interaction.user.id)
         if user_id in self.accepted:
@@ -157,7 +173,12 @@ class DiceChallengeView(discord.ui.View):
         )
         self.stop()
 
-    @discord.ui.button(label="Rechazar", emoji="✖️", style=discord.ButtonStyle.danger)
+    @discord.ui.button(
+        label="Rechazar",
+        emoji="✖️",
+        style=discord.ButtonStyle.danger,
+        custom_id="ajpa:dice:reject",
+    )
     async def reject(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.resolved = True
         _disable_view(self)
