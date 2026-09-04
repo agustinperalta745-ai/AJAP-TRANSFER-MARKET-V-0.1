@@ -4,6 +4,10 @@
 accept before the bot rolls a d6 for each one. Highest number wins; ties are
 rerolled automatically until there is a winner.
 
+The command is also synced as a guild command on every connected server so it
+appears immediately instead of depending on Discord's slower global-command
+propagation.
+
 This feature is intentionally stateless: it does not touch the AJPA database,
 economy, standings, matches, or player statistics.
 """
@@ -41,6 +45,20 @@ def _disable_view(view: discord.ui.View) -> None:
     for item in view.children:
         if hasattr(item, "disabled"):
             item.disabled = True
+
+
+def _channel_is_allowed(interaction: discord.Interaction) -> bool:
+    """Allow /dado only in General or Buscar Rival (threads inherit parent)."""
+    channel = getattr(interaction, "channel", None)
+    candidates = [channel, getattr(channel, "parent", None)]
+    for candidate in candidates:
+        name = getattr(candidate, "name", "") or ""
+        normalized = "".join(ch for ch in name.casefold() if ch.isalnum())
+        if "general" in normalized:
+            return True
+        if "buscar" in normalized and "rival" in normalized:
+            return True
+    return False
 
 
 class DiceChallengeView(discord.ui.View):
@@ -179,6 +197,13 @@ async def dice_command(interaction: discord.Interaction, jugador: discord.Member
         )
         return
 
+    if not _channel_is_allowed(interaction):
+        await interaction.response.send_message(
+            "🎲 `/dado` se usa solamente en **chat general** o **buscar rival**.",
+            ephemeral=True,
+        )
+        return
+
     if int(jugador.id) == int(interaction.user.id):
         await interaction.response.send_message(
             "⚠️ Tenés que retar a otro jugador.",
@@ -220,7 +245,7 @@ async def dice_command(interaction: discord.Interaction, jugador: discord.Member
 
 
 def apply_dice_challenge_patch(runtime, bot) -> None:
-    """Register the public `/dado` command before Discord connects."""
+    """Register /dado before connect and sync it per-guild on ready."""
     if getattr(bot, "_ajpa_dice_challenge_patch", False):
         return
 
@@ -230,8 +255,29 @@ def apply_dice_challenge_patch(runtime, bot) -> None:
             description="Retá a otro jugador a decidir algo con un dado del 1 al 6",
         )(dice_command)
 
+    async def _sync_dice_to_connected_guilds():
+        command = bot.tree.get_command("dado")
+        if command is None:
+            print("AJPA Discord: /dado no encontrado al sincronizar guilds")
+            return
+
+        for guild in list(getattr(bot, "guilds", [])):
+            try:
+                bot.tree.add_command(command, guild=guild, override=True)
+                synced = await bot.tree.sync(guild=guild)
+                print(
+                    "AJPA Discord: /dado sincronizado en guild "
+                    f"{guild.id} ({len(synced)} comando(s) guild)"
+                )
+            except Exception as exc:
+                print(
+                    "AJPA Discord: error sincronizando /dado en guild "
+                    f"{getattr(guild, 'id', None)}: {type(exc).__name__}: {exc}"
+                )
+
+    bot.add_listener(_sync_dice_to_connected_guilds, "on_ready")
     bot._ajpa_dice_challenge_patch = True
-    print("AJPA Discord: /dado consensuado activo")
+    print("AJPA Discord: /dado consensuado activo + sync inmediato por guild")
 
 
 # bot.py imports this module before run_bot. Wrap the final guild-isolation
