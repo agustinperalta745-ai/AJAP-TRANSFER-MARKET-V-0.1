@@ -15,7 +15,7 @@ import league_top5_overtake_radio_patch as top5
 
 
 _BASE_APPLY = feedback.apply_league_result_feedback_patch
-_TEST_KEY = "radio_top5_snapshot_2026_09_03_v1"
+_TEST_KEY = "radio_top5_snapshot_2026_09_04_badges_v2"
 
 
 def _ensure_schema(conn) -> None:
@@ -66,15 +66,18 @@ def _mark_sent(runtime, guild_id: int, message_id: int) -> None:
 
 def _snapshot_text(guild, rows) -> str:
     lines = [
-        "🧪 **PRUEBA RADIO PASILLO • TOP 5 ACTUAL**",
+        "📻 **R A D I O - P A S I L L O**",
+        "🚨 **MOVIMIENTO EN EL TOP 5**",
         "",
-        "Esta publicación es solo para comprobar la foto y el envío automático.",
+        "🧪 **PRUEBA VISUAL — no modifica la tabla**",
         "",
     ]
     for pos, row in enumerate(list(rows)[:5], start=1):
         team = str(row["team"])
         emoji = top5._club_emoji(guild, team)
-        lines.append(f"**{pos}.** {emoji} **{discord.utils.escape_markdown(team)}** • {int(row['pts'])} pts")
+        lines.append(
+            f"**{pos}.** {emoji} **{discord.utils.escape_markdown(team)}** • {int(row['pts'])} pts"
+        )
     return "\n".join(lines)
 
 
@@ -99,7 +102,7 @@ async def _publish_snapshot(runtime, bot, guild) -> bool:
 
     try:
         image = top5._render_top5(rows)
-        file = discord.File(image, filename="ajpa-top5-prueba-actual.png")
+        file = discord.File(image, filename="ajpa-top5-prueba-badges-v2.png")
         sent = await channel.send(
             content=_snapshot_text(guild, rows),
             file=file,
