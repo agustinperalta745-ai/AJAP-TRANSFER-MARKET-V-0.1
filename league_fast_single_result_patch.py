@@ -1,10 +1,13 @@
 """Fast deterministic reader for one ordinary PES6 post-match result screenshot.
 
-This patch exists to keep clear single-image results inside AJAP's 10 second live
-OCR budget. It runs only four bounded Tesseract calls (left team, right team,
-score panel, final-state panel) before the heavier local OCR chain. Multi-image
-uploads are left to the existing scorer-capable reader so this does not disable
-or replace scorer extraction.
+This patch keeps clear single-image results inside AJAP's 10 second live OCR
+budget. It uses local Tesseract only: left team, right team, the two explicit
+1er/2do score rows, and the final-state panel.
+
+CRITICAL SCORE RULE: Categoria/Puntos numbers are never considered. The official
+score is reconstructed from the fixed central 1er + 2do rows. Only if those rows
+cannot be proven do we try the two tight large-score glyph crops; the old broad
+numeric crop is intentionally gone.
 """
 from __future__ import annotations
 
@@ -42,17 +45,98 @@ def _team_from_crop(image, side):
     return best_team, best_match, str(text or "")[:180]
 
 
-def _score_pair(image):
-    # This crop deliberately includes both large total digits. On the PES6 result
-    # screen PSM 6 isolates them as a two-number line more reliably than trying
-    # to classify each outlined glyph separately (where "1" can look like "4").
-    crop = tess._prepared(tess._box(image, (0.200, 0.200, 0.800, 0.450)), scale=5)
-    text = tess._run(crop, 6, whitelist="0123456789 ", timeout=1)
+def _two_score_numbers(text):
     values = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or ""))]
     values = [x for x in values if 0 <= x <= 20]
     if len(values) != 2:
         return None
-    return values[0], values[1], str(text or "")[:80]
+    return int(values[0]), int(values[1])
+
+
+def _read_period_row(image, period):
+    """Read one fixed PES6 1er/2do row; outer stats are outside every crop."""
+    if int(period) == 1:
+        regions = (
+            (0.390, 0.285, 0.610, 0.360),
+            (0.380, 0.270, 0.620, 0.370),
+        )
+    else:
+        regions = (
+            (0.390, 0.345, 0.610, 0.425),
+            (0.380, 0.340, 0.620, 0.440),
+        )
+
+    attempts = []
+    for frac in regions:
+        crop = tess._prepared(tess._box(image, frac), scale=6)
+        for psm in (7, 6):
+            try:
+                text = tess._run(crop, psm, timeout=1)
+            except Exception:
+                continue
+            text = str(text or "").strip()
+            attempts.append(text)
+            pair = _two_score_numbers(text)
+            if not pair:
+                continue
+
+            # The fixed crop itself proves which period this is. Still require a
+            # visible period-like token when OCR preserved one; this rejects an
+            # accidental two-number line from an unusual screen.
+            key = league.norm(text)
+            if int(period) == 1:
+                marker_ok = any(x in key for x in ("1er", "ler", "1 er", "1st", "er"))
+            else:
+                marker_ok = any(x in key for x in ("2do", "2 do", "2nd", "do", "ndo"))
+            if marker_ok:
+                return pair[0], pair[1], text
+
+    return None
+
+
+def _tight_large_score_pair(image):
+    """Fallback only: read each large total digit from its own narrow lane."""
+    home = None
+    away = None
+
+    # Narrow crops are intentionally inside the large-score lanes and cannot see
+    # Categoria/Puntos columns or the central period digits.
+    for frac in (
+        (0.285, 0.300, 0.355, 0.455),
+        (0.270, 0.270, 0.370, 0.470),
+    ):
+        value, raw = tess._digit_from_crop(image, frac)
+        if value is not None:
+            home = (int(value), str(raw or ""))
+            break
+
+    for frac in (
+        (0.645, 0.300, 0.715, 0.455),
+        (0.630, 0.270, 0.730, 0.470),
+    ):
+        value, raw = tess._digit_from_crop(image, frac)
+        if value is not None:
+            away = (int(value), str(raw or ""))
+            break
+
+    if home is None or away is None:
+        return None
+    return home[0], away[0], f"tight={home[1]}|{away[1]}"
+
+
+def _score_pair(image):
+    """Official score from 1er+2do; never from arbitrary numbers on the screen."""
+    first = _read_period_row(image, 1)
+    second = _read_period_row(image, 2)
+    if first and second:
+        hg = int(first[0]) + int(second[0])
+        ag = int(first[1]) + int(second[1])
+        if 0 <= hg <= 20 and 0 <= ag <= 20:
+            return hg, ag, f"1er={first[2]} | 2do={second[2]}"
+
+    # Some unusual skins can make the tiny period text unreadable. The fallback
+    # remains deterministic because each total digit is cropped independently.
+    return _tight_large_score_pair(image)
 
 
 def _final_state(image):
@@ -99,10 +183,10 @@ def _fast_single_result(images):
         "home_goals": int(home_goals),
         "away_goals": int(away_goals),
         "scorers": [],
-        "confidence": 0.98,
-        "result_confidence": 0.98,
+        "confidence": 0.99 if "1er=" in score_raw else 0.94,
+        "result_confidence": 0.99 if "1er=" in score_raw else 0.94,
         "scorers_confidence": 0.0,
-        "notes": "AJAP fast single-result Tesseract proof",
+        "notes": "AJAP fast single-result local period-proof",
         "structured_reader": True,
         "structured_raw": {
             "home_team": home_raw,
@@ -126,4 +210,4 @@ def _fast_first(images):
 
 
 local._local_payload = _fast_first
-print("AJAP Liga: fast single-result reader activo (4 OCR calls antes del fallback pesado)")
+print("AJAP Liga: fast reader v2 activo (1er+2do; Categoria/Puntos excluidos)")
