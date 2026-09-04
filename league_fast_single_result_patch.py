@@ -48,9 +48,11 @@ def _team_from_crop(image, side):
 def _two_score_numbers(text):
     values = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or ""))]
     values = [x for x in values if 0 <= x <= 20]
-    if len(values) != 2:
+    # A correctly read row can be "1 2do 0": the middle 2 is the period label,
+    # not a goal. The score is always the leftmost and rightmost numeric value.
+    if len(values) < 2:
         return None
-    return int(values[0]), int(values[1])
+    return int(values[0]), int(values[-1])
 
 
 def _read_period_row(image, period):
@@ -66,7 +68,6 @@ def _read_period_row(image, period):
             (0.380, 0.340, 0.620, 0.440),
         )
 
-    attempts = []
     for frac in regions:
         crop = tess._prepared(tess._box(image, frac), scale=6)
         for psm in (7, 6):
@@ -75,7 +76,6 @@ def _read_period_row(image, period):
             except Exception:
                 continue
             text = str(text or "").strip()
-            attempts.append(text)
             pair = _two_score_numbers(text)
             if not pair:
                 continue
