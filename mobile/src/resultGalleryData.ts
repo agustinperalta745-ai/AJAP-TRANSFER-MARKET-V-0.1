@@ -1,4 +1,4 @@
-export type ResultCard = { id: string | number; home_team: string; away_team: string; home_goals: number; away_goals: number; created_at: string };
+export type ResultCard = { id: string | number; home_team: string; away_team: string; home_goals: number; away_goals: number; created_at: string; is_classic?: boolean };
 export const initialResults: ResultCard[] = [];
 export function mergeResults(live: ResultCard[]): ResultCard[] {
  const seen = new Set<string>();
