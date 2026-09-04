@@ -198,3 +198,6 @@ import dice_challenge_patch  # noqa: F401,E402
 # Final command-registry repair: create a fresh guild-scoped /dado after every
 # ready event so Discord mobile receives the slash suggestion immediately.
 import dice_guild_sync_fix_patch  # noqa: F401,E402
+# Discord channel names use stylized Unicode letters. Normalize them before
+# deciding whether /dado is in General or Buscar Rival.
+import dice_unicode_channel_patch  # noqa: F401,E402
