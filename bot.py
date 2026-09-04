@@ -189,8 +189,13 @@ import league_top5_snapshot_test_patch  # noqa: F401,E402
 # Any incomplete FINAL evidence is preserved and routed to Staff.
 import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 
+# Periodic Radio Pasillo reminders: every two hours, rotate a short DT-facing
+# feature tip. The AJPA Mobile download ad joins the rotation once its real URL
+# is configured in AJPA_APP_DOWNLOAD_URL.
+import radio_pasillo_feature_ads_patch  # noqa: F401,E402
+
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-top5-badges-v2"
+AJAP_RESTART_MARKER = "2026-09-04T-radio-pasillo-ads-v1"
 
 import run_bot  # noqa: F401,E402
