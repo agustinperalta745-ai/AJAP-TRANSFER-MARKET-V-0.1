@@ -6,6 +6,7 @@ on:
       - experiment/paddleocr-pes6
     paths:
       - tools/pes6_paddle_probe.py
+      - tools/pes6_paddle_probe_ready.py
       - requirements-paddle-experiment.txt
       - tests/fixtures/*.b64
       - tests/fixtures/tzparts/**
@@ -95,7 +96,7 @@ jobs:
         run: |
           set +e
           for item in teesside-zaragoza mbv_res ve_res sb_res; do
-            python tools/pes6_paddle_probe.py ".tmp-paddle/${item}.jpg" > ".tmp-paddle/result-${item}.json"
+            python tools/pes6_paddle_probe_ready.py ".tmp-paddle/${item}.jpg" > ".tmp-paddle/result-${item}.json"
             echo "AJAP_PROBE_EXIT ${item} $?"
           done
           set -e
@@ -126,7 +127,7 @@ jobs:
                   'screen_kind_result': data.get('screen_kind') == 'result',
                   'complete': data.get('result_complete') is True,
               }
-              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'score_tail=', data.get('score_tail'), 'score_reads=', (data.get('reads', {}).get('home_score', {}).get('text'), data.get('reads', {}).get('away_score', {}).get('text')), 'score_source=', data.get('score_source'), 'state=', data.get('state_raw'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
+              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'geometry_score=', data.get('geometry_score'), 'score_tail=', data.get('score_tail'), 'score_reads=', (data.get('reads', {}).get('home_score', {}).get('text'), data.get('reads', {}).get('away_score', {}).get('text')), 'score_source=', data.get('score_source'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
               failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
 
           safety_path = Path('.tmp-paddle/result-sb_res.json')
