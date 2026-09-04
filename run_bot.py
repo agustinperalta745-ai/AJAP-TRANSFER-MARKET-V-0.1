@@ -17,6 +17,10 @@ import member_nickname_patch
 # analyzer now, before Discord connects, so ParsedText can rescue clear PES6
 # result screens when OCR.Space overlay geometry is weak.
 import league_ocrspace_text_rescue_patch  # noqa: F401
+# PES6 may show a non-AJPA club label while linked PES usernames identify the
+# actual managers. Use those exact links only as a conservative missing-side
+# repair after ParsedText/geometry has anchored the other side.
+import league_ocrspace_linked_text_repair_patch  # noqa: F401
 
 from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
