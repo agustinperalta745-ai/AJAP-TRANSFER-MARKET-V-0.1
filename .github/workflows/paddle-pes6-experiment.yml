@@ -9,6 +9,7 @@ on:
       - requirements-paddle-experiment.txt
       - tests/fixtures/*.b64
       - tests/fixtures/tzparts/**
+      - tests/fixtures/sbparts/**
       - .github/workflows/paddle-pes6-experiment.yml
   workflow_dispatch:
 
@@ -43,27 +44,38 @@ jobs:
           out = Path('.tmp-paddle')
           out.mkdir(exist_ok=True)
 
-          # The older Teesside fixture is split into small text chunks.
-          parts = [
+          def joined_parts(folder, names):
+              root = Path(folder)
+              return ''.join(''.join((root / name).read_text().split()) for name in names)
+
+          teesside_text = joined_parts('tests/fixtures/tzparts', [
               'part01.b64','part02.b64','part03.b64','part04.b64',
               'part05a.b64','part05b.b64','part06.b64','part07a.b64','part07b.b64',
-          ]
-          teesside_text = ''.join(
-              ''.join((Path('tests/fixtures/tzparts') / name).read_text().split())
-              for name in parts
-          )
+          ])
+          sporting_text = joined_parts('tests/fixtures/sbparts', [
+              'part01.b64','part02.b64','part03.b64','part04.b64',
+          ])
+
           mappings = {
               'teesside-zaragoza': teesside_text,
               'mbv_res': ''.join(Path('tests/fixtures/mbv_res.jpg.b64').read_text().split()),
               've_res': ''.join(Path('tests/fixtures/ve_res.jpg.b64').read_text().split()),
-              'sb_res': ''.join(Path('tests/fixtures/sb_res.jpg.b64').read_text().split()),
+              'sb_res': sporting_text,
           }
 
+          expected_bytes = {
+              'teesside-zaragoza': 25889,
+              'mbv_res': 9405,
+              've_res': 10491,
+              'sb_res': 10261,
+          }
           failures = []
           for name, encoded in mappings.items():
               try:
                   clean = encoded + ('=' * (-len(encoded) % 4))
-                  raw = base64.b64decode(clean, validate=False)
+                  raw = base64.b64decode(clean, validate=True)
+                  if len(raw) != expected_bytes[name]:
+                      raise ValueError(f'byte-size {len(raw)} != {expected_bytes[name]}')
                   dst = out / f'{name}.jpg'
                   dst.write_bytes(raw)
                   with Image.open(dst) as im:
