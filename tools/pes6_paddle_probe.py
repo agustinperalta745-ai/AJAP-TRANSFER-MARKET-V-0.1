@@ -1,7 +1,7 @@
 """Isolated AJAP PES6 OCR experiment using PaddleOCR.
 
-Never imported by production. It classifies fixed PES6 regions, resolves stock
-PES6 aliases to AJAP official clubs, and prints diagnostics only.
+Never imported by production. It classifies PES6 regions, resolves stock PES6
+aliases to AJAP official clubs, and prints diagnostics only.
 """
 from __future__ import annotations
 
@@ -18,10 +18,6 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
 
 REGIONS = {
-    # PES6 result screen: keep these narrow so the detector does not confuse
-    # the centred "Resultado" title / usernames with the team banners.
-    "home_team": (0.00, 0.105, 0.40, 0.190),
-    "away_team": (0.60, 0.105, 1.00, 0.190),
     # Large final-score glyphs only; deliberately exclude 1er/2do split rows.
     "home_score": (0.24, 0.205, 0.36, 0.340),
     "away_score": (0.64, 0.205, 0.76, 0.340),
@@ -29,6 +25,24 @@ REGIONS = {
     "scorer_header": (0.15, 0.06, 0.85, 0.28),
     "scorer_left": (0.00, 0.16, 0.51, 0.78),
     "scorer_right": (0.49, 0.16, 1.00, 0.78),
+}
+
+# Phone captures and native PC captures do not place the team banner at
+# exactly the same relative height after resizing. Try the tight fast crop
+# first, then progressively taller crops on the same half of the screen.
+# Canonical team matching is the gate: an expanded crop is never accepted
+# merely because it contains arbitrary OCR text.
+TEAM_REGIONS = {
+    "home": (
+        (0.00, 0.105, 0.40, 0.190),
+        (0.00, 0.080, 0.48, 0.220),
+        (0.00, 0.060, 0.50, 0.240),
+    ),
+    "away": (
+        (0.60, 0.105, 1.00, 0.190),
+        (0.52, 0.080, 1.00, 0.220),
+        (0.50, 0.060, 1.00, 0.240),
+    ),
 }
 
 FINAL_MARKERS = (
@@ -89,6 +103,9 @@ def _canonical_team(text: str):
         return exact[key]
     if key in ALIASES:
         return ALIASES[key]
+
+    # Expanded rescue crops can include the centred Resultado title. Accept a
+    # team only when a known club/alias occurs as a complete normalized phrase.
     padded = f" {key} "
     candidates = []
     for alias, team in known.items():
@@ -98,6 +115,10 @@ def _canonical_team(text: str):
         return max(candidates)[1]
 
     # Closed PES6 vocabulary: tolerate only a high, unique OCR similarity.
+    # Fuzzy repair is only for a single OCR line, never for a multi-token crop
+    # containing unrelated UI text such as Resultado/user names.
+    if " | " in str(text or ""):
+        return None
     fuzzy = []
     for alias, team in known.items():
         if len(alias) < 6:
@@ -141,9 +162,11 @@ def _crop_phone_letterbox(image: Image.Image) -> Image.Image:
     regions = _merge_regions(active, max_gap=max(10, int(image.height * 0.025)))
     if not regions:
         return image
+
     def score(region):
         top, bottom = region
         return (bottom - top + 1) * (0.55 + float(activity[top:bottom + 1].mean()))
+
     top, bottom = max(regions, key=score)
     band_h = bottom - top + 1
     if band_h < max(120, int(image.height * 0.14)) or band_h > int(image.height * 0.86):
@@ -159,9 +182,12 @@ def _crop(image: Image.Image, frac) -> Image.Image:
     return image.crop((max(0, int(w*x0)), max(0, int(h*y0)), min(w, int(w*x1)), min(h, int(h*y1))))
 
 
-def _prepare(crop: Image.Image, *, digit=False) -> Image.Image:
-    scale = 7 if digit else 3
-    target = crop.resize((max(1, crop.width*scale), max(1, crop.height*scale)), Image.Resampling.BICUBIC if digit else Image.Resampling.LANCZOS)
+def _prepare(crop: Image.Image, *, digit=False, team=False) -> Image.Image:
+    scale = 7 if digit else (4 if team else 3)
+    target = crop.resize(
+        (max(1, crop.width*scale), max(1, crop.height*scale)),
+        Image.Resampling.BICUBIC if digit else Image.Resampling.LANCZOS,
+    )
     if digit:
         gray = ImageOps.autocontrast(ImageOps.grayscale(target))
         return ImageEnhance.Contrast(gray).enhance(1.30).convert("RGB")
@@ -170,25 +196,35 @@ def _prepare(crop: Image.Image, *, digit=False) -> Image.Image:
 
 def _result_payload(res):
     candidates = []
-    try: candidates.append(res.json)
-    except Exception: pass
-    try: candidates.append(dict(res))
-    except Exception: pass
+    try:
+        candidates.append(res.json)
+    except Exception:
+        pass
+    try:
+        candidates.append(dict(res))
+    except Exception:
+        pass
     candidates.append(res)
     for candidate in candidates:
         if callable(candidate):
-            try: candidate = candidate()
-            except Exception: continue
+            try:
+                candidate = candidate()
+            except Exception:
+                continue
         if not isinstance(candidate, dict):
             continue
         inner = candidate.get("res") if isinstance(candidate.get("res"), dict) else candidate
         texts = inner.get("rec_texts")
         scores = inner.get("rec_scores")
         if texts is not None:
-            try: texts = [str(x).strip() for x in list(texts)]
-            except Exception: texts = []
-            try: scores = [float(x) for x in list(scores)] if scores is not None else []
-            except Exception: scores = []
+            try:
+                texts = [str(x).strip() for x in list(texts)]
+            except Exception:
+                texts = []
+            try:
+                scores = [float(x) for x in list(scores)] if scores is not None else []
+            except Exception:
+                scores = []
             return texts, scores
         if inner.get("rec_text") is not None:
             text = str(inner.get("rec_text") or "").strip()
@@ -204,12 +240,43 @@ def _read_region(ocr, crop: Image.Image, label: str) -> dict:
         texts, scores = [], []
         for res in ocr.predict(str(path)):
             t, s = _result_payload(res)
-            texts.extend(t); scores.extend(s)
-    return {"texts": [x for x in texts if x], "scores": scores, "text": " | ".join(x for x in texts if x)}
+            texts.extend(t)
+            scores.extend(s)
+    return {
+        "texts": [x for x in texts if x],
+        "scores": scores,
+        "text": " | ".join(x for x in texts if x),
+    }
+
+
+def _read_team_side(ocr, frame: Image.Image, side: str):
+    """Read one team with bounded geometry rescue and canonical-team gating."""
+    attempts = []
+    best = {"texts": [], "scores": [], "text": ""}
+    for index, frac in enumerate(TEAM_REGIONS[side], start=1):
+        read = _read_region(
+            ocr,
+            _prepare(_crop(frame, frac), team=True),
+            f"{side}_team_{index}",
+        )
+        read["region"] = list(frac)
+        read["candidate"] = index
+        canonical = _canonical_team(read["text"])
+        read["canonical"] = canonical
+        attempts.append(read)
+        if read["text"] and len(read["text"]) > len(best.get("text", "")):
+            best = read
+        if canonical:
+            return read, canonical, attempts
+    return best, None, attempts
 
 
 def _parse_digit(text: str):
-    vals = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or "")) if 0 <= int(x) <= 20]
+    vals = [
+        int(x)
+        for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or ""))
+        if 0 <= int(x) <= 20
+    ]
     return vals[0] if len(vals) == 1 else None
 
 
@@ -227,6 +294,7 @@ def _state_score_tail(texts):
 
 def probe(image_path: Path) -> dict:
     from paddleocr import PaddleOCR
+
     image = Image.open(image_path).convert("RGB")
     frame = _crop_phone_letterbox(image)
     started = time.perf_counter()
@@ -242,14 +310,19 @@ def probe(image_path: Path) -> dict:
     )
 
     reads = {}
-    for name in ("home_team", "away_team", "home_score", "away_score", "result_state"):
+    reads["home_team"], home, home_attempts = _read_team_side(ocr, frame, "home")
+    reads["away_team"], away, away_attempts = _read_team_side(ocr, frame, "away")
+
+    for name in ("home_score", "away_score", "result_state"):
         frac = REGIONS[name]
-        reads[name] = _read_region(ocr, _prepare(_crop(frame, frac), digit=name.endswith("_score")), name)
+        reads[name] = _read_region(
+            ocr,
+            _prepare(_crop(frame, frac), digit=name.endswith("_score")),
+            name,
+        )
 
     result_key = _norm(reads["result_state"]["text"])
     is_final = any(_norm(marker) in result_key for marker in FINAL_MARKERS)
-    home = _canonical_team(reads["home_team"]["text"])
-    away = _canonical_team(reads["away_team"]["text"])
     hg = _parse_digit(reads["home_score"]["text"])
     ag = _parse_digit(reads["away_score"]["text"])
 
@@ -269,7 +342,9 @@ def probe(image_path: Path) -> dict:
             ag = tail_a if ag is None else ag
             score_source = "cross_checked_state_tail"
 
-    result_complete = bool(home and away and home != away and hg is not None and ag is not None and is_final)
+    result_complete = bool(
+        home and away and home != away and hg is not None and ag is not None and is_final
+    )
 
     # Do not scan scorer tables on a valid result screen. This keeps the live
     # route bounded. Scorer OCR is only attempted when result parsing did not
@@ -279,7 +354,9 @@ def probe(image_path: Path) -> dict:
     reads["scorer_right"] = {"texts": [], "scores": [], "text": ""}
     is_scorers = False
     if not result_complete:
-        reads["scorer_header"] = _read_region(ocr, _prepare(_crop(frame, REGIONS["scorer_header"])), "scorer_header")
+        reads["scorer_header"] = _read_region(
+            ocr, _prepare(_crop(frame, REGIONS["scorer_header"])), "scorer_header"
+        )
         scorer_key = _norm(reads["scorer_header"]["text"])
         is_scorers = any(_norm(marker) in scorer_key for marker in SCORER_MARKERS)
         if is_scorers:
@@ -296,6 +373,8 @@ def probe(image_path: Path) -> dict:
         "away_team_raw": reads["away_team"]["text"],
         "home_team": home,
         "away_team": away,
+        "home_team_candidates": home_attempts,
+        "away_team_candidates": away_attempts,
         "home_goals": hg,
         "away_goals": ag,
         "score_tail": list(score_tail) if score_tail else None,
@@ -318,6 +397,7 @@ def main() -> int:
     payload = probe(args.image)
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0 if payload["screen_kind"] != "unknown" else 2
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
