@@ -15,6 +15,8 @@ import secrets
 import discord
 from discord import app_commands
 
+import guild_isolation_patch as guild_isolation
+
 
 _TIMEOUT_SECONDS = 180
 
@@ -230,3 +232,22 @@ def apply_dice_challenge_patch(runtime, bot) -> None:
 
     bot._ajpa_dice_challenge_patch = True
     print("AJPA Discord: /dado consensuado activo")
+
+
+# bot.py imports this module before run_bot. Wrap the final guild-isolation
+# installer so /dado is registered on the same runtime bot before it connects.
+_base_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
+
+
+def _apply_guild_isolation_then_dice(runtime, bot):
+    _base_apply_guild_isolation_patch(runtime, bot)
+    apply_dice_challenge_patch(runtime, bot)
+
+
+if not getattr(
+    guild_isolation.apply_guild_isolation_patch,
+    "_ajpa_dice_challenge_wrapped",
+    False,
+):
+    _apply_guild_isolation_then_dice._ajpa_dice_challenge_wrapped = True
+    guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_dice
