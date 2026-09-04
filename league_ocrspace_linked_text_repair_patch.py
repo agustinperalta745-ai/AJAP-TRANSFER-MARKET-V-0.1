@@ -149,3 +149,7 @@ print(
     "un lado oficial + username(s) enlazado(s) pueden recuperar el rival | "
     "goleador unico por minuto habilitado"
 )
+
+# Final scorer layer: ParsedText can recover a clear roster player + goal minute
+# even when OCR.Space overlay geometry does not place the scorer row correctly.
+import league_ocrspace_parsedtext_scorer_patch  # noqa: F401,E402
