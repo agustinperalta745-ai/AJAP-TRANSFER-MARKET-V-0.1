@@ -174,6 +174,9 @@ import league_scorer_screen_reliability_patch  # noqa: F401,E402
 # league result. Only real overtakes within positions 1-5 create a post, with
 # team emojis and a locally-rendered Top 5 image.
 import league_top5_overtake_radio_patch  # noqa: F401,E402
+# Visual identity repair: resolve canonical Liga names to the server's real club
+# emojis and trim transparent PNG margins before rendering the Top 5 card.
+import league_top5_badge_fix_patch  # noqa: F401,E402
 # Persistence bridge: the same Top 5 event must also fire when a result becomes
 # official later through evidence buttons, rival confirmation or Staff review.
 import league_top5_persistence_bridge_patch  # noqa: F401,E402
@@ -188,6 +191,6 @@ import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-ocrspace-result-bridge"
+AJAP_RESTART_MARKER = "2026-09-04T-top5-badges-v2"
 
 import run_bot  # noqa: F401,E402
