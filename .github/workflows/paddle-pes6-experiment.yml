@@ -1,0 +1,167 @@
+name: Paddle PES6 isolated experiment
+
+on:
+  push:
+    branches:
+      - experiment/paddleocr-pes6
+    paths:
+      - tools/pes6_paddle_probe.py
+      - tools/pes6_paddle_probe_ready.py
+      - requirements.txt
+      - requirements-paddle-experiment.txt
+      - tests/fixtures/*.b64
+      - tests/fixtures/tzparts/**
+      - tests/fixtures/sbparts/**
+      - .github/workflows/paddle-pes6-experiment.yml
+  workflow_dispatch:
+
+jobs:
+  paddle-pes6-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout experiment branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install production plus PaddleOCR CPU stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install paddlepaddle==3.3.0
+          python -m pip install -r requirements-paddle-experiment.txt
+          python - <<'PY'
+          import cv2
+          import onnxruntime
+          import rapidocr
+          import paddle
+          import paddleocr
+          print('AJAP_DEP_STACK_OK', cv2.__version__, onnxruntime.__version__, paddle.__version__)
+          PY
+
+      - name: Rebuild real PES6 fixtures
+        run: |
+          mkdir -p .tmp-paddle
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          from PIL import Image
+
+          out = Path('.tmp-paddle')
+          out.mkdir(exist_ok=True)
+
+          def joined_parts(folder, names):
+              root = Path(folder)
+              return ''.join(''.join((root / name).read_text().split()) for name in names)
+
+          teesside_text = joined_parts('tests/fixtures/tzparts', [
+              'part01.b64','part02.b64','part03.b64','part04.b64',
+              'part05a.b64','part05b.b64','part06.b64','part07a.b64','part07b.b64',
+          ])
+          sporting_text = joined_parts('tests/fixtures/sbparts', [
+              'part01.b64','part02.b64','part03.b64','part04.b64',
+          ])
+
+          mappings = {
+              'teesside-zaragoza': teesside_text,
+              'mbv_res': ''.join(Path('tests/fixtures/mbv_res.jpg.b64').read_text().split()),
+              've_res': ''.join(Path('tests/fixtures/ve_res.jpg.b64').read_text().split()),
+              'sb_res': sporting_text,
+          }
+
+          expected_bytes = {
+              'teesside-zaragoza': 25889,
+              'mbv_res': 9405,
+              've_res': 10491,
+              'sb_res': 10261,
+          }
+          failures = []
+          for name, encoded in mappings.items():
+              try:
+                  clean = encoded + ('=' * (-len(encoded) % 4))
+                  raw = base64.b64decode(clean, validate=True)
+                  if len(raw) != expected_bytes[name]:
+                      raise ValueError(f'byte-size {len(raw)} != {expected_bytes[name]}')
+                  dst = out / f'{name}.jpg'
+                  dst.write_bytes(raw)
+                  with Image.open(dst) as im:
+                      im.load()
+                      print('AJAP_FIXTURE_VALID', name, 'b64_chars=', len(encoded), 'bytes=', len(raw), 'size=', im.size, 'format=', im.format)
+              except Exception as exc:
+                  print('AJAP_FIXTURE_INVALID', name, 'b64_chars=', len(encoded), type(exc).__name__, str(exc))
+                  failures.append(name)
+          if failures:
+              raise SystemExit('INVALID_FIXTURES: ' + ', '.join(failures))
+          PY
+
+      - name: Run real fixture batch
+        env:
+          PADDLE_PDX_MODEL_SOURCE: BOS
+          PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+        run: |
+          set +e
+          for item in teesside-zaragoza mbv_res ve_res sb_res; do
+            python tools/pes6_paddle_probe_ready.py ".tmp-paddle/${item}.jpg" > ".tmp-paddle/result-${item}.json"
+            echo "AJAP_PROBE_EXIT ${item} $?"
+          done
+          set -e
+
+      - name: Validate result batch and safe rejection
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              'teesside-zaragoza': ('Middlesbrough', 1, 6, 'Real Zaragoza'),
+              'mbv_res': ('Manchester City', 1, 0, 'Villarreal'),
+              've_res': ('Villarreal', 3, 1, 'West Ham United'),
+          }
+          failures = []
+          for name, wanted in expected.items():
+              path = Path(f'.tmp-paddle/result-{name}.json')
+              if not path.exists() or not path.read_text().strip():
+                  failures.append(f'{name}:no_output')
+                  print('AJAP_RESULT', name, 'NO_OUTPUT')
+                  continue
+              data = json.loads(path.read_text())
+              got = (data.get('home_team'), data.get('home_goals'), data.get('away_goals'), data.get('away_team'))
+              checks = {
+                  'exact_result': got == wanted,
+                  'final': data.get('is_final') is True,
+                  'screen_kind_result': data.get('screen_kind') == 'result',
+                  'complete': data.get('result_complete') is True,
+              }
+              print('AJAP_RESULT', name, 'wanted=', wanted, 'got=', got, 'raw=', (data.get('home_team_raw'), data.get('away_team_raw')), 'geometry_score=', data.get('geometry_score'), 'score_tail=', data.get('score_tail'), 'score_reads=', (data.get('reads', {}).get('home_score', {}).get('text'), data.get('reads', {}).get('away_score', {}).get('text')), 'score_source=', data.get('score_source'), 'checks=', checks, 'elapsed=', data.get('elapsed_seconds'))
+              failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
+
+          safety_path = Path('.tmp-paddle/result-sb_res.json')
+          if not safety_path.exists() or not safety_path.read_text().strip():
+              failures.append('safety:no_output')
+          else:
+              safety = json.loads(safety_path.read_text())
+              safety_checks = {
+                  'does_not_create_official_result': safety.get('result_complete') is False,
+                  'not_classified_as_result': safety.get('screen_kind') != 'result',
+              }
+              print('AJAP_SAFETY sporting-borussia', safety_checks, 'raw=', (safety.get('home_team_raw'), safety.get('away_team_raw')), 'resolved=', (safety.get('home_team'), safety.get('away_team')))
+              failures.extend(f'safety:{key}' for key, ok in safety_checks.items() if not ok)
+
+          if failures:
+              raise SystemExit('FAILED: ' + ', '.join(failures))
+          print('AJAP_PADDLE_BATCH_OK')
+          PY
+
+      - name: Upload probe outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddle-pes6-probe-output
+          path: .tmp-paddle/result-*.json
+          if-no-files-found: warn
+          include-hidden-files: true
