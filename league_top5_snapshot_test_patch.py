@@ -15,7 +15,7 @@ import league_top5_overtake_radio_patch as top5
 
 
 _BASE_APPLY = feedback.apply_league_result_feedback_patch
-_TEST_KEY = "radio_top5_snapshot_2026_09_04_badges_v2"
+_TEST_KEY = "radio_top5_snapshot_2026_09_04_badges_v3"
 
 
 def _ensure_schema(conn) -> None:
@@ -101,8 +101,12 @@ async def _publish_snapshot(runtime, bot, guild) -> bool:
         return False
 
     try:
-        image = top5._render_top5(rows)
-        file = discord.File(image, filename="ajpa-top5-prueba-badges-v2.png")
+        render_for_guild = getattr(top5, "_render_top5_for_guild", None)
+        if callable(render_for_guild):
+            image = await render_for_guild(guild, rows)
+        else:
+            image = top5._render_top5(rows)
+        file = discord.File(image, filename="ajpa-top5-prueba-badges-v3.png")
         sent = await channel.send(
             content=_snapshot_text(guild, rows),
             file=file,
