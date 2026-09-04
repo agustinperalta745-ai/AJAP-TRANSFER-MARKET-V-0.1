@@ -1,0 +1,125 @@
+name: Paddle PES6 live regression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - tools/pes6_paddle_probe.py
+      - tools/pes6_paddle_probe_ready.py
+      - requirements.txt
+      - requirements-paddle-experiment.txt
+      - tests/fixtures/mbv_res.jpg.b64
+      - tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64
+      - .github/workflows/paddle-pes6-live-regression.yml
+  workflow_dispatch:
+
+jobs:
+  live-result-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install production and PaddleOCR CPU stack
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install paddlepaddle==3.3.0
+          python -m pip install -r requirements-paddle-experiment.txt
+
+      - name: Rebuild live fixtures
+        run: |
+          mkdir -p .tmp-paddle-live
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          from PIL import Image
+
+          fixtures = {
+              'mbv_res': ('tests/fixtures/mbv_res.jpg.b64', 9405),
+              'live_galatasaray_manblue_1_3': ('tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64', 14226),
+          }
+          for name, (source, expected_bytes) in fixtures.items():
+              encoded = ''.join(Path(source).read_text().split())
+              raw = base64.b64decode(encoded + ('=' * (-len(encoded) % 4)), validate=True)
+              if len(raw) != expected_bytes:
+                  raise SystemExit(f'{name}: byte-size {len(raw)} != {expected_bytes}')
+              dst = Path('.tmp-paddle-live') / f'{name}.jpg'
+              dst.write_bytes(raw)
+              with Image.open(dst) as im:
+                  im.load()
+                  print('AJAP_LIVE_FIXTURE', name, im.size, im.format)
+          PY
+
+      - name: Run hardened reader
+        env:
+          PADDLE_PDX_MODEL_SOURCE: BOS
+          PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True'
+        run: |
+          set +e
+          for item in mbv_res live_galatasaray_manblue_1_3; do
+            python tools/pes6_paddle_probe_ready.py ".tmp-paddle-live/${item}.jpg" > ".tmp-paddle-live/result-${item}.json"
+            echo "AJAP_LIVE_PROBE_EXIT ${item} $?"
+          done
+          set -e
+
+      - name: Validate exact live results
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = {
+              'mbv_res': ('Manchester City', 1, 0, 'Villarreal'),
+              'live_galatasaray_manblue_1_3': ('Galatasaray', 1, 3, 'Manchester City'),
+          }
+          failures = []
+          for name, wanted in expected.items():
+              path = Path(f'.tmp-paddle-live/result-{name}.json')
+              if not path.exists() or not path.read_text().strip():
+                  failures.append(f'{name}:no_output')
+                  continue
+              data = json.loads(path.read_text())
+              got = (
+                  data.get('home_team'),
+                  data.get('home_goals'),
+                  data.get('away_goals'),
+                  data.get('away_team'),
+              )
+              checks = {
+                  'exact_result': got == wanted,
+                  'final': data.get('is_final') is True,
+                  'screen_kind_result': data.get('screen_kind') == 'result',
+                  'complete': data.get('result_complete') is True,
+              }
+              print(
+                  'AJAP_LIVE_RESULT', name,
+                  'wanted=', wanted,
+                  'got=', got,
+                  'raw=', (data.get('home_team_raw'), data.get('away_team_raw')),
+                  'geometry_score=', data.get('geometry_score'),
+                  'score_source=', data.get('score_source'),
+                  'elapsed=', data.get('elapsed_seconds'),
+                  'checks=', checks,
+              )
+              failures.extend(f'{name}:{key}' for key, ok in checks.items() if not ok)
+          if failures:
+              raise SystemExit('FAILED: ' + ', '.join(failures))
+          print('AJAP_PADDLE_LIVE_REGRESSION_OK')
+          PY
+
+      - name: Upload reader outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddle-pes6-live-regression-output
+          path: .tmp-paddle-live/result-*.json
+          if-no-files-found: warn
