@@ -18,6 +18,11 @@ import discord
 
 import league_automation_patch as league
 
+# Build/load the replacement reader while intake is still hard-paused. This does
+# not process messages; it only prepares the stricter score parser for the later
+# controlled re-enable.
+import league_scoreboard_reader_v2_patch  # noqa: F401
+
 try:
     import league_result_feedback_patch as feedback
 except Exception:
