@@ -199,7 +199,7 @@ def _apply_checkpoint(runtime, guild_id: int):
             MARKER,
             int(cid),
             int(count),
-            "4 resultados y 11 goles individuales verificados por Staff durante la pausa del lector; checkpoint esperado: 60 partidos.",
+            "4 resultados y 12 goles individuales verificados por Staff durante la pausa del lector; checkpoint esperado: 60 partidos.",
         ))
         conn.commit()
         print(
