@@ -68,6 +68,15 @@ function PlayerCard(`);
 for (const club of ['club.club', 'selectedClubProfile.club', 'player.club']) {
   if (!ui.includes(backdrop(club))) throw new Error(`Missing themed backdrop: ${club}`);
 }
+
+// La composición aprobada vuelve a escribir la pantalla Perfil durante el build.
+// Restauramos acá la ayuda nueva para que sea lo último que vea el bundle final.
+const oldProfileHelp = '<Text style={s.muted}>Ejecutá /app_codigo en Discord y escribí el código privado de 8 caracteres.</Text>';
+const newProfileHelp = '<Text style={s.muted}>¿Cómo conseguirlo? En Discord, abrí el menú principal y tocá “📱 Vincular con la app”. El bot te dará un código privado de 8 caracteres; copialo y pegalo acá. También podés usar /app_codigo.</Text>';
+if (ui.includes(oldProfileHelp)) ui = ui.replace(oldProfileHelp, newProfileHelp);
+if (!ui.includes(newProfileHelp)) throw new Error('No quedó aplicada la ayuda para obtener el código de Discord');
+if (!ui.includes('<Text style={s.profileButtonText}>MI PERFIL</Text>')) throw new Error('No quedó visible el acceso MI PERFIL');
+
 fs.writeFileSync(path, ui + '\n' + marker + '\n');
 console.log('Club profiles and player cards now use their current club theme; badge assets unchanged.');
 
