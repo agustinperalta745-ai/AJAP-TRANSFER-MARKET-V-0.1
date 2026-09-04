@@ -7,6 +7,7 @@ on:
     paths:
       - tools/pes6_paddle_probe.py
       - tools/pes6_paddle_probe_ready.py
+      - requirements.txt
       - requirements-paddle-experiment.txt
       - tests/fixtures/*.b64
       - tests/fixtures/tzparts/**
@@ -28,11 +29,20 @@ jobs:
           python-version: '3.11'
           cache: pip
 
-      - name: Install isolated PaddleOCR CPU stack
+      - name: Install production plus PaddleOCR CPU stack
         run: |
           python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
           python -m pip install paddlepaddle==3.3.0
           python -m pip install -r requirements-paddle-experiment.txt
+          python - <<'PY'
+          import cv2
+          import onnxruntime
+          import rapidocr
+          import paddle
+          import paddleocr
+          print('AJAP_DEP_STACK_OK', cv2.__version__, onnxruntime.__version__, paddle.__version__)
+          PY
 
       - name: Rebuild real PES6 fixtures
         run: |
