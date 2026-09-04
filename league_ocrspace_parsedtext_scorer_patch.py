@@ -222,3 +222,7 @@ print(
     "nombre+minuto validados por plantel y cierre exacto del marcador | "
     "confirmacion de resultado simplificada"
 )
+
+# Late and isolated: if only scorer attribution is incomplete, keep the already
+# validated FINAL score automatic and send Staff a scorer-only completion card.
+import league_ocrspace_scorer_only_fallback_patch  # noqa: F401,E402
