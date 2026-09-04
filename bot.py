@@ -181,14 +181,13 @@ import league_top5_persistence_bridge_patch  # noqa: F401,E402
 # snapshot to Radio Pasillo without modifying any league data.
 import league_top5_snapshot_test_patch  # noqa: F401,E402
 
-# Gemini is the final automatic result reader. Its companion fallback patch keeps
-# the original photo as evidence and sends uncertain finals/scorers to Staff
-# instead of asking the player to recreate a screenshot after leaving the match.
-import league_result_intake_pause_patch  # noqa: F401,E402
-import league_gemini_staff_fallback_patch  # noqa: F401,E402
+# OCR.Space is the final automatic result reader. It reuses AJPA's hardened PES6
+# team/score/scorer parser, but OCR itself is handled by the external free API.
+# Any incomplete FINAL evidence is preserved and routed to Staff.
+import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-gemini-staff-fallback"
+AJAP_RESTART_MARKER = "2026-09-04T-ocrspace-result-bridge"
 
 import run_bot  # noqa: F401,E402
