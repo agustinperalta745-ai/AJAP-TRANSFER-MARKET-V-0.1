@@ -8,6 +8,7 @@ truth. No result is copied or mutated here.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import re
 import sqlite3
 import unicodedata
@@ -54,6 +55,84 @@ def _canonical_mobile_team(conn: sqlite3.Connection, raw: str) -> str:
     return value
 
 
+def _parse_time(raw) -> datetime | None:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _classic_periods(conn: sqlite3.Connection) -> list[dict]:
+    """Load the historical intervals in which each classic rivalry was valid."""
+    if "classic_rivals" not in parity._tables(conn):
+        return []
+
+    cols = mobile_read_api._columns(conn, "classic_rivals")
+    if not {"club_a", "club_b"}.issubset(cols):
+        return []
+
+    accepted = "accepted_at" if "accepted_at" in cols else "NULL AS accepted_at"
+    released = "released_at" if "released_at" in cols else "NULL AS released_at"
+    active = "active" if "active" in cols else "1 AS active"
+    rows = conn.execute(
+        f"""
+        SELECT club_a, club_b, {accepted}, {released}, {active}
+        FROM classic_rivals
+        ORDER BY id DESC
+        """
+    ).fetchall()
+    return [
+        {
+            "club_a": str(row["club_a"] or ""),
+            "club_b": str(row["club_b"] or ""),
+            "accepted_at": _parse_time(row["accepted_at"]),
+            "released_at": _parse_time(row["released_at"]),
+            "active": bool(row["active"]),
+        }
+        for row in rows
+    ]
+
+
+def _is_classic_at(periods: list[dict], home: str, away: str, created_at) -> bool:
+    """Return True only when this fixture happened during a classic interval."""
+    home_key = _team_key(home)
+    away_key = _team_key(away)
+    played_at = _parse_time(created_at)
+    if not home_key or not away_key:
+        return False
+
+    for period in periods:
+        club_a = _team_key(period["club_a"])
+        club_b = _team_key(period["club_b"])
+        same_pair = (
+            (home_key == club_a and away_key == club_b)
+            or (home_key == club_b and away_key == club_a)
+        )
+        if not same_pair:
+            continue
+
+        accepted_at = period["accepted_at"]
+        released_at = period["released_at"]
+        if played_at is None:
+            # Old rows without a timestamp cannot be placed in a closed historic
+            # interval safely. They can still be marked for a currently active pair.
+            if period["active"] and released_at is None:
+                return True
+            continue
+        if accepted_at is not None and played_at < accepted_at:
+            continue
+        if released_at is not None and played_at > released_at:
+            continue
+        return True
+    return False
+
+
 def matches_payload(conn: sqlite3.Connection) -> list[dict]:
     if "league_matches" not in parity._tables(conn):
         return []
@@ -72,6 +151,7 @@ def matches_payload(conn: sqlite3.Connection) -> list[dict]:
         LIMIT 500
         """
     ).fetchall()
+    classics = _classic_periods(conn)
 
     return [
         {
@@ -81,6 +161,12 @@ def matches_payload(conn: sqlite3.Connection) -> list[dict]:
             "home_goals": int(row["home_goals"]),
             "away_goals": int(row["away_goals"]),
             "created_at": str(row["created_at"] or ""),
+            "is_classic": _is_classic_at(
+                classics,
+                str(row["home_team"]),
+                str(row["away_team"]),
+                row["created_at"],
+            ),
         }
         for row in rows
     ]
@@ -106,12 +192,19 @@ def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
            FROM league_ges_result_queue WHERE ges_message_id IS NOT NULL
            ORDER BY created_at DESC, source_message_id DESC LIMIT 500"""
     ).fetchall()
+    classics = _classic_periods(conn)
     return [dict(
         id=str(row["source_message_id"]),
         home_team=_canonical_mobile_team(conn, row["home_team"]),
         away_team=_canonical_mobile_team(conn, row["away_team"]),
         home_goals=int(row["home_goals"]), away_goals=int(row["away_goals"]),
         created_at=str(row["created_at"] or ""),
+        is_classic=_is_classic_at(
+            classics,
+            str(row["home_team"]),
+            str(row["away_team"]),
+            row["created_at"],
+        ),
     ) for row in rows if str(row["source_message_id"]) not in HIDDEN_RESULT_CARD_SOURCE_IDS]
 
 
