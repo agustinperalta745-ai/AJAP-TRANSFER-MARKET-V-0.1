@@ -343,7 +343,7 @@ export default function BotParityAppV2() {
   const pair = async () => {
     const code = pairCode.trim().toUpperCase();
     if (code.length !== 8) {
-      Alert.alert('Código inválido', 'En Discord ejecutá /app_codigo e ingresá los 8 caracteres.');
+      Alert.alert('Código inválido', 'En Discord tocá “📱 Vincular con la app” en el menú principal (o usá /app_codigo) y pegá los 8 caracteres.');
       return;
     }
     setBusy(true);
@@ -744,7 +744,7 @@ export default function BotParityAppV2() {
       ) : (
         <View style={s.editorCard}>
           <Text style={s.playerName}>Vincular Discord</Text>
-          <Text style={s.muted}>Ejecutá /app_codigo en Discord y escribí el código privado de 8 caracteres.</Text>
+          <Text style={s.muted}>¿Cómo conseguirlo? En Discord, abrí el menú principal y tocá “📱 Vincular con la app”. El bot te dará un código privado de 8 caracteres; copialo y pegalo acá. También podés usar /app_codigo.</Text>
           <TextInput style={[s.input, s.codeInput]} value={pairCode} onChangeText={(value) => setPairCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} maxLength={8} autoCapitalize="characters" placeholder="XXXXXXXX" placeholderTextColor="#657382" />
           <Button label={busy ? 'VINCULANDO…' : 'VINCULAR DISCORD'} onPress={pair} disabled={busy} />
         </View>
@@ -788,7 +788,7 @@ export default function BotParityAppV2() {
         ) : (
           <View><Text style={s.brand}>AJPA</Text><Text style={s.brandSub}>TRANSFER MARKET · MOBILE</Text></View>
         )}
-        <Pressable onPress={() => setScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>◎</Text></Pressable>
+        <Pressable onPress={() => setScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>MI PERFIL</Text></Pressable>
       </View>
       <View style={s.main}>
         <ImageBackground
@@ -818,8 +818,8 @@ const s = StyleSheet.create({
   brandSub: { color: C.blue, fontSize: 8, fontWeight: '900', letterSpacing: 1.8 },
   topAction: { paddingVertical: 10, paddingRight: 14 },
   topActionText: { color: C.blueSoft, fontSize: 11, fontWeight: '900', letterSpacing: 1 },
-  profileButton: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#29435a', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(7,17,26,0.86)' },
-  profileButtonText: { color: C.blueSoft, fontSize: 20, fontWeight: '900' },
+  profileButton: { minWidth: 92, height: 38, paddingHorizontal: 12, borderRadius: 19, borderWidth: 1, borderColor: '#29435a', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(7,17,26,0.86)' },
+  profileButtonText: { color: C.blueSoft, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
   eyebrow: { color: C.blue, fontSize: 10, fontWeight: '900', letterSpacing: 1.6, marginBottom: 4 },
   screenTitle: { color: C.white, fontSize: 28, fontWeight: '900' },
   muted: { color: C.muted, fontSize: 12.5, lineHeight: 18, marginTop: 3 },
