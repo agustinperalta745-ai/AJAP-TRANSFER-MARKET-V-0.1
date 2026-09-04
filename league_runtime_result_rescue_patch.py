@@ -14,8 +14,8 @@ Runtime policy:
 4. Replace the evidence handler with the same safe competition workflow but, if
    a non-reader technical exception happens, put the concrete exception class and
    message in the Staff review card so the next failure is immediately actionable.
-
-The official persistence/duplicate/partial/uploader rules remain unchanged.
+5. An exact replay of an already-official score is a harmless duplicate, never a
+   conflict. Only a different score for the same pair is sent to Staff.
 """
 
 from __future__ import annotations
@@ -59,6 +59,27 @@ def _real_openai_key():
     if not value or (sentinel and value == sentinel):
         return None
     return value
+
+
+def _same_official_score(row, duplicate) -> bool:
+    """Compare the detected score with an existing match in either orientation."""
+    if not row or not duplicate:
+        return False
+    home = str(row["home_team"] or "").casefold()
+    away = str(row["away_team"] or "").casefold()
+    hg = int(row["home_goals"])
+    ag = int(row["away_goals"])
+
+    d_home = str(duplicate["home_team"] or "").casefold()
+    d_away = str(duplicate["away_team"] or "").casefold()
+    d_hg = int(duplicate["home_goals"])
+    d_ag = int(duplicate["away_goals"])
+
+    if home == d_home and away == d_away:
+        return hg == d_hg and ag == d_ag
+    if home == d_away and away == d_home:
+        return hg == d_ag and ag == d_hg
+    return False
 
 
 async def analyze_with_runtime_rescue(images):
@@ -243,9 +264,29 @@ async def reliable_evidence_handle(runtime, bot, message):
                 runtime, message.guild.id, row
             )
             if not ok:
+                if result_state == "DUPLICADO" and _same_official_score(row, duplicate):
+                    evidence._update_status(
+                        runtime,
+                        message.guild.id,
+                        message.id,
+                        "DUPLICADO_IGNORADO",
+                    )
+                    try:
+                        await message.add_reaction("✅")
+                    except Exception:
+                        pass
+                    await message.reply(
+                        f"ℹ️ Ese resultado ya estaba cargado: "
+                        f"**{duplicate['home_team']} {duplicate['home_goals']}–"
+                        f"{duplicate['away_goals']} {duplicate['away_team']}**. "
+                        "No se volvió a sumar.",
+                        mention_author=False,
+                    )
+                    return
+
                 await message.reply(
                     f"⚠️ No cargué {evidence._score_text(row)} porque este cruce ya tiene "
-                    f"un resultado oficial: **{duplicate['home_team']} "
+                    f"un resultado oficial distinto: **{duplicate['home_team']} "
                     f"{duplicate['home_goals']}–{duplicate['away_goals']} "
                     f"{duplicate['away_team']}**. El caso pasó a Staff.",
                     mention_author=False,
@@ -253,7 +294,7 @@ async def reliable_evidence_handle(runtime, bot, message):
                 await evidence._send_conflict_review(
                     message.guild,
                     row,
-                    "Se detectó automáticamente un segundo resultado para un cruce ya cargado.",
+                    "Se detectó automáticamente un resultado diferente para un cruce ya cargado.",
                 )
                 return
 
