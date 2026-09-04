@@ -45,8 +45,19 @@ def _team_from_crop(image, side):
     return best_team, best_match, str(text or "")[:180]
 
 
+def _score_text_normalized(text):
+    """Normalize only safe standalone glyph confusions inside the score-row crop."""
+    value = str(text or "")
+    # On PES6 the tiny zero is often recognized as O/Q. Restrict replacement to
+    # standalone glyphs so team/period words are never rewritten.
+    value = re.sub(r"(?<![A-Za-z0-9])[oOqQ](?![A-Za-z0-9])", "0", value)
+    value = re.sub(r"(?<![A-Za-z0-9])[iIlL](?![A-Za-z0-9])", "1", value)
+    return value
+
+
 def _two_score_numbers(text):
-    values = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", str(text or ""))]
+    value = _score_text_normalized(text)
+    values = [int(x) for x in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", value)]
     values = [x for x in values if 0 <= x <= 20]
     # A correctly read row can be "1 2do 0": the middle 2 is the period label,
     # not a goal. The score is always the leftmost and rightmost numeric value.
@@ -59,11 +70,19 @@ def _read_period_row(image, period):
     """Read one fixed PES6 1er/2do row; outer stats are outside every crop."""
     if int(period) == 1:
         regions = (
+            # Layout with visible bottom chat panel: scoreboard sits higher.
+            (0.390, 0.195, 0.610, 0.285),
+            (0.380, 0.180, 0.620, 0.300),
+            # Standard compact result capture.
             (0.390, 0.285, 0.610, 0.360),
             (0.380, 0.270, 0.620, 0.370),
         )
     else:
         regions = (
+            # Layout with visible bottom chat panel.
+            (0.390, 0.245, 0.610, 0.335),
+            (0.380, 0.235, 0.620, 0.360),
+            # Standard compact result capture.
             (0.390, 0.345, 0.610, 0.425),
             (0.380, 0.340, 0.620, 0.440),
         )
@@ -85,9 +104,9 @@ def _read_period_row(image, period):
             # accidental two-number line from an unusual screen.
             key = league.norm(text)
             if int(period) == 1:
-                marker_ok = any(x in key for x in ("1er", "ler", "1 er", "1st", "er"))
+                marker_ok = any(x in key for x in ("1er", "ler", "jer", "1 er", "1st", "er"))
             else:
-                marker_ok = any(x in key for x in ("2do", "2 do", "2nd", "do", "ndo"))
+                marker_ok = any(x in key for x in ("2do", "2 do", "2nd", "zdo", "do", "ndo"))
             if marker_ok:
                 return pair[0], pair[1], text
 
@@ -99,21 +118,26 @@ def _tight_large_score_pair(image):
     home = None
     away = None
 
-    # Narrow crops are intentionally inside the large-score lanes and cannot see
-    # Categoria/Puntos columns or the central period digits.
-    for frac in (
+    # Support both vertical placements while staying inside the large-score lanes.
+    home_regions = (
+        (0.285, 0.215, 0.355, 0.355),
+        (0.270, 0.195, 0.370, 0.375),
         (0.285, 0.300, 0.355, 0.455),
         (0.270, 0.270, 0.370, 0.470),
-    ):
+    )
+    away_regions = (
+        (0.645, 0.215, 0.715, 0.355),
+        (0.630, 0.195, 0.730, 0.375),
+        (0.645, 0.300, 0.715, 0.455),
+        (0.630, 0.270, 0.730, 0.470),
+    )
+
+    for frac in home_regions:
         value, raw = tess._digit_from_crop(image, frac)
         if value is not None:
             home = (int(value), str(raw or ""))
             break
-
-    for frac in (
-        (0.645, 0.300, 0.715, 0.455),
-        (0.630, 0.270, 0.730, 0.470),
-    ):
+    for frac in away_regions:
         value, raw = tess._digit_from_crop(image, frac)
         if value is not None:
             away = (int(value), str(raw or ""))
