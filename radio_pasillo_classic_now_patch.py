@@ -154,6 +154,19 @@ def apply_classic_now_patch(runtime, bot) -> None:
     except Exception as exc:
         print(f"WARNING AJAP: no se pudo ajustar el chequeo de Radio Pasillo a 1 min: {exc}")
 
+    # Prevent the normal loop from racing the requested immediate app message on
+    # startup. Until this PUSH_KEY exists for the guild, only the one-shot may
+    # publish; afterwards the normal rotation resumes from that app timestamp.
+    original_send_due = ads._send_due
+
+    async def _send_due_after_app(guild):
+        if guild is not None and not _already_sent(guild.id):
+            return False
+        return await original_send_due(guild)
+
+    ads._send_due = _send_due_after_app
+    runtime.radio_pasillo_send_feature_ad_if_due = _send_due_after_app
+
     bot.add_listener(_on_ready_app_push, "on_ready")
     runtime._ajap_classic_now_patch = True
     print(
