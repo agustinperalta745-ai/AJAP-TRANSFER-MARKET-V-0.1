@@ -200,9 +200,12 @@ import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 # feature tip. The AJPA Mobile download ad joins the rotation once its real URL
 # is configured in AJPA_APP_DOWNLOAD_URL.
 import radio_pasillo_feature_ads_patch  # noqa: F401,E402
+# Requested one-shot: publish the clásico rival reminder immediately on the next
+# successful start, once per guild, then resume the normal two-hour cadence.
+import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-radio-pasillo-ads-v1"
+AJAP_RESTART_MARKER = "2026-09-04T-radio-pasillo-classic-now-v1"
 
 import run_bot  # noqa: F401,E402
