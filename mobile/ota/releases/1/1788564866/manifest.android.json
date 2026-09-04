@@ -1,209 +1,209 @@
 {
-  "id": "70b1ac36-3ab4-4afc-974b-95aab7664f9c",
-  "createdAt": "2026-09-02T07:14:00.000Z",
+  "id": "eb504993-c868-4011-b26e-0bb611813d58",
+  "createdAt": "2026-09-04T23:34:26.000Z",
   "runtimeVersion": "1",
   "launchAsset": {
-    "hash": "ui8MKlAyrOj-HfUrFFBPgNK6tbu3UqqU1jP7ALWVC3k",
-    "key": "2a56237479a827e7ce8d026662d7bcc4",
+    "hash": "Z9xF6B0mImMn-c3wljL0uQZx9ZLIPTfrixTJZ6I-d-4",
+    "key": "927a8b870f84275f61b64b29ab3ada22",
     "contentType": "application/javascript",
-    "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/_expo/static/js/android/AppEntry-f8cfe04bb30a044a66bb200b0fd83004.hbc"
+    "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/_expo/static/js/android/AppEntry-f85f1df7b69b91a12ca77cb8b71c330a.hbc"
   },
   "assets": [
+    {
+      "hash": "LXDDDJctaniPLn9Hj3QzGqyCcRqjicrZ0QapNJVwL-4",
+      "key": "00265999c0a2d63ca587ecdc3475e8fa",
+      "contentType": "image/jpeg",
+      "fileExtension": ".jpg",
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/00265999c0a2d63ca587ecdc3475e8fa"
+    },
     {
       "hash": "53rUjXwXPl-BIxkgnG8hEqP84hAlCUZXHGDTUwJqPaY",
       "key": "d48f5dd982ba27785db1dd7f1c59ae3c",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/d48f5dd982ba27785db1dd7f1c59ae3c"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/d48f5dd982ba27785db1dd7f1c59ae3c"
     },
     {
       "hash": "fF9qPeZHJYAfUA5qGJWnNsJnM5CbiNc-1rCDrjjvLnU",
       "key": "2f5a468ea13df716c832a0eae0c34700",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/2f5a468ea13df716c832a0eae0c34700"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/2f5a468ea13df716c832a0eae0c34700"
     },
     {
       "hash": "IbS9R2RXFstq3d0G8chxOtxQFHUWKpa_N4HXOdzEgHo",
       "key": "31ce57c7b99a4e26a0fca1348e1365c9",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/31ce57c7b99a4e26a0fca1348e1365c9"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/31ce57c7b99a4e26a0fca1348e1365c9"
     },
     {
       "hash": "keSf6D8QYq1W_lDTa3iGZXmE7TBnL4Rk3-ROJ2LFH20",
       "key": "bf338c54f0aa571911a91bf08dad0359",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/bf338c54f0aa571911a91bf08dad0359"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/bf338c54f0aa571911a91bf08dad0359"
     },
     {
       "hash": "COFLmo8vUv3wdmFL3_IS_xs9c2dcBeu16mXHaSn20c8",
       "key": "93b59d0b57210b91053d8128a15523e1",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/93b59d0b57210b91053d8128a15523e1"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/93b59d0b57210b91053d8128a15523e1"
     },
     {
       "hash": "7DHBfzxFFoKiCaPvHCABU778N1RqsdyyDksMDUk9UXM",
       "key": "19f4a493c63785d3a2da876ecbe24694",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/19f4a493c63785d3a2da876ecbe24694"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/19f4a493c63785d3a2da876ecbe24694"
     },
     {
       "hash": "vlbFzSHf_lVnuMsYk-vqxiXTooLZJn3XAPxzzk2SjIw",
       "key": "09697c71346210ce7a1fabc18722f3d9",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/09697c71346210ce7a1fabc18722f3d9"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/09697c71346210ce7a1fabc18722f3d9"
     },
     {
       "hash": "MbBIgOw-zuEKsMnAY2Q8s5Fdw6qSzSxglKGCJNGlmlA",
       "key": "f322ef349710dbc9ba2193b56e82e259",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/f322ef349710dbc9ba2193b56e82e259"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/f322ef349710dbc9ba2193b56e82e259"
     },
     {
       "hash": "Rv3JxRDEywNxSFbvqoSw4hsfGPCfVxM5ijiVx_nalMw",
       "key": "78e40c07ac691f14ca890564a61f4647",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/78e40c07ac691f14ca890564a61f4647"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/78e40c07ac691f14ca890564a61f4647"
     },
     {
       "hash": "Hz8NssVx-3MWOVWkB0xKH71mnNIwRb20INm4Kyx3tTo",
       "key": "1bcc78132dc5d303970b72b253f873bb",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/1bcc78132dc5d303970b72b253f873bb"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/1bcc78132dc5d303970b72b253f873bb"
     },
     {
       "hash": "9ga6za037XTh4zHYOZK7U5Ioknrr6RFuAnz2zXOUMG8",
       "key": "69abc983c2dacdaef628db88f7cb4be3",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/69abc983c2dacdaef628db88f7cb4be3"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/69abc983c2dacdaef628db88f7cb4be3"
     },
     {
       "hash": "nV5QdvU8ABbP692-yJO65Yp7GhR2BaPM4vGZVa-PmRE",
       "key": "c5e2df7308b50ff4ec10220ce7155b4a",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/c5e2df7308b50ff4ec10220ce7155b4a"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/c5e2df7308b50ff4ec10220ce7155b4a"
     },
     {
       "hash": "-dEqHAAssKkGfZ_0XX0_Fvqj2OipvoV6D4awiOPrHNk",
       "key": "122e41240edc8c360f54085d78eaac62",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/122e41240edc8c360f54085d78eaac62"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/122e41240edc8c360f54085d78eaac62"
     },
     {
       "hash": "cEmF-p11eBui9gPAQQ2DQ1tCkC0n3rZ60PHzN94NplE",
       "key": "c7ef510c1e566d37a4c98d6cd3a20153",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/c7ef510c1e566d37a4c98d6cd3a20153"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/c7ef510c1e566d37a4c98d6cd3a20153"
     },
     {
       "hash": "6CPItCuagPCZ5xk9lkJ39UM4UspX_-7EatEmLQWVZ9k",
       "key": "61ca8576356113ea80170fe96d614848",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/61ca8576356113ea80170fe96d614848"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/61ca8576356113ea80170fe96d614848"
     },
     {
       "hash": "UT7iKqdIYA1JnaN2onmS8TbU2KIF2pkIkvv5JtFcoT8",
       "key": "f395257f5182e632a1fa652ddaa75d4d",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/f395257f5182e632a1fa652ddaa75d4d"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/f395257f5182e632a1fa652ddaa75d4d"
     },
     {
       "hash": "QEkCYf58Iz77DQoVNJQjN7Uszaimf7UyhEV6ZrWoSpU",
       "key": "2541aabc8cb7a6a866c87fb05bd52995",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/2541aabc8cb7a6a866c87fb05bd52995"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/2541aabc8cb7a6a866c87fb05bd52995"
     },
     {
       "hash": "_sjgPqTY67FNyZkNfE4DHK6aKYcuORafTICfYDXdkwM",
       "key": "fb52820bc7931cd168e15bb52bb845e5",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/fb52820bc7931cd168e15bb52bb845e5"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/fb52820bc7931cd168e15bb52bb845e5"
     },
     {
       "hash": "exM52Kc_grL3DbsQ_eBmzqYfMzBHv2qKrOmU6xLCAKQ",
       "key": "3b62229fff969b1a563ae5e1e32e75b8",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/3b62229fff969b1a563ae5e1e32e75b8"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/3b62229fff969b1a563ae5e1e32e75b8"
     },
     {
       "hash": "p5wXnEdlqEIkEzwnPcVobqey_sV9Phh63DdWvKs0jc0",
       "key": "2f705e4294180abf6d76075985b2bb75",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/2f705e4294180abf6d76075985b2bb75"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/2f705e4294180abf6d76075985b2bb75"
     },
     {
       "hash": "ZD3GiL_xa8rYr-snU3N5LnlKFibOHhk4WtT909Movr0",
       "key": "89a6d363f83ecf2cd2432c860ed3dfb1",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/89a6d363f83ecf2cd2432c860ed3dfb1"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/89a6d363f83ecf2cd2432c860ed3dfb1"
     },
     {
       "hash": "MBnzLghGdKBbTKF31wxt1lU8dUyO9y9pCE0zOJ5q63s",
       "key": "e8964b30da0f10fdfd4cd3a53f75379d",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/e8964b30da0f10fdfd4cd3a53f75379d"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/e8964b30da0f10fdfd4cd3a53f75379d"
     },
     {
       "hash": "ln6sHCd627YQP0moojwc9RWL4N-xZWJjRy4AsSIx1L4",
       "key": "5ec740538e69571fcfc5f6e82a60d38b",
       "contentType": "image/png",
       "fileExtension": ".png",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/5ec740538e69571fcfc5f6e82a60d38b"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/5ec740538e69571fcfc5f6e82a60d38b"
     },
     {
       "hash": "58YSIMeC2vi1zkzHEBlTlfLvjoFU-efH9xOoCOoI5P4",
       "key": "82e952decbcecd3afb2f45d280b6a62f",
       "contentType": "image/webp",
       "fileExtension": ".webp",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/82e952decbcecd3afb2f45d280b6a62f"
-    },
-    {
-      "hash": "LXDDDJctaniPLn9Hj3QzGqyCcRqjicrZ0QapNJVwL-4",
-      "key": "00265999c0a2d63ca587ecdc3475e8fa",
-      "contentType": "image/jpeg",
-      "fileExtension": ".jpg",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/00265999c0a2d63ca587ecdc3475e8fa"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/82e952decbcecd3afb2f45d280b6a62f"
     },
     {
       "hash": "Dimaa6zp92ATQwuL_WXIc1Vmk49SK4JcaXVBqoGvGzk",
       "key": "aea321fdffd1c823194c4785f4c6bc97",
       "contentType": "image/webp",
       "fileExtension": ".webp",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/aea321fdffd1c823194c4785f4c6bc97"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/aea321fdffd1c823194c4785f4c6bc97"
     },
     {
       "hash": "xvkOAnWc2DgWdtVggPSA0fq3cEs_0OkL6HkhJfQ-AYw",
       "key": "292793821887b2b87f5f3fc3cc1aaf74",
       "contentType": "image/webp",
       "fileExtension": ".webp",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/292793821887b2b87f5f3fc3cc1aaf74"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/292793821887b2b87f5f3fc3cc1aaf74"
     },
     {
       "hash": "GNObsSxYliDkR7AtF9KGgxI-YzlnuAOOPVdcRwHAIQY",
       "key": "845e207456cdbac00c6e4a3a11805c3c",
       "contentType": "image/webp",
       "fileExtension": ".webp",
-      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788333240/assets/845e207456cdbac00c6e4a3a11805c3c"
+      "url": "https://raw.githubusercontent.com/agustinperalta745-ai/AJAP-TRANSFER-MARKET-V-0.1/ota-updates/mobile/ota/releases/1/1788564866/assets/845e207456cdbac00c6e4a3a11805c3c"
     }
   ],
   "metadata": {},
@@ -235,7 +235,7 @@
       }
     },
     "ajpa": {
-      "release": "1788333240",
+      "release": "1788564866",
       "source": "github-actions-self-hosted-ota"
     }
   }
