@@ -76,7 +76,6 @@ def _payload_with_boxes(res):
             raw_list = list(raw_boxes) if raw_boxes is not None else []
             for raw in raw_list:
                 vals = raw.tolist() if hasattr(raw, "tolist") else raw
-                # rec_boxes: [x0,y0,x1,y1]. rec_polys: 4 points.
                 if isinstance(vals, (list, tuple)) and len(vals) == 4 and all(
                     isinstance(v, numbers.Real) for v in vals
                 ):
@@ -116,7 +115,10 @@ def _large_score_from_state(read: dict):
     """Return (home, away) only when two large numeric boxes prove the score."""
     texts = list(read.get("texts") or [])
     boxes = list(read.get("boxes") or [])
-    if not texts or len(boxes) != len(texts):
+    # Paddle may expose one extra geometry box for a detected glyph whose text
+    # was filtered from rec_texts. The leading text/box order is still aligned;
+    # use only the paired prefix and never fabricate missing boxes.
+    if not texts or len(boxes) < len(texts):
         return None
 
     numeric = []
