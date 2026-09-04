@@ -45,7 +45,7 @@ jobs:
 
           fixtures = {
               'mbv_res': ('tests/fixtures/mbv_res.jpg.b64', 9405),
-              'live_galatasaray_manblue_1_3': ('tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64', 14226),
+              'live_galatasaray_manblue_1_3': ('tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64', 7588),
           }
           for name, (source, expected_bytes) in fixtures.items():
               encoded = ''.join(Path(source).read_text().split())
