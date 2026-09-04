@@ -2,6 +2,21 @@
 
 import os
 
+# Safe startup diagnostic for Railway. Never print secret values: only whether
+# OCR_SPACE_API_KEY is visible to this exact Python process and which Railway
+# deployment is running. OCR-like variable *names* are included to catch a
+# spelling/scope mistake without exposing credentials.
+_ocr_key_present = bool((os.getenv("OCR_SPACE_API_KEY") or "").strip())
+_ocr_variable_names = sorted(name for name in os.environ if "OCR" in name.upper())
+print(
+    "AJPA RUNTIME ENV | "
+    f"OCR_SPACE_API_KEY={'YES' if _ocr_key_present else 'NO'} | "
+    f"project={os.getenv('RAILWAY_PROJECT_ID') or '-'} | "
+    f"service={os.getenv('RAILWAY_SERVICE_NAME') or os.getenv('RAILWAY_SERVICE_ID') or '-'} | "
+    f"environment={os.getenv('RAILWAY_ENVIRONMENT_NAME') or os.getenv('RAILWAY_ENVIRONMENT_ID') or '-'} | "
+    f"ocr_variable_names={','.join(_ocr_variable_names) if _ocr_variable_names else '(none)'}"
+)
+
 import sitecustomize  # noqa: F401
 
 os.environ.setdefault("AJPA_MOBILE_API_ENABLED", "1")
