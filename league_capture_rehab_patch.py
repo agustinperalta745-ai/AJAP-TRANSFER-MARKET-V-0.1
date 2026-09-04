@@ -1,11 +1,4 @@
-"""Admin-only helper to re-run a Liga screenshot during testing.
-
-`/rehabilitar_captura_prueba mensaje:<discord message link>` clears only the Liga
-state produced by that source message (including image hashes and any official
-match/scorers generated from it), then sends the original message back through
-the current evidence pipeline. This is intentionally named *_prueba so it is not
-confused with normal competition administration.
-"""
+"""Staff helper to replay an old Liga screenshot through the CURRENT live reader."""
 
 from __future__ import annotations
 
@@ -21,7 +14,6 @@ import league_automation_patch as league
 import league_result_evidence_patch as evidence
 import league_validation_admin_review_patch as strict
 
-
 APP = None
 BOT = None
 
@@ -33,30 +25,24 @@ _MESSAGE_LINK_RE = re.compile(
 
 def _parse_message_link(value: str):
     match = _MESSAGE_LINK_RE.match(str(value or "").strip())
-    if not match:
-        return None
-    return tuple(int(part) for part in match.groups())
+    return tuple(int(part) for part in match.groups()) if match else None
 
 
 async def _fetch_message(interaction: discord.Interaction, link: str):
     parsed = _parse_message_link(link)
     if not parsed:
         raise ValueError("Pegá el enlace completo del mensaje de Discord que contiene la captura.")
-
     guild_id, channel_id, message_id = parsed
     if not interaction.guild_id or int(interaction.guild_id) != int(guild_id):
         raise ValueError("El mensaje tiene que pertenecer a este mismo servidor.")
-
     channel = interaction.guild.get_channel(channel_id) if interaction.guild else None
     if channel is None:
         try:
             channel = await BOT.fetch_channel(channel_id)
         except Exception as exc:
             raise ValueError("No pude acceder al canal de ese mensaje.") from exc
-
     if not hasattr(channel, "fetch_message"):
         raise ValueError("Ese enlace no apunta a un canal de texto compatible.")
-
     try:
         return await channel.fetch_message(message_id)
     except Exception as exc:
@@ -77,6 +63,7 @@ async def _attachment_hashes(message: discord.Message):
 
 
 def _clear_source(runtime, guild_id: int, source_message_id: int, hashes):
+    """Clear retry/review state. Final safety may wrap this to preserve official rows."""
     evidence._ensure_schema(runtime, guild_id)
     strict._ensure_schema(runtime, guild_id)
     conn = league.db(runtime, guild_id)
@@ -91,20 +78,16 @@ def _clear_source(runtime, guild_id: int, source_message_id: int, hashes):
         ).fetchone()
         if evidence_row:
             old_prompt_id = evidence_row["prompt_message_id"]
-
         review_row = conn.execute(
             "SELECT staff_message_id FROM league_manual_reviews WHERE source_message_id=? LIMIT 1",
             (int(source_message_id),),
         ).fetchone()
         if review_row:
             old_staff_message_id = review_row["staff_message_id"]
-
-        removed_match = bool(
-            conn.execute(
-                "SELECT 1 FROM league_matches WHERE source_message_id=? LIMIT 1",
-                (int(source_message_id),),
-            ).fetchone()
-        )
+        removed_match = bool(conn.execute(
+            "SELECT 1 FROM league_matches WHERE source_message_id=? LIMIT 1",
+            (int(source_message_id),),
+        ).fetchone())
         scorers_row = conn.execute(
             "SELECT COUNT(*) AS n FROM league_goal_events WHERE source_message_id=?",
             (int(source_message_id),),
@@ -134,24 +117,60 @@ def _clear_source(runtime, guild_id: int, source_message_id: int, hashes):
     }
 
 
+def _source_state(runtime, guild_id: int, source_message_id: int):
+    conn = league.db(runtime, int(guild_id))
+    try:
+        match = conn.execute(
+            "SELECT home_team,away_team,home_goals,away_goals FROM league_matches WHERE source_message_id=? LIMIT 1",
+            (int(source_message_id),),
+        ).fetchone()
+        evidence_status = ""
+        review_status = ""
+        try:
+            row = conn.execute(
+                "SELECT status FROM league_result_evidence WHERE source_message_id=? LIMIT 1",
+                (int(source_message_id),),
+            ).fetchone()
+            evidence_status = str(row["status"] or "") if row else ""
+        except Exception:
+            pass
+        try:
+            row = conn.execute(
+                "SELECT status FROM league_manual_reviews WHERE source_message_id=? LIMIT 1",
+                (int(source_message_id),),
+            ).fetchone()
+            review_status = str(row["status"] or "") if row else ""
+        except Exception:
+            pass
+        return match, evidence_status, review_status
+    finally:
+        conn.close()
+
+
 async def _disable_old_workflow_messages(message: discord.Message, state):
-    channel = message.channel
     for message_id in (state.get("old_prompt_id"), state.get("old_staff_message_id")):
         if not message_id:
             continue
         try:
-            old = await channel.fetch_message(int(message_id))
-        except Exception:
-            continue
-        try:
+            old = await message.channel.fetch_message(int(message_id))
             await old.edit(view=None)
+        except Exception:
+            pass
+
+
+async def _clear_old_bot_reactions(message: discord.Message):
+    if not BOT or not BOT.user:
+        return
+    for emoji in ("⏸️", "✅", "❌", "⚠️", "♻️", "⏳", "🟡", "🔄", "❓"):
+        try:
+            await message.remove_reaction(emoji, BOT.user)
         except Exception:
             pass
 
 
 @app_commands.command(
     name="rehabilitar_captura_prueba",
-    description="Reprocesa desde cero una captura de Liga ya usada (solo Staff).",
+    description="Reprocesa una captura con el lector actual (solo Staff).",
 )
 @app_commands.describe(mensaje="Enlace del mensaje original que contiene la captura")
 async def rehabilitar_captura_prueba(interaction: discord.Interaction, mensaje: str):
@@ -175,72 +194,51 @@ async def rehabilitar_captura_prueba(interaction: discord.Interaction, mensaje: 
             return
 
         state = _clear_source(runtime, interaction.guild_id, source.id, hashes)
-
-        # Remove the bot's old success reaction so the source visibly returns to a
-        # neutral state before the current pipeline evaluates it again.
-        try:
-            if BOT.user:
-                await source.remove_reaction("✅", BOT.user)
-        except Exception:
-            pass
-
+        await _clear_old_bot_reactions(source)
         await _disable_old_workflow_messages(source, state)
-        try:
-            await league.refresh(runtime, BOT, interaction.guild_id)
-        except Exception:
-            pass
 
-        # Re-run the exact original message through the final installed handler,
-        # including the visible feedback guard. No repost is necessary.
+        # SAME handler as a brand-new result. It must post the public result,
+        # persist scorers, update tables/app and route uncertainty to Staff.
         await league.handle(runtime, BOT, source)
 
-        details = []
-        if state["removed_match"]:
-            details.append("resultado oficial anterior retirado antes del reproceso")
-        if state["removed_scorers"]:
-            details.append(f"{state['removed_scorers']} registro(s) de goleadores retirados")
-        suffix = "\n" + " • ".join(details) if details else ""
+        match, evidence_status, review_status = _source_state(
+            runtime, interaction.guild_id, source.id
+        )
+        if match:
+            await interaction.followup.send(
+                "✅ Reprocesada con el lector nuevo y CARGADA: "
+                f"**{match['home_team']} {match['home_goals']}–{match['away_goals']} {match['away_team']}**.",
+                ephemeral=True,
+            )
+            return
+
+        status = review_status or evidence_status or "SIN_RESULTADO"
         await interaction.followup.send(
-            "✅ Captura rehabilitada y enviada nuevamente al lector actual." + suffix,
+            "⚠️ El lector nuevo procesó la captura pero NO cargó un partido oficial. "
+            f"Estado: **{status}**. Mirá el mensaje público/Staff que generó el lector.",
             ephemeral=True,
         )
     except ValueError as exc:
         await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
     except Exception as exc:
-        print(f"AJAP Liga rehabilitar captura error: {exc}")
+        print(f"AJAP Liga rehabilitar captura error: {type(exc).__name__}: {exc}")
         await interaction.followup.send(
-            "❌ No pude rehabilitar esa captura. Revisá el enlace y los permisos del bot en ese canal.",
+            f"❌ Falló el reproceso: {type(exc).__name__}: {str(exc)[:250]}",
             ephemeral=True,
         )
 
 
 async def _sync_rehab_command_to_guilds():
-    """Publish the Staff helper as a guild command so Discord shows it immediately."""
     bot = BOT
     if bot is None or not bot.user:
         return
-
     for guild in list(bot.guilds):
         target = discord.Object(id=int(guild.id))
         try:
-            bot.tree.add_command(
-                rehabilitar_captura_prueba,
-                guild=target,
-                override=True,
-            )
-            synced = await bot.tree.sync(guild=target)
-            present = any(
-                getattr(command, "name", None) == "rehabilitar_captura_prueba"
-                for command in synced
-            )
-            print(
-                "AJAP Liga slash sync guild="
-                f"{guild.id}: rehabilitar_captura_prueba={'OK' if present else 'NO_ENCONTRADO'}"
-            )
+            bot.tree.add_command(rehabilitar_captura_prueba, guild=target, override=True)
+            await bot.tree.sync(guild=target)
         except Exception as exc:
-            print(
-                f"ERROR AJAP Liga slash sync guild={getattr(guild, 'id', '?')}: {exc}"
-            )
+            print(f"ERROR AJAP Liga slash sync guild={getattr(guild, 'id', '?')}: {exc}")
 
 
 def _install(runtime, bot):
@@ -248,18 +246,15 @@ def _install(runtime, bot):
     APP, BOT = runtime, bot
     if getattr(runtime, "_ajap_league_capture_rehab_patch", False):
         return
-
     existing = bot.tree.get_command("rehabilitar_captura_prueba")
     if existing is not None:
         bot.tree.remove_command("rehabilitar_captura_prueba")
     bot.tree.add_command(rehabilitar_captura_prueba)
-
     if not getattr(bot, "_ajap_rehab_guild_sync_listener", False):
         bot.add_listener(_sync_rehab_command_to_guilds, "on_ready")
         bot._ajap_rehab_guild_sync_listener = True
-
     runtime._ajap_league_capture_rehab_patch = True
-    print("AJAP Liga: /rehabilitar_captura_prueba registrado para Staff + sync inmediato por servidor")
+    print("AJAP Liga: /rehabilitar_captura_prueba usa el lector LIVE y verifica DB")
 
 
 _original_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
