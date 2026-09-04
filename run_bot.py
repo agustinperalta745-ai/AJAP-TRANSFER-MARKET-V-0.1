@@ -13,6 +13,10 @@ from types import ModuleType
 # Configura DB_PATH sobre el volumen de Railway antes de cargar el bot.
 import sitecustomize  # noqa: F401
 import member_nickname_patch
+# bot.py already loaded the OCR.Space bridge before importing run_bot. Patch its
+# analyzer now, before Discord connects, so ParsedText can rescue clear PES6
+# result screens when OCR.Space overlay geometry is weak.
+import league_ocrspace_text_rescue_patch  # noqa: F401
 
 from team_assignment import apply_team_assignment_patch
 from lyon_test_seed import apply_lyon_test_patch
