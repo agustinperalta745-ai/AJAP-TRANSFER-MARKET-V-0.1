@@ -1,9 +1,9 @@
-"""One-time Radio Pasillo push requested by AJPA staff.
+"""Radio Pasillo cadence override + one-time AJPA Mobile push.
 
-On the next successful bot start, publish the classic-rival reminder immediately
-once per guild, then continue the normal two-hour rotation from that point.
-Also pins the real AJPA Mobile MediaFire URL into the existing ad rotation so it
-does not depend on a Railway environment variable.
+On the next successful bot start, publish the AJPA Mobile download reminder
+immediately once per guild. From that message onward, the regular rotating
+Radio Pasillo reminders run every 40 minutes. State remains persisted per guild
+so Railway reconnects/restarts do not duplicate the one-shot.
 """
 
 from __future__ import annotations
@@ -18,21 +18,12 @@ import radio_pasillo_feature_ads_patch as ads
 
 
 APP_DOWNLOAD_URL = "https://www.mediafire.com/file/m13t4jblgeb473c/AJPA-Transfer-Market-Actualizador.apk/file"
-PUSH_KEY = "classic-now-2026-09-04-v1"
-
-# The regular rotation reads this module global dynamically in _eligible_ads().
-ads.APP_DOWNLOAD_URL = APP_DOWNLOAD_URL
+PUSH_KEY = "app-now-2026-09-04-v1"
+INTERVAL_MINUTES = 40
 
 
-def _classic_body() -> str:
-    for key, body in ads._ADS:
-        if key == "classic":
-            return body
-    return (
-        "🔥 **¿Ya definiste tu clásico rival?**\n"
-        "Entrá a `/mercado` → **MI CLUB** → **CLÁSICO RIVAL**, elegí al rival y enviá la propuesta. "
-        "El otro DT tiene que aceptarla y el historial queda registrado."
-    )
+def _app_body() -> str:
+    return ads._APP_AD[1].format(url=APP_DOWNLOAD_URL)
 
 
 def _already_sent(guild_id: int) -> bool:
@@ -79,19 +70,19 @@ def _mark_manual(guild_id: int, channel_id: int, message_id: int, now: int) -> N
             """,
             (PUSH_KEY, int(guild_id), int(now), int(channel_id), int(message_id)),
         )
-        # Make this forced message the start of the normal 2-hour cadence.
+        # The forced app message becomes the start of the new 40-minute cadence.
         ads._mark_sent(
             conn,
             int(guild_id),
             now=int(now),
-            ad_key="classic",
+            ad_key="app",
             channel_id=int(channel_id),
             message_id=int(message_id),
         )
         conn.commit()
 
 
-async def _send_classic_once(guild) -> bool:
+async def _send_app_once(guild) -> bool:
     if guild is None or _already_sent(guild.id):
         return False
 
@@ -99,7 +90,7 @@ async def _send_classic_once(guild) -> bool:
     role = ads._dt_role(guild)
     if channel is None or role is None:
         print(
-            "AJAP classic reminder one-shot pendiente "
+            "AJAP app reminder one-shot pendiente "
             f"guild={getattr(guild, 'id', None)} channel={getattr(channel, 'id', None)} role={getattr(role, 'id', None)}"
         )
         return False
@@ -107,7 +98,7 @@ async def _send_classic_once(guild) -> bool:
     content = (
         f"{role.mention}\n"
         "📻 **RADIO PASILLO • RECORDATORIO AJPA**\n"
-        f"{_classic_body()}"
+        f"{_app_body()}"
     )
     try:
         sent = await channel.send(
@@ -121,7 +112,7 @@ async def _send_classic_once(guild) -> bool:
         )
     except (discord.Forbidden, discord.HTTPException) as exc:
         print(
-            "AJAP classic reminder one-shot falló "
+            "AJAP app reminder one-shot falló "
             f"guild={guild.id} error={type(exc).__name__}: {exc}"
         )
         return False
@@ -129,22 +120,22 @@ async def _send_classic_once(guild) -> bool:
     now = int(time.time())
     _mark_manual(guild.id, channel.id, sent.id, now)
     print(
-        "AJAP classic reminder one-shot enviado "
+        "AJAP app reminder one-shot enviado "
         f"guild={guild.id} channel={channel.id} message={sent.id}"
     )
     return True
 
 
-async def _on_ready_classic_push():
+async def _on_ready_app_push():
     bot = ads.BOT
     if bot is None:
         return
     for guild in list(getattr(bot, "guilds", [])):
         try:
-            await _send_classic_once(guild)
+            await _send_app_once(guild)
         except Exception as exc:
             print(
-                "AJAP classic reminder one-shot error "
+                "AJAP app reminder one-shot error "
                 f"guild={getattr(guild, 'id', None)} error={type(exc).__name__}: {exc}"
             )
 
@@ -152,11 +143,22 @@ async def _on_ready_classic_push():
 def apply_classic_now_patch(runtime, bot) -> None:
     if getattr(runtime, "_ajap_classic_now_patch", False):
         return
-    # Reassert the URL after runtime setup in case an older environment value exists.
+
+    # The base Radio Pasillo patch is already installed at this point. Override
+    # its due-time gate and tighten its checker so a reminder lands on the
+    # 40-minute cadence instead of waiting on a coarse poll.
     ads.APP_DOWNLOAD_URL = APP_DOWNLOAD_URL
-    bot.add_listener(_on_ready_classic_push, "on_ready")
+    ads.INTERVAL_SECONDS = INTERVAL_MINUTES * 60
+    try:
+        ads._ad_loop.change_interval(minutes=1)
+    except Exception as exc:
+        print(f"WARNING AJAP: no se pudo ajustar el chequeo de Radio Pasillo a 1 min: {exc}")
+
+    bot.add_listener(_on_ready_app_push, "on_ready")
     runtime._ajap_classic_now_patch = True
-    print("AJAP Radio Pasillo: clásico inmediato one-shot listo + MediaFire fijo")
+    print(
+        f"AJAP Radio Pasillo: rotación cada {INTERVAL_MINUTES} min + AJPA Mobile inmediato one-shot"
+    )
 
 
 _base_apply_guild_isolation_patch = guild_isolation.apply_guild_isolation_patch
