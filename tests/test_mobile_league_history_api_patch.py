@@ -59,6 +59,44 @@ class MobileLeagueHistoryPayloadTests(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_returns_every_official_match_without_rolling_limit(self):
+        conn = self.connection()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE league_matches (
+                    id INTEGER PRIMARY KEY,
+                    home_team TEXT NOT NULL,
+                    away_team TEXT NOT NULL,
+                    home_goals INTEGER NOT NULL,
+                    away_goals INTEGER NOT NULL,
+                    created_at DATETIME
+                )
+                """
+            )
+            conn.executemany(
+                "INSERT INTO league_matches VALUES (?, 'Porto', 'Fullam', 1, 2, ?)",
+                [
+                    (match_id, f"2026-08-{1 + ((match_id - 1) % 28):02d} 18:00:00")
+                    for match_id in range(1, 506)
+                ],
+            )
+            conn.commit()
+
+            with patch.object(
+                history.mobile_read_api,
+                "_live_mobile_club_names",
+                return_value=["Porto", "Fulham"],
+            ):
+                payload = history.matches_payload(conn)
+
+            self.assertEqual(len(payload), 505)
+            self.assertEqual({row["id"] for row in payload}, set(range(1, 506)))
+            self.assertTrue(all(row["home_team"] == "Porto" for row in payload))
+            self.assertTrue(all(row["away_team"] == "Fulham" for row in payload))
+        finally:
+            conn.close()
+
     def test_cycle_filter_is_safe_on_readonly_league_connection(self):
         conn = self.connection()
         try:
