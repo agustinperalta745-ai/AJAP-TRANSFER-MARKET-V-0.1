@@ -192,7 +192,33 @@ def _payload(images, engine: str, guild_id: int | None):
 
 bridge._payload_with_engine = _payload
 
+# Keep the successful-result card concise. This only changes the visible reply;
+# refresh/app persistence and the GES/results-to-load publication still run normally.
+_BASE_SAFE_REPLY = bridge._safe_reply
+
+
+async def _concise_success_reply(message, text):
+    raw = str(text or "")
+    if "✅ **RESULTADO CARGADO AUTOMÁTICAMENTE**" in raw:
+        lines = []
+        for line in raw.splitlines():
+            if line.startswith("📲 **App actualizada:**"):
+                continue
+            if line.startswith("📋 **Resultados para cargar:**"):
+                continue
+            if line.startswith("⚠️ **Resultados para cargar:**"):
+                continue
+            lines.append(line)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        raw = "\n".join(lines)
+    return await _BASE_SAFE_REPLY(message, raw)
+
+
+bridge._safe_reply = _concise_success_reply
+
 print(
     "AJPA Liga: OCR.Space goleadores ParsedText ACTIVO | "
-    "nombre+minuto validados por plantel y cierre exacto del marcador"
+    "nombre+minuto validados por plantel y cierre exacto del marcador | "
+    "confirmacion de resultado simplificada"
 )
