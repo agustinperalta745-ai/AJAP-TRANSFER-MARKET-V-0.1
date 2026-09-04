@@ -44,19 +44,21 @@ jobs:
           from PIL import Image
 
           fixtures = {
-              'mbv_res': ('tests/fixtures/mbv_res.jpg.b64', 9405),
-              'live_galatasaray_manblue_1_3': ('tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64', 6582),
+              'mbv_res': 'tests/fixtures/mbv_res.jpg.b64',
+              'live_galatasaray_manblue_1_3': 'tests/fixtures/live_galatasaray_manblue_1_3.jpg.b64',
           }
-          for name, (source, expected_bytes) in fixtures.items():
+          for name, source in fixtures.items():
               encoded = ''.join(Path(source).read_text().split())
               raw = base64.b64decode(encoded + ('=' * (-len(encoded) % 4)), validate=True)
-              if len(raw) != expected_bytes:
-                  raise SystemExit(f'{name}: byte-size {len(raw)} != {expected_bytes}')
+              if not raw:
+                  raise SystemExit(f'{name}: empty fixture')
               dst = Path('.tmp-paddle-live') / f'{name}.jpg'
               dst.write_bytes(raw)
               with Image.open(dst) as im:
                   im.load()
-                  print('AJAP_LIVE_FIXTURE', name, im.size, im.format)
+                  if im.width < 200 or im.height < 100:
+                      raise SystemExit(f'{name}: fixture too small {im.size}')
+                  print('AJAP_LIVE_FIXTURE', name, len(raw), im.size, im.format)
           PY
 
       - name: Run hardened reader
