@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "expo": "~54.0.33",
+    "expo-image-picker": "~17.0.11",
     "expo-secure-store": "~15.0.7",
     "expo-updates": "~29.0.20",
     "react": "19.1.0",
