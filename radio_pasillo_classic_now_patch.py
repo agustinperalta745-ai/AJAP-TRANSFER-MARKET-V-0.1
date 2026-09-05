@@ -70,7 +70,6 @@ def _mark_manual(guild_id: int, channel_id: int, message_id: int, now: int) -> N
             """,
             (PUSH_KEY, int(guild_id), int(now), int(channel_id), int(message_id)),
         )
-        # The forced app message becomes the start of the new 40-minute cadence.
         ads._mark_sent(
             conn,
             int(guild_id),
@@ -144,9 +143,6 @@ def apply_classic_now_patch(runtime, bot) -> None:
     if getattr(runtime, "_ajap_classic_now_patch", False):
         return
 
-    # The base Radio Pasillo patch is already installed at this point. Override
-    # its due-time gate and tighten its checker so a reminder lands on the
-    # 40-minute cadence instead of waiting on a coarse poll.
     ads.APP_DOWNLOAD_URL = APP_DOWNLOAD_URL
     ads.INTERVAL_SECONDS = INTERVAL_MINUTES * 60
     try:
@@ -154,9 +150,6 @@ def apply_classic_now_patch(runtime, bot) -> None:
     except Exception as exc:
         print(f"WARNING AJAP: no se pudo ajustar el chequeo de Radio Pasillo a 1 min: {exc}")
 
-    # Prevent the normal loop from racing the requested immediate app message on
-    # startup. Until this PUSH_KEY exists for the guild, only the one-shot may
-    # publish; afterwards the normal rotation resumes from that app timestamp.
     original_send_due = ads._send_due
 
     async def _send_due_after_app(guild):
@@ -192,12 +185,11 @@ if not getattr(
 
 
 # Public utility commands are loaded here, immediately before run_bot starts.
-# The module hooks the final guild-isolation installer and registers /dado on
-# the real runtime bot without touching Radio Pasillo state.
 import dice_challenge_patch  # noqa: F401,E402
-# Final command-registry repair: create a fresh guild-scoped /dado after every
-# ready event so Discord mobile receives the slash suggestion immediately.
 import dice_guild_sync_fix_patch  # noqa: F401,E402
-# Discord channel names use stylized Unicode letters. Normalize them before
-# deciding whether /dado is in General or Buscar Rival.
 import dice_unicode_channel_patch  # noqa: F401,E402
+
+# Final Staff result UX: current scorer list, edit/delete, roster browser and
+# fuzzy partial-name search. Loaded after the unified manager so it replaces
+# the old free-text scorer form on existing and future result cards.
+import league_scorer_editor_v2_patch  # noqa: F401,E402
