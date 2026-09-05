@@ -141,6 +141,10 @@ import league_local_ocr_patch  # noqa: F401,E402
 # Normalize full-phone screenshots before OCR so the PES frame is large enough
 # and username/team/score coordinates are measured against the game image.
 import league_phone_screenshot_crop_patch  # noqa: F401,E402
+# PES6 result screens prove FINAL state with a coherent second-period (2do) row.
+# Activate this before the strict result guards so OCR.Space cannot downgrade a
+# structurally complete final screen to unknown only because it misses a label.
+import league_pes6_second_period_final_patch  # noqa: F401,E402
 # Official teams + numeric PES score are sufficient to accept a structurally
 # valid result, while scorer OCR remains independent.
 import league_result_acceptance_guard_patch  # noqa: F401,E402
@@ -172,6 +176,9 @@ import league_known_ajax_psg_scorer_fix_patch  # noqa: F401,E402
 # Existing "Agregar goleador" cards must acknowledge Discord before DB/table work
 # so old persistent buttons do not expire with "application did not respond".
 import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
+# Manual scorer editing is a Liga workflow, not a transfer-market interaction.
+# Apply the exemption after the active market gate and scorer button wrappers.
+import league_manual_scorer_market_gate_fix_patch  # noqa: F401,E402
 # Future PES scorer screens: detect name+minute tables even when OCR misses the
 # literal 'Goleador' header, validate players by roster, and repair the verified
 # Middlesbrough 1-6 Zaragoza scorer list that was already loaded without authors.
