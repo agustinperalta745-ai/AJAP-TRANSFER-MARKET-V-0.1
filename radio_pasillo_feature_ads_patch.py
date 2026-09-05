@@ -1,4 +1,4 @@
-"""Radio Pasillo: recordatorios rotativos de funciones para los DT.
+"""Radio Pasillo: recordatorios rotativos de funciones y consejos para los DT.
 
 Publica un mensaje corto cada dos horas como máximo por servidor. El estado se
 guarda en la DB aislada de cada guild para que reinicios/reconexiones de Railway
@@ -11,6 +11,7 @@ link real; hasta entonces se omite de la rotación.
 from __future__ import annotations
 
 import os
+import random
 import time
 import unicodedata
 from contextlib import closing
@@ -80,6 +81,110 @@ _ADS = (
         "⚽ **¿Querés jugar y no encontrás rival?**\n"
         "Desde **AJPA Mobile** podés publicar que estás buscando partido; la búsqueda aparece en Discord "
         "y otro DT puede tomarla desde **IR A LA CANCHA**.",
+    ),
+    (
+        "tip_buttons_expire",
+        "💡 **CONSEJO AJPA • BOTONES CADUCADOS**\n"
+        "Algunos botones y solicitudes pueden **caducar con el tiempo**. ⏳ "
+        "Si un botón dejó de responder, volvé a iniciar la operación o enviá nuevamente la solicitud. "
+        "Muchas veces no es una falla: esa interacción simplemente ya venció.",
+    ),
+    (
+        "tip_review_market_operation",
+        "💡 **CONSEJO AJPA • REVISÁ ANTES DE ACEPTAR**\n"
+        "Antes de confirmar una operación de mercado, revisá bien **jugador, dinero y condiciones de la oferta**. 👀 "
+        "Unos segundos de revisión pueden evitar una operación equivocada.",
+    ),
+    (
+        "tip_resend_request",
+        "💡 **CONSEJO AJPA • SOLICITUDES VENCIDAS**\n"
+        "¿Mandaste una solicitud y pasó bastante tiempo sin respuesta? 📩 "
+        "Podés **enviarla nuevamente** para generar una interacción nueva y evitar depender de botones antiguos.",
+    ),
+    (
+        "tip_link_account",
+        "💡 **CONSEJO AJPA • CUENTA VINCULADA**\n"
+        "Mantené tu cuenta de Discord correctamente **vinculada con AJPA Mobile**. 🔗 "
+        "Así el sistema puede identificar tu club y habilitarte las funciones que te corresponden.",
+    ),
+    (
+        "tip_correct_team",
+        "💡 **CONSEJO AJPA • ANTES DE JUGAR**\n"
+        "Antes de un partido, verificá que estés utilizando el **equipo correcto**. ⚽ "
+        "Esto ayuda a evitar errores al registrar resultados e historiales.",
+    ),
+    (
+        "tip_clear_result",
+        "💡 **CONSEJO AJPA • CARGA DE RESULTADOS**\n"
+        "Cuando cargues un resultado, tratá de que la captura muestre claramente **los equipos, el marcador y los goleadores**. 📸 "
+        "Cuanto más clara sea la información, más fácil será registrarla correctamente.",
+    ),
+    (
+        "tip_report_data_error",
+        "💡 **CONSEJO AJPA • REVISÁ TUS DATOS**\n"
+        "Si ves algo incorrecto en tu **historial, estadísticas o resultados**, avisá cuanto antes al staff. 🔎 "
+        "Detectar un dato errado rápido facilita su revisión y corrección.",
+    ),
+    (
+        "tip_dado",
+        "💡 **CONSEJO AJPA • DEJALO AL AZAR**\n"
+        "¿Necesitan resolver algo sin discutir? 🎲 "
+        "Pueden usar **/dado** para enfrentar a dos jugadores: ambos aceptan, cada uno recibe un número del 1 al 6 y gana el más alto.",
+    ),
+    (
+        "tip_classic_history",
+        "💡 **CONSEJO AJPA • LOS CLÁSICOS DEJAN HISTORIA**\n"
+        "El historial de un clásico **se mantiene con el paso de las temporadas**. 🔥 "
+        "Cada enfrentamiento suma a la historia permanente de esa rivalidad.",
+    ),
+    (
+        "tip_squad_limits",
+        "💡 **CONSEJO AJPA • CUIDÁ TU PLANTEL**\n"
+        "Antes de cerrar una negociación, revisá el tamaño de tu plantel. 📋 "
+        "Compras, ventas, préstamos, liberaciones e intercambios deben respetar los límites establecidos por la liga.",
+    ),
+    (
+        "tip_rejected_offer",
+        "💡 **CONSEJO AJPA • SEGUÍ NEGOCIANDO**\n"
+        "Una oferta rechazada no siempre significa que la negociación terminó. 🤝 "
+        "Podés cambiar las condiciones, agregar una diferencia de dinero o preparar una nueva propuesta.",
+    ),
+    (
+        "tip_market_notifications",
+        "💡 **CONSEJO AJPA • MIRÁ TUS NOTIFICACIONES**\n"
+        "No ignores los avisos del mercado. 📲 "
+        "Una oferta puede necesitar tu respuesta para continuar y dejarla pasar puede frenar una negociación.",
+    ),
+    (
+        "tip_use_buttons",
+        "💡 **CONSEJO AJPA • EXPLORÁ LOS MENÚS**\n"
+        "Muchas funciones del bot están disponibles directamente mediante **botones y menús**. 🧭 "
+        "Revisá las opciones disponibles antes de pensar que necesitás un comando para hacerlo.",
+    ),
+    (
+        "tip_no_button_spam",
+        "💡 **CONSEJO AJPA • SI UNA OPERACIÓN SE TRABA**\n"
+        "Evitá presionar muchas veces el mismo botón. ⚠️ "
+        "Esperá la respuesta del bot y, si la interacción ya caducó, iniciá nuevamente la gestión para evitar solicitudes duplicadas.",
+    ),
+    (
+        "tip_review_match_history",
+        "💡 **CONSEJO AJPA • REVISÁ TU HISTORIAL**\n"
+        "Consultá periódicamente tu **historial de partidos**. 📊 "
+        "Así podés detectar rápido si falta un encuentro o si algún resultado quedó registrado de manera incorrecta.",
+    ),
+    (
+        "tip_match_history_matters",
+        "💡 **CONSEJO AJPA • CADA PARTIDO SUMA HISTORIA**\n"
+        "Resultados, estadísticas y rivalidades se van acumulando. 🏟️ "
+        "Por eso es importante cargar correctamente cada encuentro desde el principio.",
+    ),
+    (
+        "tip_report_bug",
+        "💡 **CONSEJO AJPA • REPORTÁ LOS BUGS**\n"
+        "¿Encontraste un **bug, error o comportamiento extraño** en el bot o en la app? 🛠️ "
+        "No dudes en **reportarlo al staff** y, si podés, acompañalo con una captura. "
+        "Cuanto antes sepamos del problema, antes podremos revisarlo y solucionarlo.",
     ),
 )
 
@@ -190,14 +295,11 @@ def _next_ad(last_key: str | None):
     ads = _eligible_ads()
     if not ads:
         return None
+    if len(ads) == 1:
+        return ads[0]
 
-    if last_key:
-        for index, (key, _body) in enumerate(ads):
-            if key == last_key:
-                return ads[(index + 1) % len(ads)]
-
-    index = (int(time.time()) // INTERVAL_SECONDS) % len(ads)
-    return ads[index]
+    candidates = [ad for ad in ads if ad[0] != last_key]
+    return random.choice(candidates or ads)
 
 
 async def _resolve_radio_channel(guild):
@@ -376,7 +478,7 @@ def apply_radio_pasillo_feature_ads_patch(runtime, bot):
     runtime.radio_pasillo_send_feature_ad_if_due = _send_due
     runtime._ajap_radio_pasillo_feature_ads_patch = True
     print(
-        "AJAP Radio Pasillo: publicidad rotativa activa "
+        "AJAP Radio Pasillo: publicidad y consejos rotativos activos "
         f"cada {INTERVAL_SECONDS // 3600}h"
         + (" + AJPA Mobile" if APP_DOWNLOAD_URL else " (link AJPA Mobile pendiente)")
     )
