@@ -31,6 +31,20 @@ def _norm(value) -> str:
         return "".join(ch for ch in str(value or "").casefold() if ch.isalnum())
 
 
+def _canonical_team(value) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return raw
+    try:
+        return str(league.canonical_team(raw) or raw)
+    except Exception:
+        return raw
+
+
+def _team_key(value) -> str:
+    return _norm(_canonical_team(value))
+
+
 def _table_exists(conn, table: str) -> bool:
     return bool(
         conn.execute(
@@ -74,8 +88,8 @@ def _resolve_team(raw: str, known_names) -> str:
     if not raw:
         return raw
 
-    known = {_norm(name): str(name) for name in known_names if str(name or "").strip()}
-    hit = known.get(_norm(raw))
+    known = {_team_key(name): str(name) for name in known_names if str(name or "").strip()}
+    hit = known.get(_team_key(raw))
     if hit:
         return hit
 
@@ -84,7 +98,7 @@ def _resolve_team(raw: str, known_names) -> str:
     except Exception:
         canonical = None
     if canonical:
-        return known.get(_norm(canonical), str(canonical))
+        return known.get(_team_key(canonical), str(canonical))
 
     return raw
 
@@ -117,7 +131,7 @@ def _build_standings(matches, linked_clubs):
 
     unique = {}
     for name in names:
-        unique.setdefault(_norm(name), name)
+        unique.setdefault(_team_key(name), _canonical_team(name))
 
     table = {
         key: {
@@ -135,16 +149,16 @@ def _build_standings(matches, linked_clubs):
     }
 
     for row in matches:
-        hk, ak = _norm(row["home_team"]), _norm(row["away_team"])
+        hk, ak = _team_key(row["home_team"]), _team_key(row["away_team"])
         if not hk or not ak:
             continue
         table.setdefault(
             hk,
-            {"team": str(row["home_team"]), "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "pts": 0},
+            {"team": _canonical_team(row["home_team"]), "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "pts": 0},
         )
         table.setdefault(
             ak,
-            {"team": str(row["away_team"]), "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "pts": 0},
+            {"team": _canonical_team(row["away_team"]), "pj": 0, "pg": 0, "pe": 0, "pp": 0, "gf": 0, "gc": 0, "pts": 0},
         )
         h, a = table[hk], table[ak]
         hg, ag = int(row["home_goals"]), int(row["away_goals"])
@@ -188,16 +202,16 @@ def _build_standings(matches, linked_clubs):
 
 
 def _team_matches(matches, team: str):
-    key = _norm(team)
+    key = _team_key(team)
     output = []
     for row in reversed(matches):
-        home = _norm(row["home_team"]) == key
-        away = _norm(row["away_team"]) == key
+        home = _team_key(row["home_team"]) == key
+        away = _team_key(row["away_team"]) == key
         if not home and not away:
             continue
         tg = int(row["home_goals"] if home else row["away_goals"])
         og = int(row["away_goals"] if home else row["home_goals"])
-        opponent = str(row["away_team"] if home else row["home_team"])
+        opponent = _canonical_team(row["away_team"] if home else row["home_team"])
         result = "W" if tg > og else "L" if tg < og else "D"
         output.append(
             {
@@ -242,10 +256,10 @@ def _team_scorers(conn, competition_id: int, team: str):
     except Exception:
         return []
 
-    target = _norm(team)
+    target = _team_key(team)
     output = []
     for row in rows:
-        if _norm(row["team"]) != target:
+        if _team_key(row["team"]) != target:
             continue
         goals = int(row["goals"] or 0)
         if goals <= 0:
@@ -261,11 +275,11 @@ def _team_roster(conn, team: str):
         rows = conn.execute("SELECT name, club FROM roster_players").fetchall()
     except Exception:
         return []
-    target = _norm(team)
+    target = _team_key(team)
     return [
         str(row["name"])
         for row in rows
-        if row["name"] and _norm(row["club"]) == target
+        if row["name"] and _team_key(row["club"]) == target
     ]
 
 
@@ -294,7 +308,7 @@ def _player_line(team: str, scorers, roster, *, positive: bool):
 
 
 def _story_key(competition_id: int, team: str, topic: str, latest_match_id: int) -> str:
-    return f"{SPORTS_KEY_PREFIX}{int(competition_id)}|{_norm(team)}|{topic}|{int(latest_match_id)}"
+    return f"{SPORTS_KEY_PREFIX}{int(competition_id)}|{_team_key(team)}|{topic}|{int(latest_match_id)}"
 
 
 def _stories_for_team(conn, competition_id: int, label: str, row, recent):
@@ -447,14 +461,14 @@ def _sports_candidates(guild_id: int, last_key: str | None):
 
         label = _competition_label(conn, competition_id)
         standings = _build_standings(matches, linked)
-        by_norm = {_norm(row["team"]): row for row in standings}
+        by_norm = {_team_key(row["team"]): row for row in standings}
 
         known_names = [row["team"] for row in standings]
         all_stories = []
 
         for linked_name in linked:
             team = _resolve_team(linked_name, known_names)
-            row = by_norm.get(_norm(team))
+            row = by_norm.get(_team_key(team))
             if not row or int(row["pj"]) <= 0:
                 continue
             recent = _team_matches(matches, row["team"])
