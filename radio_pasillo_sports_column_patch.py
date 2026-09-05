@@ -239,6 +239,20 @@ def _points_in(items):
     return sum(3 if item["result"] == "W" else 1 if item["result"] == "D" else 0 for item in items)
 
 
+def _points_phrase(value: int) -> str:
+    value = int(value)
+    return f"{value} {'punto' if value == 1 else 'puntos'}"
+
+
+def _goals_phrase(value: int) -> str:
+    value = int(value)
+    return f"{value} {'gol' if value == 1 else 'goles'}"
+
+
+def _registered_word(value: int) -> str:
+    return "registrado" if int(value) == 1 else "registrados"
+
+
 def _team_scorers(conn, competition_id: int, team: str):
     if not _table_exists(conn, "league_goal_events"):
         return []
@@ -291,12 +305,12 @@ def _player_line(team: str, scorers, roster, *, positive: bool):
         player = scorer["player"]
         if positive:
             return (
-                f"🎯 **{player}** acompaña el momento con **{goals} "
-                f"{'gol' if goals == 1 else 'goles'} registrado{'s' if goals != 1 else ''}."
+                f"🎯 **{player}** acompaña el momento con "
+                f"**{_goals_phrase(goals)} {_registered_word(goals)}**."
             )
         return (
-            f"🎯 Dentro de ese panorama, **{player}** suma **{goals} "
-            f"{'gol' if goals == 1 else 'goles'} registrado{'s' if goals != 1 else ''} para {team}."
+            f"🎯 Dentro de ese panorama, **{player}** suma "
+            f"**{_goals_phrase(goals)} {_registered_word(goals)}** para {team}."
         )
 
     if roster:
@@ -321,7 +335,7 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
     roster = _team_roster(conn, team)
     positive_line = _player_line(team, scorers, roster, positive=True)
     pressure_line = _player_line(team, scorers, roster, positive=False)
-    suffix_pos = f" Hoy está **{row['pos']}.º** con **{row['pts']} puntos**."
+    suffix_pos = f" Hoy está **{row['pos']}.º** con **{_points_phrase(row['pts'])}**."
     stories = []
 
     if latest["result"] == "W":
@@ -367,8 +381,8 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
             body = (
                 f"📈 **{team} se mueve en la zona alta**\n"
                 f"Los números de {label} ubican a **{team} {row['pos']}.º de {total}**, "
-                f"con **{row['pts']} puntos en {pj} partidos**. "
-                f"En sus últimos {len(last_three)} encuentros sumó **{recent_pts} puntos**."
+                f"con **{_points_phrase(row['pts'])} en {pj} partidos**. "
+                f"En sus últimos {len(last_three)} encuentros sumó **{_points_phrase(recent_pts)}**."
             )
             if positive_line:
                 body += f"\n{positive_line}"
@@ -379,15 +393,15 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
             if winless >= 3:
                 body = (
                     f"⚠️ **{team} necesita reaccionar**\n"
-                    f"**{team}** ocupa el **{row['pos']}.º puesto de {total}** con **{row['pts']} puntos** "
+                    f"**{team}** ocupa el **{row['pos']}.º puesto de {total}** con **{_points_phrase(row['pts'])}** "
                     f"y acumula **{winless} partidos sin ganar** en {label}."
                 )
             else:
                 body = (
                     f"📉 **{team}, obligado a mirar hacia arriba**\n"
-                    f"**{team}** aparece **{row['pos']}.º de {total}** con **{row['pts']} puntos** "
+                    f"**{team}** aparece **{row['pos']}.º de {total}** con **{_points_phrase(row['pts'])}** "
                     f"tras {pj} partidos de {label}. En sus últimos {len(last_three)} encuentros "
-                    f"sumó **{recent_pts} puntos**."
+                    f"sumó **{_points_phrase(recent_pts)}**."
                 )
             if pressure_line:
                 body += f"\n{pressure_line}"
@@ -401,7 +415,7 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
         body = (
             f"🛡️ **{team} sostiene una racha positiva**\n"
             f"**{team} lleva {unbeaten} partidos sin perder** en {label} y se mantiene "
-            f"en el **{row['pos']}.º puesto** con **{row['pts']} puntos**."
+            f"en el **{row['pos']}.º puesto** con **{_points_phrase(row['pts'])}**."
         )
         if positive_line:
             body += f"\n{positive_line}"
@@ -411,7 +425,7 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
         body = (
             f"🔥 **{team} encadenó victorias**\n"
             f"El equipo suma **{wins} triunfos consecutivos** en {label}. "
-            f"La racha lo encuentra **{row['pos']}.º** con **{row['pts']} puntos**."
+            f"La racha lo encuentra **{row['pos']}.º** con **{_points_phrase(row['pts'])}**."
         )
         if positive_line:
             body += f"\n{positive_line}"
@@ -421,7 +435,7 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
         body = (
             f"🧊 **{team} atraviesa un tramo sin victorias**\n"
             f"Los resultados muestran **{winless} partidos consecutivos sin ganar** para **{team}** "
-            f"en {label}. El club está **{row['pos']}.º** con **{row['pts']} puntos**."
+            f"en {label}. El club está **{row['pos']}.º** con **{_points_phrase(row['pts'])}**."
         )
         if pressure_line:
             body += f"\n{pressure_line}"
@@ -432,9 +446,9 @@ def _stories_for_team(conn, competition_id: int, label: str, row, recent):
         goals = int(scorer["goals"])
         body = (
             f"🎯 **{scorer['player']}, nombre propio en {team}**\n"
-            f"**{scorer['player']}** lleva **{goals} {'gol' if goals == 1 else 'goles'} registrados** "
+            f"**{scorer['player']}** lleva **{_goals_phrase(goals)} {_registered_word(goals)}** "
             f"para **{team}** en {label}. El equipo marcha **{row['pos']}.º** "
-            f"con **{row['pts']} puntos**."
+            f"con **{_points_phrase(row['pts'])}**."
         )
         stories.append((_story_key(competition_id, team, "scorer", latest["id"]), body))
 
