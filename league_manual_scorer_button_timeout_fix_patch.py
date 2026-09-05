@@ -8,8 +8,7 @@ otherwise valid.
 
 This patch keeps the same persistent custom_id used by existing cards, so old
 buttons start working after deploy without recreating the result cards. It also
-re-enables recent resolved Staff cards on startup in case Discord is currently
-showing an old disabled/expired button on the message itself.
+re-enables every resolved Staff card on startup; no recent-card limit remains.
 """
 
 from __future__ import annotations
@@ -53,7 +52,6 @@ class FastManualScorerModal(discord.ui.Modal, title="Agregar goleador"):
         self.staff_message_id = int(staff_message_id)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Acknowledge FIRST. Everything below may touch SQLite and Discord.
         await interaction.response.defer(ephemeral=True, thinking=True)
 
         runtime = APP or entry.APP or strict._runtime()
@@ -135,8 +133,6 @@ class FastManualScorerView(discord.ui.View):
         custom_id=entry.PREFIX + "add",
     )
     async def add(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Opening the modal is the interaction response and must happen inside
-        # Discord's short component deadline. Do not hit SQLite before this.
         if not interaction.guild_id or interaction.message is None:
             await interaction.response.send_message(
                 "⚠️ No pude identificar esta tarjeta.", ephemeral=True
@@ -148,7 +144,7 @@ class FastManualScorerView(discord.ui.View):
 
 
 async def _reactivate_resolved_cards():
-    """Replace stale/disabled scorer components on recent resolved Staff cards."""
+    """Replace stale/disabled scorer components on every resolved Staff card."""
     await asyncio.sleep(2)
     runtime = APP or entry.APP or strict._runtime()
     bot = BOT or entry.BOT or strict.BOT
@@ -168,7 +164,6 @@ async def _reactivate_resolved_cards():
                       AND staff_channel_id IS NOT NULL
                       AND staff_message_id IS NOT NULL
                     ORDER BY COALESCE(resolved_at, created_at) DESC
-                    LIMIT 25
                     """
                 ).fetchall()
             finally:
@@ -188,8 +183,6 @@ async def _reactivate_resolved_cards():
                 if channel is None or not hasattr(channel, "fetch_message"):
                     continue
                 message = await channel.fetch_message(int(row["staff_message_id"]))
-                # Replacing the view re-enables the button even if an earlier
-                # process/message edit left the visible component disabled.
                 await message.edit(view=FastManualScorerView())
                 reactivated += 1
             except (discord.NotFound, discord.Forbidden):
@@ -209,8 +202,6 @@ def _install(runtime, bot):
     if getattr(runtime, "_ajap_manual_scorer_timeout_fix", False):
         return
 
-    # Same custom_id as the historical cards. Registering this last replaces the
-    # dispatch target for those existing persistent buttons after every restart.
     try:
         bot.add_view(FastManualScorerView())
     except Exception as exc:
@@ -221,7 +212,7 @@ def _install(runtime, bot):
         bot._ajap_reactivate_scorer_cards_listener = True
 
     runtime._ajap_manual_scorer_timeout_fix = True
-    print("AJAP Liga: botón Agregar goleador con ACK inmediato + reactivación activo")
+    print("AJAP Liga: botón Agregar goleador persistente + reactivación histórica completa activo")
 
 
 _ORIGINAL_APPLY = guild_isolation.apply_guild_isolation_patch
