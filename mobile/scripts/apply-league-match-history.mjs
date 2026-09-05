@@ -12,7 +12,7 @@ if (!api.includes('export type LeagueMatch = {')) {
   }
   api = api.replace(
     marker,
-    `export type LeagueMatch = {\n  id: number;\n  home_team: string;\n  away_team: string;\n  home_goals: number;\n  away_goals: number;\n  created_at: string;\n};\n\nexport type LeagueData = {\n  standings: LeagueStanding[];\n  scorers: LeagueScorer[];\n  matches: LeagueMatch[];\n};`,
+    `export type LeagueMatch = {\n  id: number;\n  home_team: string;\n  away_team: string;\n  home_goals: number;\n  away_goals: number;\n  created_at: string;\n};\n\nexport type LeagueCycle = {\n  phase: string;\n  phase_label: string;\n  season_number: number;\n};\n\nexport type LeagueData = {\n  standings: LeagueStanding[];\n  scorers: LeagueScorer[];\n  matches: LeagueMatch[];\n  cycle?: LeagueCycle | null;\n};`,
   );
 }
 fs.writeFileSync(apiPath, api);
@@ -33,6 +33,15 @@ if (ui.includes("if (next === 'league') {")) {
     "if (next === 'league') {",
     "if (next === 'league' || next === 'leagueHistory') {",
   );
+}
+
+if (!ui.includes('leagueData?.cycle?.phase_label')) {
+  const oldStageCard = `      <View style={s.card}>\n        <Text style={s.infoLabel}>TEMPORADA</Text>\n        <Text style={s.infoValue}>{snapshot.status.season?.name ?? 'Sin temporada activa'}</Text>\n      </View>`;
+  const newStageCard = `      <View style={s.card}>\n        <Text style={s.infoLabel}>ETAPA</Text>\n        <Text style={s.infoValue}>{leagueData?.cycle?.phase_label ?? snapshot.status.season?.name ?? 'Sin etapa activa'}</Text>\n      </View>`;
+  if (!ui.includes(oldStageCard)) {
+    throw new Error('AJPA Liga history: no encontré la tarjeta de etapa de Liga');
+  }
+  ui = ui.replace(oldStageCard, newStageCard);
 }
 
 if (!ui.includes('const myLeagueMatches =')) {
@@ -64,7 +73,7 @@ if (!ui.includes('const myLeagueMatches =')) {
   ui = ui.replace(marker, dataBlock + marker);
 }
 
-if (!ui.includes("title=\"HISTORIAL DE PARTIDOS\"")) {
+if (!ui.includes('title="HISTORIAL DE PARTIDOS"')) {
   const standingsMarker = `      <Text style={s.listHeading}>🏆 TABLA DE POSICIONES</Text>`;
   if (!ui.includes(standingsMarker)) throw new Error('AJPA Liga history: no encontré tabla de Liga');
   const historyEntry = String.raw`      <WideTile
@@ -177,9 +186,10 @@ ui = ui.split("screen === 'league' && s.leagueShade").join(
   "(screen === 'league' || screen === 'leagueHistory') && s.leagueShade",
 );
 
-if (!ui.includes("title=\"HISTORIAL DE PARTIDOS\"")) throw new Error('AJPA Liga history: falta botón en Liga');
+if (!ui.includes('title="HISTORIAL DE PARTIDOS"')) throw new Error('AJPA Liga history: falta botón en Liga');
 if (!ui.includes('const leagueHistoryScreen =')) throw new Error('AJPA Liga history: falta pantalla de historial');
 if (!ui.includes("screen === 'leagueHistory'")) throw new Error('AJPA Liga history: falta navegación');
+if (!ui.includes('leagueData?.cycle?.phase_label')) throw new Error('AJPA Liga: falta mostrar la etapa real del ciclo');
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA Mobile Liga: historial oficial activo con verde/rojo/gris según resultado.');
+console.log('AJPA Mobile Liga: historial oficial activo y etapa real del ciclo visible.');
