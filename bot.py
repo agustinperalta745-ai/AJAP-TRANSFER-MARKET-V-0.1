@@ -203,6 +203,10 @@ import league_top5_snapshot_test_patch  # noqa: F401,E402
 # Any incomplete FINAL evidence is preserved and routed to Staff.
 import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 
+# Permanent Staff controls are installed last so every final result-reader path
+# receives the same durable CORREGIR RESULTADO / GOLEADORES buttons.
+import league_persistent_result_admin_controls_patch  # noqa: F401,E402
+
 # Goleadores en Radio Pasillo: manda ahora una foto real del Top 5 y, después,
 # vuelve a publicar solo cuando un goleador ya ubicado 1.º-5.º supera a otro.
 import league_top5_scorers_radio_patch  # noqa: F401,E402
