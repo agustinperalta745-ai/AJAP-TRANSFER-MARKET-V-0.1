@@ -193,3 +193,7 @@ import dice_unicode_channel_patch  # noqa: F401,E402
 # fuzzy partial-name search. Loaded after the unified manager so it replaces
 # the old free-text scorer form on existing and future result cards.
 import league_scorer_editor_v2_patch  # noqa: F401,E402
+
+# Verified manual correction requested from PES6 screenshots on 2026-09-05.
+# Loaded last so it can refresh the final Liga/GES/public-message layers.
+import league_verified_psg_tottenham_20260905_patch  # noqa: F401,E402
