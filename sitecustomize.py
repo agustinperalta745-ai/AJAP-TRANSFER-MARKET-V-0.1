@@ -260,12 +260,14 @@ try:
                 from lyon_test_seed import apply_lyon_test_patch
                 from multi_team_extension import enable_additional_teams, seed_additional_rosters
                 from publish_ovr_patch import apply_publish_ovr_patch
+                from league_known_feyenoord_fulham_scorer_fix_patch import _install as install_feyenoord_fulham_scorers
 
                 enable_additional_teams()
                 apply_team_assignment_patch(__main__, self)
                 apply_lyon_test_patch(__main__)
                 seed_additional_rosters(__main__)
                 apply_publish_ovr_patch(__main__)
+                install_feyenoord_fulham_scorers(__main__, self)
             except Exception as exc:
                 print(f"Error cargando equipos/plantillas AJAP: {exc}")
         return _original_bot_run(self, token, *args, **kwargs)
