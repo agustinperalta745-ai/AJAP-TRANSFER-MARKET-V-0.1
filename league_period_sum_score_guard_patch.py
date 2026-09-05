@@ -80,3 +80,14 @@ def _score_from_page_guarded(rows):
 
 local._score_from_page = _score_from_page_guarded
 print("AJAP Liga: marcador final protegido por suma 1er+2do cuando ambas filas son legibles")
+
+# Este módulo ya se carga siempre durante el arranque AJPA. Aprovechamos ese
+# punto estable para activar la columna deportiva de Radio Pasillo sin crear
+# otro proceso ni modificar el flujo principal del bot.
+try:
+    import radio_pasillo_sports_column_patch  # noqa: F401
+except Exception as exc:
+    print(
+        "WARNING AJAP Radio Pasillo: no se pudo activar la columna deportiva "
+        f"({type(exc).__name__}: {exc})"
+    )
