@@ -6,9 +6,8 @@ buttons/selects without an explicit custom_id, so discord.py generates random id
 and the market gate can reject MARCADOR / AGREGAR GOLEADOR / EDITAR / CERRAR and
 the following selectors as if they were transfer-market interactions.
 
-This patch keeps the existing scorer modal fix and gives every transient child
-created by both Liga match-manager modules an ``ajap:league:`` custom_id.
-No result/scorer validation or persistence logic is changed.
+Staff/admin interactions are also allowed outside the configured market channel.
+The market-only restriction remains unchanged for normal users.
 """
 from __future__ import annotations
 
@@ -35,6 +34,46 @@ for prefix in (LEAGUE_PREFIX, PREFIX, UNIFIED_PREFIX, SCORER_EDITOR_PREFIX):
             *market_gate.EXEMPT_COMPONENT_PREFIXES,
             prefix,
         )
+
+
+# Staff cards live in admin channels, so admins must not be forced to jump to
+# #mercado-de-pases just to submit a result/scorer modal. This bypass is applied
+# at the common market gate, which also covers modal SUBMIT interactions (the
+# point that was still being blocked after the button itself was exempted).
+_original_configured_wrong_channel = market_gate._configured_wrong_channel
+
+
+def _is_staff_or_admin(interaction) -> bool:
+    runtime = getattr(market_gate, "APP", None)
+    try:
+        if runtime is not None and runtime.es_admin(interaction):
+            return True
+    except Exception:
+        pass
+
+    member = getattr(interaction, "user", None)
+    try:
+        return bool(
+            isinstance(member, discord.Member)
+            and member.guild_permissions.administrator
+        )
+    except Exception:
+        return False
+
+
+def _configured_wrong_channel_with_staff_bypass(interaction):
+    if _is_staff_or_admin(interaction):
+        return None
+    return _original_configured_wrong_channel(interaction)
+
+
+if not getattr(
+    market_gate._configured_wrong_channel,
+    "_ajap_staff_channel_bypass",
+    False,
+):
+    _configured_wrong_channel_with_staff_bypass._ajap_staff_channel_bypass = True
+    market_gate._configured_wrong_channel = _configured_wrong_channel_with_staff_bypass
 
 
 def _stable_modal_id(modal_cls, marker: str):
@@ -114,5 +153,5 @@ if not getattr(_original_add_item, "_ajap_unified_market_gate_fix", False):
 
 
 print(
-    "AJAP Liga: goleadores + editores de partido exentos del canal exclusivo de Mercado"
+    "AJAP Liga: goleadores + editores de partido exentos de Mercado; Staff/Admin con bypass de canal"
 )
