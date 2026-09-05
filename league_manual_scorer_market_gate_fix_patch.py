@@ -1,13 +1,13 @@
 """Keep Liga scorer/result management outside the market-only channel gate.
 
 Liga components are allowed outside #mercado when their custom_id starts with
-``ajap:league:``. Some scorer modals and the newer unified match-manager wizard
-were created without an explicit custom_id, so discord.py generated random ids
-and the market gate rejected MARCADOR / GOLEADORES / CERRAR and the following
-selectors as if they were transfer-market interactions.
+``ajap:league:``. Some scorer modals and the newer match-management views create
+buttons/selects without an explicit custom_id, so discord.py generates random ids
+and the market gate can reject MARCADOR / AGREGAR GOLEADOR / EDITAR / CERRAR and
+the following selectors as if they were transfer-market interactions.
 
 This patch keeps the existing scorer modal fix and gives every transient child
-created by ``league_unified_match_manager_patch`` an ``ajap:league:`` custom_id.
+created by both Liga match-manager modules an ``ajap:league:`` custom_id.
 No result/scorer validation or persistence logic is changed.
 """
 from __future__ import annotations
@@ -22,9 +22,11 @@ PREFIX = "ajap:league:manual-scorer:"
 MODAL_ID = PREFIX + "modal"
 UNIFIED_MODULE = "league_unified_match_manager_patch"
 UNIFIED_PREFIX = "ajap:league:match-manager:"
+SCORER_EDITOR_MODULE = "league_scorer_editor_v2_patch"
+SCORER_EDITOR_PREFIX = "ajap:league:scorer-editor:"
 
 # Defensive explicit exemptions in addition to the generic ajap:league: prefix.
-for prefix in (PREFIX, UNIFIED_PREFIX):
+for prefix in (PREFIX, UNIFIED_PREFIX, SCORER_EDITOR_PREFIX):
     if prefix not in market_gate.EXEMPT_COMPONENT_PREFIXES:
         market_gate.EXEMPT_COMPONENT_PREFIXES = (
             *market_gate.EXEMPT_COMPONENT_PREFIXES,
@@ -49,21 +51,26 @@ _stable_modal_id(entry.ManualScorerModal, "_ajap_market_gate_modal_fix")
 _stable_modal_id(fast.FastManualScorerModal, "_ajap_market_gate_modal_fix")
 
 
-def _is_unified_view(view) -> bool:
-    cls = view.__class__
-    return getattr(cls, "__module__", "") == UNIFIED_MODULE
+def _liga_view_prefix(view) -> str | None:
+    module = getattr(view.__class__, "__module__", "")
+    if module == UNIFIED_MODULE:
+        return UNIFIED_PREFIX
+    if module == SCORER_EDITOR_MODULE:
+        return SCORER_EDITOR_PREFIX
+    return None
 
 
 def _tag_child(view, child, index: int):
-    """Give unified-manager buttons/selects a Liga id before Discord stores them."""
-    if not _is_unified_view(view) or not hasattr(child, "custom_id"):
+    """Give transient Liga manager buttons/selects a Liga id before dispatch."""
+    prefix = _liga_view_prefix(view)
+    if prefix is None or not hasattr(child, "custom_id"):
         return
     current = str(getattr(child, "custom_id", "") or "")
     if current.startswith("ajap:league:"):
         return
     try:
         child.custom_id = (
-            f"{UNIFIED_PREFIX}{view.__class__.__name__.lower()}:{int(index)}"
+            f"{prefix}{view.__class__.__name__.lower()}:{int(index)}"
         )[:100]
     except Exception as exc:
         print(
@@ -72,14 +79,15 @@ def _tag_child(view, child, index: int):
         )
 
 
-# Decorator buttons (MARCADOR / GOLEADORES / CERRAR) are created inside
-# discord.ui.View.__init__, so tag them immediately after the base init returns.
+# Decorator buttons (MARCADOR / AGREGAR GOLEADOR / EDITAR / CERRAR, etc.) are
+# created inside discord.ui.View.__init__, so tag them immediately after the base
+# init returns.
 _original_view_init = discord.ui.View.__init__
 if not getattr(_original_view_init, "_ajap_unified_market_gate_fix", False):
 
     def _view_init(self, *args, **kwargs):
         _original_view_init(self, *args, **kwargs)
-        if _is_unified_view(self):
+        if _liga_view_prefix(self) is not None:
             for index, child in enumerate(list(getattr(self, "children", []))):
                 _tag_child(self, child, index)
 
@@ -88,12 +96,13 @@ if not getattr(_original_view_init, "_ajap_unified_market_gate_fix", False):
 
 
 # Team/player/goal selectors and pagination buttons are added after super().__init__,
-# therefore also tag every later add_item belonging specifically to this module.
+# therefore also tag every later add_item belonging specifically to these Liga
+# manager modules.
 _original_add_item = discord.ui.View.add_item
 if not getattr(_original_add_item, "_ajap_unified_market_gate_fix", False):
 
     def _add_item(self, item):
-        if _is_unified_view(self):
+        if _liga_view_prefix(self) is not None:
             _tag_child(self, item, len(getattr(self, "children", [])))
         return _original_add_item(self, item)
 
@@ -102,5 +111,5 @@ if not getattr(_original_add_item, "_ajap_unified_market_gate_fix", False):
 
 
 print(
-    "AJAP Liga: goleadores + gestor de partido exentos del canal exclusivo de Mercado"
+    "AJAP Liga: goleadores + editores de partido exentos del canal exclusivo de Mercado"
 )
