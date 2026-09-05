@@ -8,6 +8,7 @@ import discord
 # old AJAP typo internally, but users must always see the canonical AJPA name.
 import brand_identity_patch  # noqa: F401
 import mobile_write_api
+import mobile_stories_patch
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
 import my_club_menu_patch as my_club
@@ -16,6 +17,11 @@ import my_club_menu_patch as my_club
 def apply_mobile_pairing_patch(runtime, bot) -> None:
     if getattr(bot, "_ajpa_mobile_pairing_patch", False):
         return
+
+    # Mount authenticated writes first, then Stories on top. Both patches are
+    # idempotent and mutate the same handler class used by the running mobile API.
+    mobile_write_api.apply_mobile_write_patch()
+    mobile_stories_patch.apply_mobile_stories_patch()
 
     @bot.tree.command(
         name="app_codigo",
