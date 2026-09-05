@@ -197,31 +197,83 @@ HIDDEN_RESULT_CARD_SOURCE_IDS = frozenset({
 })
 
 
+def _result_identity(card: dict) -> tuple:
+    """Fallback identity for old schemas without source_message_id on matches."""
+    return (
+        _team_key(card.get("home_team")),
+        _team_key(card.get("away_team")),
+        int(card.get("home_goals", 0)),
+        int(card.get("away_goals", 0)),
+        str(card.get("created_at") or "")[:16],
+    )
+
+
+def _result_sort_key(card: dict) -> tuple:
+    parsed = _parse_time(card.get("created_at")) or datetime.min
+    return parsed, str(card.get("id", ""))
+
+
 def result_cards_payload(conn: sqlite3.Connection) -> list[dict]:
-    """All closed results posted by the bot, including pending GES entries."""
+    """Return official matches plus GES-only cards, never hiding manual results."""
+    official = matches_payload(conn)
     if "league_ges_result_queue" not in parity._tables(conn):
-        return matches_payload(conn)
+        return official
+
+    match_cols = mobile_read_api._columns(conn, "league_matches")
+    official_source_ids: set[str] = set()
+    if "source_message_id" in match_cols:
+        rows = conn.execute(
+            """
+            SELECT source_message_id
+            FROM league_matches
+            WHERE source_message_id IS NOT NULL
+            """
+        ).fetchall()
+        official_source_ids = {str(row["source_message_id"]) for row in rows}
+
     rows = conn.execute(
-        """SELECT source_message_id, home_team, away_team, home_goals,
-                  away_goals, created_at
-           FROM league_ges_result_queue WHERE ges_message_id IS NOT NULL
-           ORDER BY datetime(created_at) DESC, source_message_id DESC"""
+        """
+        SELECT source_message_id, home_team, away_team, home_goals,
+               away_goals, created_at
+        FROM league_ges_result_queue
+        WHERE ges_message_id IS NOT NULL
+        ORDER BY datetime(created_at) DESC, source_message_id DESC
+        """
     ).fetchall()
     classics = _classic_periods(conn)
     team_lookup = _mobile_team_lookup(conn)
-    return [dict(
-        id=str(row["source_message_id"]),
-        home_team=_canonical_mobile_team(conn, row["home_team"], team_lookup),
-        away_team=_canonical_mobile_team(conn, row["away_team"], team_lookup),
-        home_goals=int(row["home_goals"]), away_goals=int(row["away_goals"]),
-        created_at=str(row["created_at"] or ""),
-        is_classic=_is_classic_at(
-            classics,
-            str(row["home_team"]),
-            str(row["away_team"]),
-            row["created_at"],
-        ),
-    ) for row in rows if str(row["source_message_id"]) not in HIDDEN_RESULT_CARD_SOURCE_IDS]
+    official_identities = {_result_identity(card) for card in official}
+    cards = list(official)
+
+    for row in rows:
+        source_id = str(row["source_message_id"])
+        if source_id in HIDDEN_RESULT_CARD_SOURCE_IDS:
+            continue
+        if official_source_ids and source_id in official_source_ids:
+            continue
+
+        card = {
+            "id": source_id,
+            "home_team": _canonical_mobile_team(conn, row["home_team"], team_lookup),
+            "away_team": _canonical_mobile_team(conn, row["away_team"], team_lookup),
+            "home_goals": int(row["home_goals"]),
+            "away_goals": int(row["away_goals"]),
+            "created_at": str(row["created_at"] or ""),
+            "is_classic": _is_classic_at(
+                classics,
+                str(row["home_team"]),
+                str(row["away_team"]),
+                row["created_at"],
+            ),
+        }
+        # Old league_matches schemas may not expose source_message_id. In that
+        # case use exact fixture/score/minute only as a compatibility fallback.
+        if not official_source_ids and _result_identity(card) in official_identities:
+            continue
+        cards.append(card)
+
+    cards.sort(key=_result_sort_key, reverse=True)
+    return cards
 
 
 def apply_mobile_league_history_api_patch() -> None:
