@@ -1,8 +1,8 @@
 """Bounded repairs for two user-verified Ajax/Feyenoord OCR mistakes on 2026-09-04.
 
 1) The Rosales + Mitea match is Ajax 2-2 Feyenoord. Earlier OCR variants stored
-   it as 2-0, 1-1, or even with the teams reversed. The scorer fingerprint keeps
-   this repair isolated from the other fixture.
+   it as 2-0, 1-1, or even with the teams reversed. Verified scorers are
+   Rosales x1, Mitea x1 and Van Hooijdonk x2.
 2) Feyenoord 1-1 Ajax with Huntelaar was actually Feyenoord 0-2 Ajax.
    Huntelaar scored both Ajax goals.
 
@@ -108,12 +108,27 @@ def _repair_ajax_22(runtime, guild_id):
         if not row:
             return None
         source = int(row['source_message_id'])
-        already_ok = (
+        vh = conn.execute(
+            """
+            SELECT SUM(goals) AS goals
+            FROM league_goal_events
+            WHERE source_message_id=?
+              AND player='Van Hooijdonk' COLLATE NOCASE
+              AND COALESCE(team,'')='Feyenoord' COLLATE NOCASE
+            """,
+            (source,),
+        ).fetchone()
+        vh_goals = int(vh['goals'] or 0) if vh else 0
+        already_complete = (
             str(row['home_team']) == 'Ajax'
             and str(row['away_team']) == 'Feyenoord'
             and int(row['home_goals']) == 2
             and int(row['away_goals']) == 2
+            and vh_goals == 2
         )
+        if already_complete:
+            return None
+
         conn.execute('BEGIN IMMEDIATE')
         conn.execute(
             """
@@ -124,8 +139,7 @@ def _repair_ajax_22(runtime, guild_id):
             """,
             (source,),
         )
-        # Preserve verified Ajax scorers. Remove only Feyenoord rows that are not
-        # the visible Van Hooijdonk attribution; the second FEY goal stays pending.
+        # Keep only the verified Feyenoord scorer, then force his total to x2.
         conn.execute(
             """
             DELETE FROM league_goal_events
@@ -135,16 +149,27 @@ def _repair_ajax_22(runtime, guild_id):
             """,
             (source,),
         )
-        exists = conn.execute(
-            "SELECT 1 FROM league_goal_events WHERE source_message_id=? AND player='Van Hooijdonk' COLLATE NOCASE LIMIT 1",
+        vh_rows = conn.execute(
+            """
+            SELECT id FROM league_goal_events
+            WHERE source_message_id=? AND player='Van Hooijdonk' COLLATE NOCASE
+            ORDER BY id ASC
+            """,
             (source,),
-        ).fetchone()
-        if not exists:
+        ).fetchall()
+        if vh_rows:
+            keep = int(vh_rows[0]['id'])
+            conn.execute(
+                "UPDATE league_goal_events SET player='Van Hooijdonk', team='Feyenoord', goals=2, confidence=1.0 WHERE id=?",
+                (keep,),
+            )
+            for extra in vh_rows[1:]:
+                conn.execute("DELETE FROM league_goal_events WHERE id=?", (int(extra['id']),))
+        else:
             conn.execute(
                 "INSERT INTO league_goal_events(source_message_id,player,team,goals,confidence) VALUES(?,?,?,?,1.0)",
-                (source, 'Van Hooijdonk', 'Feyenoord', 1),
+                (source, 'Van Hooijdonk', 'Feyenoord', 2),
             )
-        # Ensure scorer team labels follow the corrected orientation.
         conn.execute(
             "UPDATE league_goal_events SET team='Ajax' WHERE source_message_id=? AND player IN ('Rosales','Mitea') COLLATE NOCASE",
             (source,),
@@ -152,9 +177,8 @@ def _repair_ajax_22(runtime, guild_id):
         _update_queue(conn, source, 'Ajax', 'Feyenoord', 2, 2)
         _update_review(conn, source, 'Ajax', 'Feyenoord', 2, 2)
         conn.commit()
-        if not already_ok:
-            print(f'AJAP repair: Ajax 2-2 Feyenoord source={source}; Rosales, Mitea, Van Hooijdonk; 1 FEY goal pending')
-        return source if not already_ok else None
+        print(f'AJAP repair: Ajax 2-2 Feyenoord source={source}; Rosales x1, Mitea x1, Van Hooijdonk x2')
+        return source
     except Exception:
         conn.rollback()
         raise
