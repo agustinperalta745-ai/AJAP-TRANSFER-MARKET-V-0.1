@@ -12,7 +12,10 @@ modifica el intervalo de dos horas.
 from __future__ import annotations
 
 import random
+import time
 from contextlib import closing
+
+import discord
 
 import radio_pasillo_feature_ads_patch as radio
 import radio_pasillo_sports_column_patch as sports
@@ -155,7 +158,6 @@ def _rumor_candidates(guild_id: int, last_key: str | None):
     random.shuffle(templates)
 
     candidates = []
-    # Limitar combinaciones para no construir cientos de textos en cada ciclo.
     for team, player in pool[:12]:
         for slug, template in templates[:8]:
             key = _rumor_key(team, player, slug)
@@ -196,17 +198,85 @@ def _select_message_with_rumors(guild_id: int, last_key: str | None):
 
 sports._select_message = _select_message_with_rumors
 
-# El sender ya consulta sports._select_message en cada ejecución. Cambiamos solo
-# el encabezado para distinguir claramente que se trata de la sección de rumores,
-# sin añadir otra publicación ni tocar el temporizador.
-_BASE_SEND_DUE = sports._send_due_with_sports
 
-async def _send_due_with_rumor_header(guild) -> bool:
-    # El sender original arma su propio encabezado. Para mantener el cambio
-    # mínimo, dejamos que el contenido siga el formato de columna deportiva; la
-    # primera línea de cada rumor ya tiene estilo propio y el texto usa lenguaje
-    # de rumor ("se comenta", "circula la versión", etc.).
-    return await _BASE_SEND_DUE(guild)
+async def _send_due_with_rumors(guild) -> bool:
+    if guild is None:
+        return False
 
+    now = int(time.time())
+    with closing(radio._conn_for_guild(guild.id)) as conn:
+        row = radio._state(conn, guild.id)
+        last_sent_at = int(row["last_sent_at"]) if row else 0
+        last_key = str(row["last_ad_key"]) if row and row["last_ad_key"] else None
+
+    if last_sent_at and now - last_sent_at < radio.INTERVAL_SECONDS:
+        return False
+
+    channel = await radio._resolve_radio_channel(guild)
+    if channel is None:
+        print(f"AJAP Radio Pasillo: canal no encontrado guild={guild.id}")
+        return False
+
+    role = radio._dt_role(guild)
+    if role is None:
+        print(f"AJAP Radio Pasillo: rol DT no encontrado guild={guild.id}")
+        return False
+
+    selected = sports._select_message(guild.id, last_key)
+    if selected is None:
+        return False
+    message_key, body = selected
+
+    is_rumor = str(message_key).startswith(RUMOR_KEY_PREFIX)
+    is_sports = str(message_key).startswith(sports.SPORTS_KEY_PREFIX)
+    if is_rumor:
+        header = "📣 **RADIO PASILLO • RUMORES**"
+    elif is_sports:
+        header = "🗞️ **RADIO PASILLO • COLUMNA DEPORTIVA**"
+    else:
+        header = "📻 **RADIO PASILLO • RECORDATORIO AJPA**"
+
+    content = f"{role.mention}\n{header}\n{body}"
+
+    try:
+        sent = await channel.send(
+            content=content,
+            allowed_mentions=discord.AllowedMentions(
+                everyone=False,
+                users=False,
+                roles=True,
+                replied_user=False,
+            ),
+        )
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        print(
+            "AJAP Radio Pasillo: envío falló "
+            f"guild={guild.id} channel={getattr(channel, 'id', None)} "
+            f"error={type(exc).__name__}: {exc}"
+        )
+        return False
+
+    with closing(radio._conn_for_guild(guild.id)) as conn:
+        radio._mark_sent(
+            conn,
+            guild.id,
+            now=now,
+            ad_key=message_key,
+            channel_id=channel.id,
+            message_id=sent.id,
+        )
+
+    print(
+        "AJAP Radio Pasillo enviada "
+        f"guild={guild.id} channel={channel.id} "
+        f"type={'rumor' if is_rumor else 'sports' if is_sports else 'reminder'} "
+        f"key={message_key}"
+    )
+    return True
+
+
+# La tarea de Radio Pasillo resuelve radio._send_due en cada ciclo, así que este
+# reemplazo conserva el mismo temporizador y añade solo la tercera categoría.
+radio._send_due = _send_due_with_rumors
 
 print("AJAP Radio Pasillo: rumores futbolísticos inmersivos activos")
