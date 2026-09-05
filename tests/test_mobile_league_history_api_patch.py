@@ -97,6 +97,58 @@ class MobileLeagueHistoryPayloadTests(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_result_cards_merge_official_matches_with_ges_without_duplicates(self):
+        conn = self.connection()
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE league_matches (
+                    id INTEGER PRIMARY KEY,
+                    source_message_id INTEGER,
+                    home_team TEXT NOT NULL,
+                    away_team TEXT NOT NULL,
+                    home_goals INTEGER NOT NULL,
+                    away_goals INTEGER NOT NULL,
+                    created_at DATETIME
+                );
+                CREATE TABLE league_ges_result_queue (
+                    source_message_id INTEGER PRIMARY KEY,
+                    home_team TEXT,
+                    away_team TEXT,
+                    home_goals INTEGER,
+                    away_goals INTEGER,
+                    ges_message_id INTEGER,
+                    created_at DATETIME
+                );
+                INSERT INTO league_matches VALUES
+                    (1, 111, 'Atlético de Madrid', 'Galatasaray', 6, 1, '2026-09-04 21:00:00'),
+                    (2, -20260904006102, 'Galatasaray', 'Atlético de Madrid', 1, 6, '2026-09-04 21:01:00');
+                INSERT INTO league_ges_result_queue VALUES
+                    (111, 'Atlético de Madrid', 'Galatasaray', 6, 1, 999, '2026-09-04 21:00:00'),
+                    (222, 'Ajax', 'Porto', 2, 2, 1000, '2026-09-04 21:02:00');
+                """
+            )
+            conn.commit()
+
+            with patch.object(
+                history.mobile_read_api,
+                "_live_mobile_club_names",
+                return_value=["Atlético de Madrid", "Galatasaray", "Ajax", "Porto"],
+            ):
+                payload = history.result_cards_payload(conn)
+
+            self.assertEqual(len(payload), 3)
+            fixtures = [
+                (row["home_team"], row["away_team"], row["home_goals"], row["away_goals"])
+                for row in payload
+            ]
+            self.assertIn(("Atlético de Madrid", "Galatasaray", 6, 1), fixtures)
+            self.assertIn(("Galatasaray", "Atlético de Madrid", 1, 6), fixtures)
+            self.assertIn(("Ajax", "Porto", 2, 2), fixtures)
+            self.assertEqual(fixtures.count(("Atlético de Madrid", "Galatasaray", 6, 1)), 1)
+        finally:
+            conn.close()
+
     def test_cycle_filter_is_safe_on_readonly_league_connection(self):
         conn = self.connection()
         try:
