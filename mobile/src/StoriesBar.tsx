@@ -152,6 +152,7 @@ export default function StoriesBar({ authenticated, ownTeam }: Props) {
     }
     if (viewerTeamIndex > 0) {
       const previous = groups[viewerTeamIndex - 1];
+      if (!previous) return;
       setViewerTeamIndex(viewerTeamIndex - 1);
       setViewerStoryIndex(Math.max(0, previous.stories.length - 1));
     }
@@ -176,7 +177,9 @@ export default function StoriesBar({ authenticated, ownTeam }: Props) {
   const openGroup = (team: string) => {
     const index = groups.findIndex((group) => group.team === team);
     if (index < 0) return;
-    const firstUnseen = groups[index].stories.findIndex((story) => !story.viewed);
+    const group = groups[index];
+    if (!group) return;
+    const firstUnseen = group.stories.findIndex((story) => !story.viewed);
     setViewerTeamIndex(index);
     setViewerStoryIndex(firstUnseen >= 0 ? firstUnseen : 0);
   };
