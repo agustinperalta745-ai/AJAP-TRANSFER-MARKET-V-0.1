@@ -263,6 +263,8 @@ try:
                 from league_known_feyenoord_fulham_scorer_fix_patch import _install as install_feyenoord_fulham_scorers
                 from league_known_ajax_feyenoord_score_repairs_patch import _install as install_ajax_feyenoord_repairs
                 import league_period_sum_score_guard_patch  # noqa: F401
+                import radio_pasillo_feature_ads_patch as radio_pasillo_ads
+                from radio_pasillo_force_rumor_preview_patch import register_force_rumor_preview
 
                 enable_additional_teams()
                 apply_team_assignment_patch(__main__, self)
@@ -271,6 +273,13 @@ try:
                 apply_publish_ovr_patch(__main__)
                 install_feyenoord_fulham_scorers(__main__, self)
                 install_ajax_feyenoord_repairs(__main__, self)
+
+                # Do not rely on indirect wrapper order for Radio Pasillo. This
+                # explicit initialization guarantees APP/BOT are available and
+                # the one-shot preview listener is registered before Bot.run()
+                # connects to Discord and dispatches on_ready.
+                radio_pasillo_ads.apply_radio_pasillo_feature_ads_patch(__main__, self)
+                register_force_rumor_preview(__main__, self)
             except Exception as exc:
                 print(f"Error cargando equipos/plantillas AJAP: {exc}")
         return _original_bot_run(self, token, *args, **kwargs)
