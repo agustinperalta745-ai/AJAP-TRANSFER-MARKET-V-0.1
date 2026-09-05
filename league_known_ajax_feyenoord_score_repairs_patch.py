@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import guild_isolation_patch as guild_isolation
 import league_automation_patch as league
+import league_persistent_result_correction_patch as persistent_tools
 
 APP = None
 BOT = None
@@ -145,6 +146,9 @@ async def _on_ready():
 def _install(runtime, bot):
     global APP, BOT
     APP, BOT = runtime, bot
+    # Always install the permanent Staff controls even if this bounded data repair
+    # was already armed earlier in the same process.
+    persistent_tools._install(runtime, bot)
     if getattr(bot, '_ajap_ajax_feyenoord_score_repairs', False):
         return
     bot.add_listener(_on_ready, 'on_ready')
