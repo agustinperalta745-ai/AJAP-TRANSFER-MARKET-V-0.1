@@ -12,10 +12,23 @@ import discord
 
 import guild_isolation_patch as guild_isolation
 import league_automation_patch as league
-import league_persistent_result_correction_patch as tools
+import league_persistent_result_admin_controls_patch as active
+import league_persistent_result_correction_patch as legacy
 
 APP = None
 BOT = None
+
+
+def _runtime():
+    return APP or active.APP or legacy.APP
+
+
+def _bot():
+    return BOT or active.BOT or legacy.BOT
+
+
+def _match(runtime, guild_id: int, source_id: int):
+    return active._match(runtime, int(guild_id), int(source_id))
 
 
 def _scorer_state(runtime, guild_id: int, source_id: int, match):
@@ -107,11 +120,11 @@ def _is_stale(message: discord.Message, match, pending) -> bool:
 
 
 async def sync_public_reply(guild: discord.Guild, source_id: int, *, corrected=False, force=False):
-    runtime = APP or tools.APP
-    bot = BOT or tools.BOT
+    runtime = _runtime()
+    bot = _bot()
     if runtime is None or bot is None or not bot.user:
         return 0
-    match = tools._match(runtime, guild.id, int(source_id))
+    match = _match(runtime, guild.id, int(source_id))
     if not match or not match['source_channel_id']:
         return 0
     channel = guild.get_channel(int(match['source_channel_id']))
@@ -130,8 +143,7 @@ async def sync_public_reply(guild: discord.Guild, source_id: int, *, corrected=F
     text, pending = _public_text(runtime, guild.id, int(source_id), match, corrected)
     changed = 0
     try:
-        history = channel.history(limit=30, after=source, oldest_first=True)
-        async for message in history:
+        async for message in channel.history(limit=30, after=source, oldest_first=True):
             if not message.author or int(message.author.id) != int(bot.user.id):
                 continue
             reference = getattr(message, 'reference', None)
@@ -151,60 +163,95 @@ async def sync_public_reply(guild: discord.Guild, source_id: int, *, corrected=F
     return changed
 
 
-# Immediate synchronization after future Staff actions.
-_original_correct_submit = tools.CorrectResultModal.on_submit
-_original_scorer_submit = tools.ScorerEditModal.on_submit
+def _active_source(runtime, guild_id: int, staff_message_id: int):
+    try:
+        review = active._review_by_staff(runtime, int(guild_id), int(staff_message_id))
+        return int(review['source_message_id']) if review else None
+    except Exception:
+        return None
 
 
-async def _correct_submit(self, interaction: discord.Interaction):
-    source_id = None
-    if interaction.guild_id:
-        runtime = APP or tools.APP
-        if runtime is not None:
-            try:
-                row = tools._row_for_ges_message(runtime, interaction.guild_id, self.ges_message_id)
-                source_id = int(row['source_message_id']) if row else None
-            except Exception:
-                source_id = None
-    await _original_correct_submit(self, interaction)
+# Wrap the CURRENT permanent Staff controls.
+_active_correct_submit = active.CorrectResultModal.on_submit
+_active_scorer_submit = active.CorrectScorerModal.on_submit
+
+
+async def _active_correct(self, interaction: discord.Interaction):
+    runtime = _runtime()
+    source_id = _active_source(runtime, interaction.guild_id, self.staff_message_id) if runtime and interaction.guild_id else None
+    await _active_correct_submit(self, interaction)
     if source_id and interaction.guild:
         try:
             await sync_public_reply(interaction.guild, source_id, corrected=True, force=True)
         except Exception as exc:
-            print(f"AJAP result public sync warning source={source_id}: {type(exc).__name__}: {exc}")
+            print(f"AJAP active result public sync warning source={source_id}: {type(exc).__name__}: {exc}")
 
 
-async def _scorer_submit(self, interaction: discord.Interaction):
-    source_id = None
-    if interaction.guild_id:
-        runtime = APP or tools.APP
-        if runtime is not None:
-            try:
-                row = tools._row_for_ges_message(runtime, interaction.guild_id, self.ges_message_id)
-                source_id = int(row['source_message_id']) if row else None
-            except Exception:
-                source_id = None
-    await _original_scorer_submit(self, interaction)
+async def _active_scorer(self, interaction: discord.Interaction):
+    runtime = _runtime()
+    source_id = _active_source(runtime, interaction.guild_id, self.staff_message_id) if runtime and interaction.guild_id else None
+    await _active_scorer_submit(self, interaction)
     if source_id and interaction.guild:
         try:
             await sync_public_reply(interaction.guild, source_id, corrected=True, force=True)
         except Exception as exc:
-            print(f"AJAP scorer public sync warning source={source_id}: {type(exc).__name__}: {exc}")
+            print(f"AJAP active scorer public sync warning source={source_id}: {type(exc).__name__}: {exc}")
 
 
-if not getattr(tools.CorrectResultModal.on_submit, '_ajap_public_sync', False):
-    _correct_submit._ajap_public_sync = True
-    tools.CorrectResultModal.on_submit = _correct_submit
-if not getattr(tools.ScorerEditModal.on_submit, '_ajap_public_sync', False):
-    _scorer_submit._ajap_public_sync = True
-    tools.ScorerEditModal.on_submit = _scorer_submit
+if not getattr(active.CorrectResultModal.on_submit, '_ajap_public_sync', False):
+    _active_correct._ajap_public_sync = True
+    active.CorrectResultModal.on_submit = _active_correct
+if not getattr(active.CorrectScorerModal.on_submit, '_ajap_public_sync', False):
+    _active_scorer._ajap_public_sync = True
+    active.CorrectScorerModal.on_submit = _active_scorer
+
+
+# Keep compatibility with any older GES correction cards still visible.
+_legacy_correct_submit = legacy.CorrectResultModal.on_submit
+_legacy_scorer_submit = legacy.ScorerEditModal.on_submit
+
+
+async def _legacy_correct(self, interaction: discord.Interaction):
+    source_id = None
+    runtime = _runtime()
+    if runtime is not None and interaction.guild_id:
+        try:
+            row = legacy._row_for_ges_message(runtime, interaction.guild_id, self.ges_message_id)
+            source_id = int(row['source_message_id']) if row else None
+        except Exception:
+            pass
+    await _legacy_correct_submit(self, interaction)
+    if source_id and interaction.guild:
+        await sync_public_reply(interaction.guild, source_id, corrected=True, force=True)
+
+
+async def _legacy_scorer(self, interaction: discord.Interaction):
+    source_id = None
+    runtime = _runtime()
+    if runtime is not None and interaction.guild_id:
+        try:
+            row = legacy._row_for_ges_message(runtime, interaction.guild_id, self.ges_message_id)
+            source_id = int(row['source_message_id']) if row else None
+        except Exception:
+            pass
+    await _legacy_scorer_submit(self, interaction)
+    if source_id and interaction.guild:
+        await sync_public_reply(interaction.guild, source_id, corrected=True, force=True)
+
+
+if not getattr(legacy.CorrectResultModal.on_submit, '_ajap_public_sync', False):
+    _legacy_correct._ajap_public_sync = True
+    legacy.CorrectResultModal.on_submit = _legacy_correct
+if not getattr(legacy.ScorerEditModal.on_submit, '_ajap_public_sync', False):
+    _legacy_scorer._ajap_public_sync = True
+    legacy.ScorerEditModal.on_submit = _legacy_scorer
 
 
 async def _repair_recent_public_messages():
     # Let bounded DB repairs and normal ready hooks finish first.
     await asyncio.sleep(6)
-    runtime = APP or tools.APP
-    bot = BOT or tools.BOT
+    runtime = _runtime()
+    bot = _bot()
     if runtime is None or bot is None or not bot.user:
         return
     total = 0
