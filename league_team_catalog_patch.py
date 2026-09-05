@@ -11,7 +11,7 @@ def apply_league_team_catalog_patch() -> None:
         name for name in league.TEAMS
         if str(name).strip().casefold() not in retired
     ]
-    for club in ("AS Monaco", "Feyenoord"):
+    for club in ("AS Monaco", "Feyenoord", "Galatasaray"):
         if not any(str(name).casefold() == club.casefold() for name in league.TEAMS):
             league.TEAMS.append(club)
 
@@ -23,6 +23,11 @@ def apply_league_team_catalog_patch() -> None:
             "monaco": "AS Monaco",
             "as monaco": "AS Monaco",
             "feyenoord": "Feyenoord",
+            "galatasaray": "Galatasaray",
+
+            # PES shows this licensed label on the result/scorer screens.
+            "c atletico madrid": "Atlético de Madrid",
+            "c atletico de madrid": "Atlético de Madrid",
 
             # PES default / unlicensed names used by AJPA players.
             "middlebrook": "Bolton Wanderers",
@@ -37,10 +42,14 @@ def apply_league_team_catalog_patch() -> None:
     )
     print(
         "AJAP Liga: catálogo actualizado • nombres oficiales + aliases PES por defecto "
-        "• AS Monaco/Feyenoord activos • Celta/AS Roma retirados"
+        "• AS Monaco/Feyenoord/Galatasaray activos • Celta/AS Roma retirados"
     )
 
 
 # This module is imported by the final result-reader bootstrap. Apply immediately
 # so every reader built afterwards sees the same active club catalog.
 apply_league_team_catalog_patch()
+
+# Recovery for the two verified Atlético/Galatasaray screenshots reported on
+# 2026-09-04, plus the missing scorer-image fix for Staff cards.
+import league_verified_atletico_galatasaray_20260904_patch  # noqa: E402,F401
