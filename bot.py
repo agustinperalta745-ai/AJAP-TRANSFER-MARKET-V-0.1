@@ -204,8 +204,11 @@ import league_top5_snapshot_test_patch  # noqa: F401,E402
 import league_ocrspace_result_bridge_patch  # noqa: F401,E402
 
 # Permanent Staff controls are installed last so every final result-reader path
-# receives the same durable CORREGIR RESULTADO / GOLEADORES buttons.
+# receives durable match-management controls.
 import league_persistent_result_admin_controls_patch  # noqa: F401,E402
+# Replace separate score/scorer forms with one simple persistent wizard:
+# marcador -> equipo -> jugador de plantilla -> goles -> siguiente goleador.
+import league_unified_match_manager_patch  # noqa: F401,E402
 # Keep public #RESULTADO replies synchronized with the official corrected row,
 # including a retroactive pass over recent already-corrected matches.
 import league_result_message_sync_patch  # noqa: F401,E402
@@ -224,6 +227,6 @@ import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-result-message-sync-v1"
+AJAP_RESTART_MARKER = "2026-09-04T-unified-match-manager-v1"
 
 import run_bot  # noqa: F401,E402
