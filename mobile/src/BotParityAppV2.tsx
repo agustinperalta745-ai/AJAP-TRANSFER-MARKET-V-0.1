@@ -38,6 +38,7 @@ import { BG_EQUIPOS } from './bg_equipos';
 import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
+import StoriesBar from './StoriesBar';
 
 type Screen =
   | 'home'
@@ -462,6 +463,7 @@ export default function BotParityAppV2() {
         title={profile?.club ? profile.club.toUpperCase() : profile?.is_staff ? 'PANEL STAFF' : 'MENÚ PRINCIPAL'}
         subtitle="La misma jerarquía que el panel /mercado de Discord."
       />
+      <StoriesBar authenticated={!!profile} ownTeam={profile?.club} />
       <View style={s.summaryRow}>
         <View style={s.summaryCard}><Text style={s.summaryValue}>{money(profile?.balance)}</Text><Text style={s.summaryLabel}>PRESUPUESTO</Text></View>
         <View style={s.summaryCard}><Text style={s.summaryValue}>{profile?.roster_count ?? 0}</Text><Text style={s.summaryLabel}>JUGADORES</Text></View>
