@@ -158,10 +158,12 @@ import league_runtime_result_rescue_patch  # noqa: F401,E402
 import league_pending_review_reprocess_patch  # noqa: F401,E402
 
 # Load the complete active AJPA team catalog and every stock-PES alias before the
-# final local reader freezes its strict team-matching rules. This includes
-# Feyenoord and East London -> West Ham United.
+# final local reader freezes its strict team-matching rules.
 import league_team_catalog_patch  # noqa: F401,E402
 import league_pes_unlicensed_aliases_patch  # noqa: F401,E402
+# Staff's PES6 names are authoritative and are fuzzy-matched before real club
+# names, so small OCR mistakes like "North East Lond0n" still resolve correctly.
+import league_pes6_alias_resolver_patch  # noqa: F401,E402
 
 # Safety bridge: pending recovery gets runtime rescue, and the Staff rehab test
 # can never delete an already official result/goleador record.
@@ -227,6 +229,6 @@ import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-unified-match-manager-v1"
+AJAP_RESTART_MARKER = "2026-09-04T-pes6-alias-resolver-v2"
 
 import run_bot  # noqa: F401,E402
