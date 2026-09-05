@@ -18,6 +18,7 @@ import market_usage_channel_patch as market_gate
 import league_manual_scorer_entry_patch as entry
 import league_manual_scorer_button_timeout_fix_patch as fast
 
+LEAGUE_PREFIX = "ajap:league:"
 PREFIX = "ajap:league:manual-scorer:"
 MODAL_ID = PREFIX + "modal"
 UNIFIED_MODULE = "league_unified_match_manager_patch"
@@ -25,8 +26,10 @@ UNIFIED_PREFIX = "ajap:league:match-manager:"
 SCORER_EDITOR_MODULE = "league_scorer_editor_v2_patch"
 SCORER_EDITOR_PREFIX = "ajap:league:scorer-editor:"
 
-# Defensive explicit exemptions in addition to the generic ajap:league: prefix.
-for prefix in (PREFIX, UNIFIED_PREFIX, SCORER_EDITOR_PREFIX):
+# All Liga result/scorer controls are external to the transfer market flow.
+# The generic prefix is essential for permanent result cards such as
+# ajap:league:correct-scorer (CARGAR / CORREGIR GOLEADORES).
+for prefix in (LEAGUE_PREFIX, PREFIX, UNIFIED_PREFIX, SCORER_EDITOR_PREFIX):
     if prefix not in market_gate.EXEMPT_COMPONENT_PREFIXES:
         market_gate.EXEMPT_COMPONENT_PREFIXES = (
             *market_gate.EXEMPT_COMPONENT_PREFIXES,
