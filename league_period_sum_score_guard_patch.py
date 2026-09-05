@@ -87,6 +87,7 @@ print("AJAP Liga: marcador final protegido por suma 1er+2do cuando ambas filas s
 try:
     import radio_pasillo_sports_column_patch  # noqa: F401
     import radio_pasillo_game_rumors_patch  # noqa: F401
+    import radio_pasillo_force_rumor_preview_patch  # noqa: F401
 except Exception as exc:
     print(
         "WARNING AJAP Radio Pasillo: no se pudo activar la columna deportiva/rumores "
