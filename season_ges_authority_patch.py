@@ -11,7 +11,6 @@ import asyncio
 import hashlib
 import json
 import os
-import re
 import threading
 from http import HTTPStatus
 from urllib.parse import parse_qs, urlparse
@@ -141,9 +140,6 @@ def _current_config_payload(conn) -> dict:
             "updated_at": str(row["updated_at"] or ""),
         }
 
-    # First migration keeps the already-working current GES ready to save.
-    # Once at least one edition was configured, a newly-created edition starts
-    # blank so Staff cannot accidentally sync it against the previous season.
     if _has_any_saved_config(conn):
         ges_url = results_url = scorers_url = ""
         league_id = ""
@@ -305,7 +301,6 @@ async def _seasonal_sync(runtime, bot, guild_id: int, staff_user_id: int | None 
         results_url = str(cfg["results_url"])
         scorers_url = str(cfg["scorers_url"])
 
-        # Keep Discord standings/scorer views pointed at the last confirmed sync.
         ges.GES_LEAGUE_ID = league_id
         ges.GES_CLASSIFICATION_URL = classification_url
         ges.GES_SCORERS_URL = scorers_url
@@ -331,6 +326,10 @@ async def _seasonal_sync(runtime, bot, guild_id: int, staff_user_id: int | None 
             active_cid = cycle.active_competition_id(conn)
             if active_cid != cid:
                 raise RuntimeError("La competencia cambió durante la sincronización. Volvé a intentarlo.")
+            # cycle.ensure_schema() may perform tag-updates and open an implicit
+            # SQLite transaction. Commit those harmless migrations before the
+            # authoritative IMMEDIATE transaction begins.
+            conn.commit()
 
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
@@ -388,8 +387,6 @@ async def _seasonal_sync(runtime, bot, guild_id: int, staff_user_id: int | None 
                     (int(guild_id), league_id, row["player"], row["team"] or "", row["goals"]),
                 )
 
-            # Mobile's active scorer table and competition archives use
-            # league_goal_events. GES totals replace only the active edition.
             conn.execute("DELETE FROM league_goal_events WHERE competition_id=?", (cid,))
             for row in scorers:
                 scorer_source = _source_id(
@@ -517,9 +514,35 @@ def _install_api() -> None:
     print("AJPA Mobile: GES por competencia + historial de temporadas habilitados")
 
 
+def _restore_active_config(runtime, bot) -> None:
+    try:
+        raw = (os.getenv("AJPA_MOBILE_GUILD_ID") or os.getenv("DISCORD_GUILD_ID") or "").strip()
+        guild_id = int(raw) if raw.isdigit() else None
+        if guild_id is None:
+            guilds = list(getattr(bot, "guilds", []) or [])
+            if len(guilds) == 1:
+                guild_id = int(guilds[0].id)
+        if guild_id is None:
+            return
+        conn = ges.league.db(runtime, guild_id)
+        try:
+            cfg = _current_config_payload(conn)
+        finally:
+            conn.close()
+        if not cfg.get("configured"):
+            return
+        ges.GES_LEAGUE_ID = str(cfg["league_id"])
+        ges.GES_CLASSIFICATION_URL = str(cfg["ges_url"])
+        ges.GES_SCORERS_URL = str(cfg["scorers_url"])
+        ges.GES_RESULTS_URL = str(cfg["results_url"])
+    except Exception as exc:
+        print(f"AJPA GES: no se pudo restaurar configuración activa al iniciar: {exc}")
+
+
 def apply_season_ges_authority(runtime, bot) -> None:
     global _RUNTIME, _BOT
     _RUNTIME, _BOT = runtime, bot
+    _restore_active_config(runtime, bot)
     ges.sync_from_ges = _seasonal_sync
     _install_api()
     print("AJPA GES: enlaces y resultados aislados por competencia")
