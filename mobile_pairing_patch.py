@@ -10,6 +10,7 @@ import brand_identity_patch  # noqa: F401
 import mobile_write_api
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
+import ges_authoritative_snapshot_patch
 import my_club_menu_patch as my_club
 
 
@@ -74,6 +75,10 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     # puts the button on the exact dashboard managers actually see.
     classic_rival_discord_patch.apply_classic_rival_discord_patch(runtime, bot)
     classic_rival_myclub_button_patch.apply_classic_rival_myclub_button_patch(runtime, bot)
+
+    # GES is the absolute source of truth for the active competition. Mount this
+    # after the Mobile/league patch chain so its snapshot reader is the final one.
+    ges_authoritative_snapshot_patch.apply_authoritative_ges_snapshot(runtime, bot)
 
     # Extend the main menu shown before entering MI CLUB.
     base_view = runtime.MercadoView
