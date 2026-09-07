@@ -5,6 +5,7 @@ import league_ges_parser_hardening_patch  # noqa: F401
 import ges_authoritative_snapshot_patch
 import ges_new_result_cards_patch
 
+from ges_config_recovery_patch import apply_ges_config_recovery
 from league_ges_manual_sync_patch import apply_manual_ges_sync
 from legacy_result_intake_disabled_patch import disable_legacy_result_intake
 from season_ges_authority_patch import apply_season_ges_authority
@@ -25,6 +26,12 @@ def _apply_with_manual_ges(runtime, bot):
     # the older snapshot module initializes its read layer.
     ges_authoritative_snapshot_patch.apply_authoritative_ges_snapshot(runtime, bot)
     ges_new_result_cards_patch.apply_ges_new_result_cards(runtime, bot)
+
+    # Last GES safety layer: if an old/mobile DB split left the very first active
+    # competition without a persisted config, repair it from the boot URLs once
+    # and retry the exact same final sync chain. Future competitions still require
+    # their own explicit URLs and never inherit a previous season.
+    apply_ges_config_recovery(runtime, bot)
 
     # Must be last: older Liga patches are allowed to initialize, then their
     # Discord result intake is removed and made inert permanently.
