@@ -9,6 +9,7 @@ import {
 
 import MatchSearchShell from './src/MatchSearchShell';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
+import SeasonHistoryFab from './src/SeasonHistoryFab';
 
 export default function App() {
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function App() {
           translucent={false}
         />
         <MatchSearchShell />
+        <SeasonHistoryFab />
         <CompetitionCycleAdminFab />
       </SafeAreaView>
     </SafeAreaProvider>
