@@ -32,10 +32,22 @@ type CycleState = {
   competition_note: string;
 };
 
+type GesSyncResult = {
+  ok: boolean;
+  league_id: string;
+  standings: number;
+  matches_read: number;
+  matches_new: number;
+  matches_updated: number;
+  scorers: number;
+  warnings: string[];
+};
+
 export default function CompetitionCycleAdminFab() {
   const [cycle, setCycle] = useState<CycleState | null>(null);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [gesLoading, setGesLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
 
   const refresh = useCallback(async (showError = false) => {
@@ -74,7 +86,7 @@ export default function CompetitionCycleAdminFab() {
   }, [refresh]);
 
   const advance = useCallback(() => {
-    if (!cycle || loading) return;
+    if (!cycle || loading || gesLoading) return;
     Alert.alert(
       'Confirmar cambio de etapa',
       `${cycle.next_action.label}\n\nSe archivarán las estadísticas de la competencia que termina cuando corresponda.\n\nNO se tocan planteles, saldos, fichajes ni historial de clásicos.`,
@@ -107,7 +119,47 @@ export default function CompetitionCycleAdminFab() {
         },
       ],
     );
-  }, [cycle, loading, refresh]);
+  }, [cycle, loading, gesLoading, refresh]);
+
+  const syncGes = useCallback(() => {
+    if (gesLoading || loading) return;
+    Alert.alert(
+      'GES actualizada',
+      'Usá esta opción después de terminar de cargar GES. AJPA releerá tabla, resultados y goleadores; luego actualizará historiales y las salidas del bot de Discord.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Releer GES',
+          onPress: () => {
+            void (async () => {
+              setGesLoading(true);
+              try {
+                const result = await apiRequest<GesSyncResult>('/api/v1/admin/ges-sync', {
+                  method: 'POST',
+                  body: JSON.stringify({}),
+                });
+                const summary = [
+                  `${result.standings} equipos en tabla`,
+                  `${result.matches_read} resultados leídos`,
+                  `${result.matches_new} partidos nuevos`,
+                  `${result.matches_updated} resultados modificados`,
+                  `${result.scorers} goleadores`,
+                ].join('\n');
+                const warningText = result.warnings?.length
+                  ? `\n\n⚠️ Revisar (${result.warnings.length}):\n${result.warnings.slice(0, 6).join('\n')}`
+                  : '\n\n✅ Sin observaciones.';
+                Alert.alert('GES sincronizada', `${summary}${warningText}`);
+              } catch (error: any) {
+                Alert.alert('No se pudo sincronizar GES', String(error?.message || 'No se aplicó ningún cambio.'));
+              } finally {
+                setGesLoading(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [gesLoading, loading]);
 
   if (!authorized) return null;
 
@@ -115,14 +167,14 @@ export default function CompetitionCycleAdminFab() {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Gestionar etapa AJPA"
+        accessibilityLabel="Administración AJPA"
         onPress={() => {
           setVisible(true);
           void refresh(false);
         }}
         style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
       >
-        <Text style={styles.fabText}>🗓️ ETAPA</Text>
+        <Text style={styles.fabText}>⚙️ ADMIN</Text>
       </Pressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
@@ -131,7 +183,7 @@ export default function CompetitionCycleAdminFab() {
             <View style={styles.headerRow}>
               <View style={styles.headerTextWrap}>
                 <Text style={styles.eyebrow}>ADMINISTRACIÓN</Text>
-                <Text style={styles.title}>Ciclo AJPA</Text>
+                <Text style={styles.title}>Panel AJPA</Text>
               </View>
               <Pressable onPress={() => setVisible(false)} hitSlop={12}>
                 <Text style={styles.close}>✕</Text>
@@ -171,6 +223,30 @@ export default function CompetitionCycleAdminFab() {
                   </Text>
                 </View>
 
+                <View style={styles.gesBox}>
+                  <Text style={styles.smallLabel}>FUENTE OFICIAL</Text>
+                  <Text style={styles.gesTitle}>GES</Text>
+                  <Text style={styles.gesDescription}>
+                    Cuando termines la carga manual en GES, avisale a AJPA para releer todo y actualizar también el bot.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="GES actualizada"
+                    disabled={gesLoading || loading}
+                    onPress={syncGes}
+                    style={({ pressed }) => [styles.gesButton, (pressed || gesLoading || loading) && styles.pressed]}
+                  >
+                    {gesLoading ? (
+                      <View style={styles.loadingRow}>
+                        <ActivityIndicator />
+                        <Text style={styles.gesButtonText}>RELEYENDO GES…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.gesButtonText}>🔄 GES ACTUALIZADA</Text>
+                    )}
+                  </Pressable>
+                </View>
+
                 <View style={styles.nextBox}>
                   <Text style={styles.smallLabel}>SIGUIENTE PASO</Text>
                   <Text style={styles.nextTitle}>{cycle.next_action.label}</Text>
@@ -178,9 +254,9 @@ export default function CompetitionCycleAdminFab() {
                 </View>
 
                 <Pressable
-                  disabled={loading}
+                  disabled={loading || gesLoading}
                   onPress={advance}
-                  style={({ pressed }) => [styles.advanceButton, (pressed || loading) && styles.pressed]}
+                  style={({ pressed }) => [styles.advanceButton, (pressed || loading || gesLoading) && styles.pressed]}
                 >
                   {loading ? (
                     <ActivityIndicator />
@@ -192,7 +268,7 @@ export default function CompetitionCycleAdminFab() {
             ) : (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator />
-                <Text style={styles.loadingText}>Cargando etapa...</Text>
+                <Text style={styles.loadingText}>Cargando administración...</Text>
               </View>
             )}
           </View>
@@ -257,6 +333,27 @@ const styles = StyleSheet.create({
   infoBox: { borderRadius: 14, padding: 13, backgroundColor: 'rgba(255,255,255,0.025)' },
   infoTitle: { color: '#fff', fontWeight: '900', fontSize: 13, marginBottom: 5 },
   infoText: { color: '#a9bac9', lineHeight: 18, fontSize: 12 },
+  gesBox: {
+    borderRadius: 16,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    gap: 7,
+  },
+  gesTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  gesDescription: { color: '#afbfcd', fontSize: 12, lineHeight: 18 },
+  gesButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    marginTop: 4,
+    backgroundColor: '#f2f5f7',
+  },
+  gesButtonText: { color: '#071019', fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   nextBox: {
     borderRadius: 16,
     padding: 15,
