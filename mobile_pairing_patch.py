@@ -11,6 +11,7 @@ import mobile_write_api
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
 import ges_authoritative_snapshot_patch
+import ges_new_result_cards_patch
 import my_club_menu_patch as my_club
 
 
@@ -79,6 +80,9 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     # GES is the absolute source of truth for the active competition. Mount this
     # after the Mobile/league patch chain so its snapshot reader is the final one.
     ges_authoritative_snapshot_patch.apply_authoritative_ges_snapshot(runtime, bot)
+    # After the authoritative reader is installed, detect fixtures that were not
+    # present before this sync and publish only those with the existing result card.
+    ges_new_result_cards_patch.apply_ges_new_result_cards(runtime, bot)
 
     # Extend the main menu shown before entering MI CLUB.
     base_view = runtime.MercadoView
