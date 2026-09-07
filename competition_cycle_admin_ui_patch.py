@@ -2,6 +2,9 @@
 
 import discord
 
+# This module is imported by bot.py before run_bot. Loading the startup wrapper
+# here guarantees that run_bot receives the final manual-GES guild setup.
+import ges_manual_sync_startup_patch  # noqa: F401
 import competition_cycle as cycle
 import staff_admin_organized_patch as staff
 
