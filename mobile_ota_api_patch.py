@@ -12,10 +12,10 @@ not rebuild the APK or mutate the production SQLite database.
 from __future__ import annotations
 
 import json
-import os
 import time
 import urllib.error
 import urllib.request
+import uuid
 from http import HTTPStatus
 from urllib.parse import urlparse
 
@@ -72,6 +72,8 @@ def _load_remote_manifest(runtime_version: str, platform: str) -> dict | None:
 
 
 def _send_no_update(handler) -> None:
+    # Protocol v1 permits an empty multipart/no-content response when there is
+    # no newer update. Keep it explicit and non-cacheable.
     handler.send_response(HTTPStatus.NO_CONTENT)
     handler.send_header("expo-protocol-version", "1")
     handler.send_header("expo-sfv-version", "0")
@@ -79,18 +81,58 @@ def _send_no_update(handler) -> None:
     handler.end_headers()
 
 
+def _multipart_part(boundary: str, name: str, content_type: str, payload: bytes) -> bytes:
+    return (
+        f"--{boundary}\r\n"
+        f"Content-Disposition: form-data; name=\"{name}\"\r\n"
+        f"Content-Type: {content_type}\r\n"
+        "\r\n"
+    ).encode("utf-8") + payload + b"\r\n"
+
+
 def _send_manifest(handler, manifest: dict) -> None:
-    body = json.dumps(
+    """Serve an Expo Updates protocol-v1 multipart response.
+
+    Expo SDK 54 / expo-updates 29 is more reliable with the same multipart
+    structure used by Expo's reference custom server: a ``manifest`` part plus
+    an ``extensions`` part. The previous application/expo+json response was
+    valid in theory but was not being accepted by the installed Android client.
+    """
+    boundary = f"ajpa-expo-{uuid.uuid4().hex}"
+    manifest_body = json.dumps(
         manifest,
         ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
+    extensions_body = json.dumps(
+        {"assetRequestHeaders": {}},
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    body = b"".join(
+        [
+            _multipart_part(
+                boundary,
+                "manifest",
+                "application/json; charset=utf-8",
+                manifest_body,
+            ),
+            _multipart_part(
+                boundary,
+                "extensions",
+                "application/json; charset=utf-8",
+                extensions_body,
+            ),
+            f"--{boundary}--\r\n".encode("utf-8"),
+        ]
+    )
+
     handler.send_response(HTTPStatus.OK)
-    handler.send_header("Content-Type", "application/expo+json")
-    handler.send_header("Content-Length", str(len(body)))
     handler.send_header("expo-protocol-version", "1")
     handler.send_header("expo-sfv-version", "0")
     handler.send_header("Cache-Control", "private, max-age=0, no-store")
+    handler.send_header("Content-Type", f"multipart/mixed; boundary={boundary}")
+    handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -114,6 +156,7 @@ def apply_mobile_ota_api_patch() -> None:
                     "runtime_version": runtime_version,
                     "published": bool(manifest),
                     "update_id": manifest.get("id") if manifest else None,
+                    "transport": "multipart-v1",
                 }
             )
             return
@@ -161,6 +204,6 @@ def apply_mobile_ota_api_patch() -> None:
     handler.do_GET = ota_get
     handler._ajpa_mobile_ota_api_patch = True
     print(
-        "AJPA Mobile OTA: Expo Updates protocol v1 proxy enabled "
+        "AJPA Mobile OTA: Expo Updates protocol v1 multipart proxy enabled "
         f"• runtime={OTA_RUNTIME_VERSION}"
     )
