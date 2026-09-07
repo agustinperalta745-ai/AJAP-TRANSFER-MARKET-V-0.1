@@ -1,6 +1,7 @@
 """Install the manual GES flow after AJPA's existing guild/liga setup."""
 
 import guild_isolation_patch
+import league_ges_parser_hardening_patch  # noqa: F401
 
 from league_ges_manual_sync_patch import apply_manual_ges_sync
 from legacy_result_intake_disabled_patch import disable_legacy_result_intake
