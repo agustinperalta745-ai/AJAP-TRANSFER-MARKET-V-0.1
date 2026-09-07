@@ -85,6 +85,9 @@ jobs:
       - name: Apply runtime crash and visual fixes
         run: node scripts/apply-runtime-visual-fixes.mjs
 
+      - name: Fix saved GES admin state
+        run: node scripts/fix-ges-admin-sync-state.mjs
+
       - name: Prepare polished visuals
         run: |
           node <<'NODE'
