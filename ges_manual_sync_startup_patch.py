@@ -6,6 +6,7 @@ import league_ges_parser_hardening_patch  # noqa: F401
 from league_ges_manual_sync_patch import apply_manual_ges_sync
 from legacy_result_intake_disabled_patch import disable_legacy_result_intake
 from season_ges_authority_patch import apply_season_ges_authority
+import season_ges_finalizer_patch  # noqa: F401
 
 _BASE_APPLY = guild_isolation_patch.apply_guild_isolation_patch
 
