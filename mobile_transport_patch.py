@@ -22,11 +22,11 @@ def apply_mobile_transport_patch() -> None:
     if getattr(handler, "_ajpa_mobile_transport_patch", False):
         return
 
-    # Apply this patch LAST, after every write-route patch. The captured POST
-    # handler therefore contains publications, Staff, Clausulazo, match search,
-    # resignation and any other mutation exposed to the app.
+    # GET can be wrapped safely here, but POST routes may still be extended later
+    # during bot startup (for example the Staff-only manual GES sync endpoint).
+    # Resolve the current POST handler at request time so every late-installed
+    # mutation route remains reachable through Android's reliable GET tunnel.
     original_get = handler.do_GET
-    original_post = handler.do_POST
 
     def robust_json(self, payload, status=HTTPStatus.OK):
         body = json.dumps(
@@ -84,7 +84,7 @@ def apply_mobile_transport_patch() -> None:
                 self.headers.replace_header("Content-Length", str(len(body)))
             else:
                 self.headers.add_header("Content-Length", str(len(body)))
-            return original_post(self)
+            return handler.do_POST(self)
         finally:
             self.rfile = previous_rfile
             self.command = previous_command
@@ -98,7 +98,7 @@ def apply_mobile_transport_patch() -> None:
 
         # Common reliable transport for every authenticated mutation. The app
         # keeps the bearer token in Authorization; only the HTTP transport verb
-        # changes. All business rules still execute in the original POST stack.
+        # changes. All business rules still execute in the current POST stack.
         if self.headers.get("X-AJPA-Method"):
             try:
                 return _run_tunneled_mutation(self)
