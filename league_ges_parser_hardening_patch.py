@@ -4,6 +4,12 @@ The current GES league contains clubs outside the historical hard-coded AJPA
 catalog, so GES names must be accepted as authoritative. The scorer page also
 contains a second table with general statistics; only the actual
 Nombre/Equipo/Total table is allowed to become scorer data.
+
+GES' CuadranteResultados page is a matrix: the local club is the row header,
+the visitor is the column header and each played cell contains the score. The
+legacy parser expected a flat ``Local | score | Visitante`` row, so it silently
+missed matches from the configured Resultados URL. The live parser below reads
+the matrix first and keeps the old parser only as a compatibility fallback.
 """
 
 from __future__ import annotations
@@ -14,6 +20,7 @@ import league_ges_manual_sync_patch as ges
 
 
 _BASE_CANONICAL_TEAM = ges._canonical_team
+_BASE_PARSE_MATCHES = ges._parse_matches
 
 
 def _canonical_team_live(label: str) -> str | None:
@@ -91,6 +98,96 @@ def _parse_scorers_live(tables):
     return rows, warnings
 
 
+def _parse_matches_live(tables):
+    """Parse GES CuadranteResultados matrices without treating pending cells as games."""
+    warnings: list[str] = []
+    found: dict[tuple[str, str], dict] = {}
+    score_re = re.compile(r"^\s*(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*$")
+
+    for table in tables:
+        if len(table) < 2:
+            continue
+
+        normalized = [
+            [re.sub(r"\s+", " ", str(cell or "")).strip() for cell in row]
+            for row in table
+        ]
+
+        # Pick the header row immediately associated with the result matrix.
+        # It has no score cells and the following rows contain score cells.
+        header_index = None
+        best_width = 0
+        for index, row in enumerate(normalized[:-1]):
+            nonempty = [cell for cell in row if cell]
+            if len(nonempty) < 2 or any(score_re.match(cell) for cell in nonempty):
+                continue
+            following = normalized[index + 1:index + 5]
+            score_count = sum(
+                1 for candidate in following for cell in candidate if score_re.match(cell)
+            )
+            if score_count <= 0:
+                continue
+            if len(row) > best_width:
+                header_index = index
+                best_width = len(row)
+
+        if header_index is None:
+            continue
+
+        header = normalized[header_index]
+        for row in normalized[header_index + 1:]:
+            score_positions = [
+                index for index, cell in enumerate(row) if score_re.match(cell)
+            ]
+            if not score_positions:
+                continue
+
+            # GES places the local team before the first result/pending cell.
+            first_score = score_positions[0]
+            raw_home = next((cell for cell in row[:first_score] if cell), "")
+            if not raw_home:
+                continue
+            home = _canonical_team_live(raw_home)
+            if not home:
+                warnings.append(f"Equipo local sin vincular: {raw_home}")
+                continue
+
+            # Depending on GES markup, the top-left Local/Visitante cell can be
+            # present in the header or represented by a span. Align columns by
+            # the width difference so both variants map to the right visitor.
+            offset = max(0, len(row) - len(header))
+            for score_index in score_positions:
+                header_index_for_score = score_index - offset
+                if header_index_for_score < 0 or header_index_for_score >= len(header):
+                    continue
+                raw_away = header[header_index_for_score]
+                if not raw_away:
+                    continue
+                norm_away = ges._norm(raw_away)
+                if norm_away in {"visitante", "local", "visitante local", "local visitante"}:
+                    continue
+                away = _canonical_team_live(raw_away)
+                if not away or ges._norm(home) == ges._norm(away):
+                    continue
+
+                score = score_re.match(row[score_index])
+                if score is None:
+                    continue
+                found[(ges._norm(home), ges._norm(away))] = {
+                    "home_team": home,
+                    "away_team": away,
+                    "home_goals": int(score.group(1)),
+                    "away_goals": int(score.group(2)),
+                }
+
+    if found:
+        return list(found.values()), list(dict.fromkeys(warnings))
+
+    # Compatibility with any GES page/layout that still exposes flat match rows.
+    return _BASE_PARSE_MATCHES(tables)
+
+
 ges._canonical_team = _canonical_team_live
+ges._parse_matches = _parse_matches_live
 ges._parse_scorers = _parse_scorers_live
-print("AJPA GES: parser live endurecido (clubes dinámicos + goleadores aislados)")
+print("AJPA GES: parser live endurecido (clubes dinámicos + cuadrante de resultados + goleadores aislados)")
