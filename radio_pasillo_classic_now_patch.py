@@ -197,3 +197,9 @@ import league_scorer_editor_v2_patch  # noqa: F401,E402
 # Verified manual correction requested from PES6 screenshots on 2026-09-05.
 # Loaded last so it can refresh the final Liga/GES/public-message layers.
 import league_verified_psg_tottenham_20260905_patch  # noqa: F401,E402
+
+# New official competitive intake. It wraps the final guild/Liga installer so
+# the manual GES sync is present before Discord connects and the old result
+# recognizer is removed only after every historical patch finished loading.
+import classic_ges_radio_copy_patch  # noqa: F401,E402
+import ges_manual_sync_startup_patch  # noqa: F401,E402
