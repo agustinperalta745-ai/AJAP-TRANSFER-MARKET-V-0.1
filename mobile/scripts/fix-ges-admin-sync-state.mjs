@@ -61,10 +61,21 @@ source = source.replaceAll('gesConfig?.configured\n                          ?',
 source = source.replaceAll('|| !gesConfig?.configured}', '|| !configSaved}');
 source = source.replaceAll('|| !gesConfig?.configured) && styles.pressed', '|| !configSaved) && styles.pressed');
 
+// configSaved intentionally does not imply that the config object is non-null
+// to TypeScript, so every display-only access keeps a safe fallback.
+source = source.replace(
+  'result.competition_label || gesConfig.competition_label,',
+  "result.competition_label || gesConfig?.competition_label || cycle?.phase_label || 'Competencia actual',",
+);
+source = source.replace(
+  "`✅ Configuración guardada${gesConfig.history?.length ? ` · ${gesConfig.history.length} competencia(s) archivadas/configuradas` : ''}`",
+  "`✅ Configuración guardada${(gesConfig?.history?.length ?? 0) > 0 ? ` · ${gesConfig?.history?.length ?? 0} competencia(s) archivadas/configuradas` : ''}`",
+);
+
 // The callback now depends on the explicit saved state.
 source = source.replace(
   '  }, [gesLoading, loading, configSaving, gesConfig]);',
-  '  }, [gesLoading, loading, configSaving, configSaved, gesConfig]);',
+  '  }, [gesLoading, loading, configSaving, configSaved, gesConfig, cycle?.phase_label]);',
 );
 
 if (!source.includes('const [configSaved, setConfigSaved] = useState(false);')) {
@@ -72,6 +83,12 @@ if (!source.includes('const [configSaved, setConfigSaved] = useState(false);')) 
 }
 if (!source.includes('disabled={gesLoading || loading || configSaving || !configSaved}')) {
   throw new Error('GES admin OTA patch: el botón GES sigue usando el estado viejo');
+}
+if (source.includes('result.competition_label || gesConfig.competition_label')) {
+  throw new Error('GES admin OTA patch: quedó acceso nullable a competition_label');
+}
+if (source.includes('gesConfig.history?.length')) {
+  throw new Error('GES admin OTA patch: quedó acceso nullable a history');
 }
 
 fs.writeFileSync(file, source);
