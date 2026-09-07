@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -35,6 +36,8 @@ type CycleState = {
 type GesSyncResult = {
   ok: boolean;
   league_id: string;
+  competition_id?: number;
+  competition_label?: string;
   standings: number;
   matches_read: number;
   matches_new: number;
@@ -43,12 +46,48 @@ type GesSyncResult = {
   warnings: string[];
 };
 
+type GesConfig = {
+  competition_id: number;
+  competition_label: string;
+  league_id: string;
+  ges_url: string;
+  results_url: string;
+  scorers_url: string;
+  configured: boolean;
+  updated_at: string;
+  history?: Array<{ competition_id: number; competition_label: string }>;
+};
+
 export default function CompetitionCycleAdminFab() {
   const [cycle, setCycle] = useState<CycleState | null>(null);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [gesLoading, setGesLoading] = useState(false);
   const [authorized, setAuthorized] = useState(false);
+  const [gesConfig, setGesConfig] = useState<GesConfig | null>(null);
+  const [gesUrl, setGesUrl] = useState('');
+  const [resultsUrl, setResultsUrl] = useState('');
+  const [scorersUrl, setScorersUrl] = useState('');
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+
+  const loadGesConfig = useCallback(async (showError = false) => {
+    if (!getSessionToken()) return;
+    setConfigLoading(true);
+    try {
+      const data = await apiRequest<GesConfig>('/api/v1/admin/ges-config');
+      setGesConfig(data);
+      setGesUrl(data.ges_url || '');
+      setResultsUrl(data.results_url || '');
+      setScorersUrl(data.scorers_url || '');
+    } catch (error: any) {
+      if (showError) {
+        Alert.alert('AJPA', String(error?.message || 'No se pudieron cargar los enlaces GES.'));
+      }
+    } finally {
+      setConfigLoading(false);
+    }
+  }, []);
 
   const refresh = useCallback(async (showError = false) => {
     if (!getSessionToken()) {
@@ -85,8 +124,43 @@ export default function CompetitionCycleAdminFab() {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (authorized && visible) void loadGesConfig(false);
+  }, [authorized, visible, cycle?.competition_id, loadGesConfig]);
+
+  const saveGesConfig = useCallback(async () => {
+    if (configSaving || gesLoading || loading) return;
+    if (!gesUrl.trim() || !resultsUrl.trim() || !scorersUrl.trim()) {
+      Alert.alert('Faltan enlaces', 'Completá GES, Resultados y Goleadores antes de guardar.');
+      return;
+    }
+    setConfigSaving(true);
+    try {
+      const data = await apiRequest<GesConfig>('/api/v1/admin/ges-config', {
+        method: 'POST',
+        body: JSON.stringify({
+          ges_url: gesUrl.trim(),
+          results_url: resultsUrl.trim(),
+          scorers_url: scorersUrl.trim(),
+        }),
+      });
+      setGesConfig(data);
+      setGesUrl(data.ges_url || '');
+      setResultsUrl(data.results_url || '');
+      setScorersUrl(data.scorers_url || '');
+      Alert.alert(
+        'Enlaces guardados',
+        `${data.competition_label}\n\nEstos enlaces quedan asociados a esta competencia y no reemplazan los de temporadas anteriores.`,
+      );
+    } catch (error: any) {
+      Alert.alert('No se pudieron guardar', String(error?.message || 'Revisá los tres enlaces.'));
+    } finally {
+      setConfigSaving(false);
+    }
+  }, [configSaving, gesLoading, loading, gesUrl, resultsUrl, scorersUrl]);
+
   const advance = useCallback(() => {
-    if (!cycle || loading || gesLoading) return;
+    if (!cycle || loading || gesLoading || configSaving) return;
     Alert.alert(
       'Confirmar cambio de etapa',
       `${cycle.next_action.label}\n\nSe archivarán las estadísticas de la competencia que termina cuando corresponda.\n\nNO se tocan planteles, saldos, fichajes ni historial de clásicos.`,
@@ -107,6 +181,10 @@ export default function CompetitionCycleAdminFab() {
                   },
                 );
                 setCycle(result.cycle);
+                setGesConfig(null);
+                setGesUrl('');
+                setResultsUrl('');
+                setScorersUrl('');
                 Alert.alert('Etapa actualizada', result.cycle.phase_label);
               } catch (error: any) {
                 Alert.alert('No se pudo cambiar la etapa', String(error?.message || 'Intentá nuevamente.'));
@@ -119,10 +197,14 @@ export default function CompetitionCycleAdminFab() {
         },
       ],
     );
-  }, [cycle, loading, gesLoading, refresh]);
+  }, [cycle, loading, gesLoading, configSaving, refresh]);
 
   const syncGes = useCallback(() => {
-    if (gesLoading || loading) return;
+    if (gesLoading || loading || configSaving) return;
+    if (!gesConfig?.configured) {
+      Alert.alert('Primero guardá los enlaces', 'Antes de sincronizar, guardá los tres enlaces GES de la competencia actual.');
+      return;
+    }
     Alert.alert(
       'GES actualizada',
       'Usá esta opción después de terminar de cargar GES. AJPA releerá tabla, resultados y goleadores; luego actualizará historiales y las salidas del bot de Discord.',
@@ -139,6 +221,7 @@ export default function CompetitionCycleAdminFab() {
                   body: JSON.stringify({}),
                 });
                 const summary = [
+                  result.competition_label || gesConfig.competition_label,
                   `${result.standings} equipos en tabla`,
                   `${result.matches_read} resultados leídos`,
                   `${result.matches_new} partidos nuevos`,
@@ -159,7 +242,7 @@ export default function CompetitionCycleAdminFab() {
         },
       ],
     );
-  }, [gesLoading, loading]);
+  }, [gesLoading, loading, configSaving, gesConfig]);
 
   if (!authorized) return null;
 
@@ -171,6 +254,7 @@ export default function CompetitionCycleAdminFab() {
         onPress={() => {
           setVisible(true);
           void refresh(false);
+          void loadGesConfig(false);
         }}
         style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
       >
@@ -217,24 +301,86 @@ export default function CompetitionCycleAdminFab() {
                 </View>
 
                 <View style={styles.infoBox}>
-                  <Text style={styles.infoTitle}>🔄 Por competencia</Text>
+                  <Text style={styles.infoTitle}>🗂️ Historial por competencia</Text>
                   <Text style={styles.infoText}>
-                    Tabla, goleadores, PJ/PG/PE/PP, GF/GC y estadísticas de la competencia activa.
+                    Al finalizar una competencia se conserva su tabla, goleadores, resultados y configuración GES. Una competencia nueva no pisa la anterior.
                   </Text>
                 </View>
 
                 <View style={styles.gesBox}>
-                  <Text style={styles.smallLabel}>FUENTE OFICIAL</Text>
-                  <Text style={styles.gesTitle}>GES</Text>
+                  <Text style={styles.smallLabel}>FUENTE OFICIAL · {gesConfig?.competition_label || cycle.phase_label}</Text>
+                  <Text style={styles.gesTitle}>GES de esta competencia</Text>
                   <Text style={styles.gesDescription}>
-                    Cuando termines la carga manual en GES, avisale a AJPA para releer todo y actualizar también el bot.
+                    Guardá una vez los tres enlaces correspondientes. Después, cuando termines de actualizar GES, tocá “GES actualizada”.
+                  </Text>
+
+                  {configLoading ? (
+                    <View style={styles.loadingRow}>
+                      <ActivityIndicator />
+                      <Text style={styles.gesDescription}>Cargando enlaces…</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.inputLabel}>GES / TABLA</Text>
+                      <TextInput
+                        value={gesUrl}
+                        onChangeText={setGesUrl}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
+                        placeholder="https://www.gesliga.com/Clasificacion..."
+                        placeholderTextColor="#5f7285"
+                        style={styles.input}
+                      />
+                      <Text style={styles.inputLabel}>RESULTADOS</Text>
+                      <TextInput
+                        value={resultsUrl}
+                        onChangeText={setResultsUrl}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
+                        placeholder="https://www.gesliga.com/CuadranteResultados..."
+                        placeholderTextColor="#5f7285"
+                        style={styles.input}
+                      />
+                      <Text style={styles.inputLabel}>GOLEADORES</Text>
+                      <TextInput
+                        value={scorersUrl}
+                        onChangeText={setScorersUrl}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="url"
+                        placeholder="https://www.gesliga.com/Estadisticas..."
+                        placeholderTextColor="#5f7285"
+                        style={styles.input}
+                      />
+
+                      <Pressable
+                        disabled={configSaving || gesLoading || loading}
+                        onPress={() => { void saveGesConfig(); }}
+                        style={({ pressed }) => [styles.saveButton, (pressed || configSaving) && styles.pressed]}
+                      >
+                        {configSaving ? <ActivityIndicator /> : <Text style={styles.saveButtonText}>💾 GUARDAR ENLACES DE ESTA TEMPORADA</Text>}
+                      </Pressable>
+
+                      <Text style={[styles.configStatus, gesConfig?.configured && styles.configOk]}>
+                        {gesConfig?.configured
+                          ? `✅ Configuración guardada${gesConfig.history?.length ? ` · ${gesConfig.history.length} competencia(s) archivadas/configuradas` : ''}`
+                          : '⚠️ Todavía no guardaste los enlaces de esta competencia.'}
+                      </Text>
+                    </>
+                  )}
+
+                  <View style={styles.separator} />
+                  <Text style={styles.gesDescription}>
+                    La app no cambia por mensajes de Discord: solo relee la información oficial cuando Staff ejecuta esta sincronización.
                   </Text>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel="GES actualizada"
-                    disabled={gesLoading || loading}
+                    disabled={gesLoading || loading || configSaving || !gesConfig?.configured}
                     onPress={syncGes}
-                    style={({ pressed }) => [styles.gesButton, (pressed || gesLoading || loading) && styles.pressed]}
+                    style={({ pressed }) => [styles.gesButton, (pressed || gesLoading || loading || !gesConfig?.configured) && styles.pressed]}
                   >
                     {gesLoading ? (
                       <View style={styles.loadingRow}>
@@ -254,9 +400,9 @@ export default function CompetitionCycleAdminFab() {
                 </View>
 
                 <Pressable
-                  disabled={loading || gesLoading}
+                  disabled={loading || gesLoading || configSaving}
                   onPress={advance}
-                  style={({ pressed }) => [styles.advanceButton, (pressed || loading || gesLoading) && styles.pressed]}
+                  style={({ pressed }) => [styles.advanceButton, (pressed || loading || gesLoading || configSaving) && styles.pressed]}
                 >
                   {loading ? (
                     <ActivityIndicator />
@@ -304,7 +450,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 520,
-    maxHeight: '86%',
+    maxHeight: '88%',
     borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
@@ -343,6 +489,33 @@ const styles = StyleSheet.create({
   },
   gesTitle: { color: '#fff', fontSize: 18, fontWeight: '900' },
   gesDescription: { color: '#afbfcd', fontSize: 12, lineHeight: 18 },
+  inputLabel: { color: '#93a6b7', fontSize: 10, fontWeight: '900', letterSpacing: 0.8, marginTop: 3 },
+  input: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.26)',
+    color: '#fff',
+    fontSize: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  saveButton: {
+    minHeight: 46,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  saveButtonText: { color: '#fff', fontSize: 11, fontWeight: '900', textAlign: 'center' },
+  configStatus: { color: '#ffc16f', fontSize: 11, lineHeight: 16, fontWeight: '700' },
+  configOk: { color: '#82dda3' },
+  separator: { height: 1, backgroundColor: 'rgba(255,255,255,0.09)', marginVertical: 5 },
   gesButton: {
     minHeight: 48,
     borderRadius: 14,
