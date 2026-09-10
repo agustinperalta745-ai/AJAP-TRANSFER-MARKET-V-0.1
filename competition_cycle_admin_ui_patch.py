@@ -98,3 +98,7 @@ def apply_patch():
 
 
 apply_patch()
+
+# Keep the countdown layer after the cycle UI wrapper so Gestión receives the
+# final countdown button without restoring any legacy season/market toggles.
+import season_countdown_patch  # noqa: E402,F401
