@@ -10,6 +10,7 @@ import {
 import MatchSearchShell from './src/MatchSearchShell';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
+import SeasonCountdownBanner from './src/SeasonCountdownBanner';
 
 const OTA_RETRY_DELAYS = [1800, 12000, 45000];
 
@@ -65,6 +66,7 @@ export default function App() {
           backgroundColor="#02060a"
           translucent={false}
         />
+        <SeasonCountdownBanner />
         <MatchSearchShell />
         <SeasonHistoryFab />
         <CompetitionCycleAdminFab />
