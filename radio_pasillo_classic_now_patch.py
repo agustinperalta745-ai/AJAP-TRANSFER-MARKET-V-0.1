@@ -207,3 +207,7 @@ import ges_manual_sync_startup_patch  # noqa: F401,E402
 # Explicit one-shot requested by Staff: Radio Pasillo posts the preseason
 # champion, the complete final table image and the Golden Boot with DT mentions.
 import radio_pasillo_preseason_final_announcement_patch  # noqa: F401,E402
+
+# Every time AJPA enters a new official season, Radio Pasillo announces it once
+# with the correct season number (Temporada 1, Temporada 2, etc.).
+import radio_pasillo_season_start_patch  # noqa: F401,E402
