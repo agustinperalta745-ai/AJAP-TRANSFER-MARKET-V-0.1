@@ -70,7 +70,7 @@ if not getattr(staff, "_ajap_management_timeout_fix", False):
                         "El error quedó registrado para Staff."
                     ),
                     embeds=[],
-                    view=staff.BackAdminView(),
+                    view=None,
                 )
             except Exception:
                 pass
