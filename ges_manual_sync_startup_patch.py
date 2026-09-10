@@ -11,6 +11,7 @@ from legacy_result_intake_disabled_patch import disable_legacy_result_intake
 from season_ges_authority_patch import apply_season_ges_authority
 from season_ges_snapshot_cleanup_patch import apply_season_snapshot_cleanup
 import season_ges_finalizer_patch  # noqa: F401  patches authoritative installer
+import competition_stats_reset_fix_patch  # noqa: F401  final competition isolation/reset guard
 
 _BASE_APPLY = guild_isolation_patch.apply_guild_isolation_patch
 
@@ -23,7 +24,9 @@ def _apply_with_manual_ges(runtime, bot):
 
     # Install the final Mobile GES reader now (not lazily on /app_codigo).
     # season_ges_finalizer_patch restores the seasonal sync immediately after
-    # the older snapshot module initializes its read layer.
+    # the older snapshot module initializes its read layer. The competition
+    # reset guard then prevents a finished competition's GES cache from leaking
+    # into the newly active table/scorer screen.
     ges_authoritative_snapshot_patch.apply_authoritative_ges_snapshot(runtime, bot)
     ges_new_result_cards_patch.apply_ges_new_result_cards(runtime, bot)
 
