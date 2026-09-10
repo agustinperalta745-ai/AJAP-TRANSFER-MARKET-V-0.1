@@ -1,0 +1,42 @@
+name: Fix AJPA Admin Unassignment OTA Inline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-admin-unassignment-ota-inline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Apply inline action fix
+        run: python fix_admin_unassignment_ota_inline.py
+
+      - name: Validate transformer syntax
+        run: node --check mobile/scripts/apply-discord-menu-parity.mjs
+
+      - name: Check diff
+        run: git diff --check
+
+      - name: Commit fix
+        run: |
+          git config user.name "AJPA Feature Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add mobile/scripts/apply-discord-menu-parity.mjs
+          if git diff --cached --quiet; then
+            echo "Fix already applied."
+            exit 0
+          fi
+          git commit -m "Keep admin unassignment action intact through OTA transforms"
+          git push origin HEAD:main
