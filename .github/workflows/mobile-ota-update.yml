@@ -58,6 +58,9 @@ jobs:
       - name: Apply Discord menu parity
         run: node scripts/apply-discord-menu-parity.mjs
 
+      - name: Connect real competition cycle management
+        run: node scripts/fix-cycle-management-mobile.mjs
+
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
 
