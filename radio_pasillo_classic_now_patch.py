@@ -203,3 +203,7 @@ import league_verified_psg_tottenham_20260905_patch  # noqa: F401,E402
 # recognizer is removed only after every historical patch finished loading.
 import classic_ges_radio_copy_patch  # noqa: F401,E402
 import ges_manual_sync_startup_patch  # noqa: F401,E402
+
+# Explicit one-shot requested by Staff: Radio Pasillo posts the preseason
+# champion, the complete final table image and the Golden Boot with DT mentions.
+import radio_pasillo_preseason_final_announcement_patch  # noqa: F401,E402
