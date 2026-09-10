@@ -58,9 +58,6 @@ jobs:
       - name: Apply Discord menu parity
         run: node scripts/apply-discord-menu-parity.mjs
 
-      - name: Connect real competition cycle management
-        run: node scripts/fix-cycle-management-mobile.mjs
-
       - name: Apply operational Clausulazo
         run: node scripts/apply-clausulazo-mobile.mjs
 
@@ -131,6 +128,9 @@ jobs:
 
       - name: Apply club, player and Liga card colors
         run: node scripts/apply-club-player-card-colors.mjs
+
+      - name: Connect real competition cycle management
+        run: node scripts/fix-cycle-management-mobile.mjs
 
       - name: TypeScript check
         run: npx tsc --noEmit
