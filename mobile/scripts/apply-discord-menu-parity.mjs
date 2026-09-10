@@ -209,7 +209,31 @@ const parityScreens = String.raw`  const leagueScreen = (
               label="DESASIGNAR EQUIPO"
               kind="red"
               disabled={busy}
-              onPress={() => confirmAdminUnassign(item)}
+              onPress={() => Alert.alert(
+                'Desasignar equipo',
+                '¿Querés liberar ' + item.club + ' del usuario ' + item.user_id + '?\n\nSe quitará la asignación y se invalidará su vinculación con AJPA Mobile.',
+                [
+                  { text: 'CANCELAR', style: 'cancel' },
+                  {
+                    text: 'DESASIGNAR',
+                    style: 'destructive',
+                    onPress: async () => {
+                      if (busy) return;
+                      setBusy(true);
+                      try {
+                        const result = await unassignAdminAssignment(item.user_id);
+                        setAssignments(await fetchAdminAssignments());
+                        await loadAll(true);
+                        Alert.alert('Equipo desasignado', result.message || (item.club + ' quedó libre.'));
+                      } catch (error) {
+                        Alert.alert('No se pudo desasignar', apiError(error));
+                      } finally {
+                        setBusy(false);
+                      }
+                    },
+                  },
+                ],
+              )}
             />
           </View>
         </View>
