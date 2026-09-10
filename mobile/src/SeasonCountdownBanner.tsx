@@ -41,13 +41,17 @@ const splitRemaining = (seconds: number) => {
 };
 
 const two = (value: number) => String(value).padStart(2, '0');
+const digits = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max);
 
 export default function SeasonCountdownBanner() {
   const [data, setData] = useState<SeasonCountdown | null>(null);
   const [now, setNow] = useState(Date.now());
   const [editorOpen, setEditorOpen] = useState(false);
-  const [date, setDate] = useState('');
-  const [hour, setHour] = useState('');
+  const [day, setDay] = useState('');
+  const [month, setMonth] = useState('');
+  const [year, setYear] = useState('');
+  const [closeHour, setCloseHour] = useState('');
+  const [minute, setMinute] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async (showError = false) => {
@@ -90,22 +94,59 @@ export default function SeasonCountdownBanner() {
 
   const openEditor = () => {
     if (!data?.can_edit) return;
-    setDate(data.date || '');
-    setHour(data.time || '');
+    const [existingDay = '', existingMonth = '', existingYear = ''] = (data.date || '').split('/');
+    const [existingHour = '', existingMinute = ''] = (data.time || '').split(':');
+    setDay(existingDay);
+    setMonth(existingMonth);
+    setYear(existingYear);
+    setCloseHour(existingHour);
+    setMinute(existingMinute);
     setEditorOpen(true);
   };
 
   const save = async () => {
     if (saving) return;
-    if (!date.trim() || !hour.trim()) {
-      Alert.alert('Faltan datos', 'Completá la fecha y la hora del cierre.');
+    if (!day || !month || !year || !closeHour || !minute) {
+      Alert.alert('Faltan datos', 'Completá día, mes, año, hora y minutos.');
       return;
     }
+
+    const numericDay = Number(day);
+    const numericMonth = Number(month);
+    const numericYear = Number(year);
+    const numericHour = Number(closeHour);
+    const numericMinute = Number(minute);
+
+    if (year.length !== 4) {
+      Alert.alert('Año inválido', 'Ingresá el año con 4 números.');
+      return;
+    }
+    if (numericHour < 0 || numericHour > 23 || numericMinute < 0 || numericMinute > 59) {
+      Alert.alert('Hora inválida', 'La hora debe ser de 0 a 23 y los minutos de 0 a 59.');
+      return;
+    }
+
+    const testDate = new Date(numericYear, numericMonth - 1, numericDay);
+    if (
+      numericDay < 1
+      || numericMonth < 1
+      || numericMonth > 12
+      || testDate.getFullYear() !== numericYear
+      || testDate.getMonth() !== numericMonth - 1
+      || testDate.getDate() !== numericDay
+    ) {
+      Alert.alert('Fecha inválida', 'Revisá el día, mes y año.');
+      return;
+    }
+
+    const formattedDate = `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+    const formattedTime = `${closeHour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+
     setSaving(true);
     try {
       const result = await apiRequest<SeasonCountdown>('/api/v1/admin/season-countdown', {
         method: 'POST',
-        body: JSON.stringify({ date: date.trim(), time: hour.trim() }),
+        body: JSON.stringify({ date: formattedDate, time: formattedTime }),
       });
       setData(result);
       setNow(Date.now());
@@ -166,30 +207,81 @@ export default function SeasonCountdownBanner() {
             <Text style={styles.modalEyebrow}>ADMINISTRACIÓN AJPA</Text>
             <Text style={styles.modalTitle}>Cierre de temporada</Text>
             <Text style={styles.modalDescription}>
-              Cargá la fecha y hora de Argentina. Este único valor se comparte automáticamente con el bot y con todas las apps.
+              Cargá solo números. AJPA arma automáticamente la fecha y la hora de Argentina y las comparte con el bot y todas las apps.
             </Text>
 
-            <Text style={styles.inputLabel}>FECHA · DD/MM/AAAA</Text>
-            <TextInput
-              value={date}
-              onChangeText={value => setDate(value.replace(/[^0-9/]/g, '').slice(0, 10))}
-              keyboardType="numeric"
-              placeholder="30/09/2026"
-              placeholderTextColor="#607386"
-              style={styles.input}
-              maxLength={10}
-            />
+            <Text style={styles.inputLabel}>FECHA</Text>
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>DÍA</Text>
+                <TextInput
+                  value={day}
+                  onChangeText={value => setDay(digits(value, 2))}
+                  keyboardType="number-pad"
+                  placeholder="30"
+                  placeholderTextColor="#607386"
+                  style={[styles.input, styles.numericInput]}
+                  maxLength={2}
+                  selectTextOnFocus
+                />
+              </View>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>MES</Text>
+                <TextInput
+                  value={month}
+                  onChangeText={value => setMonth(digits(value, 2))}
+                  keyboardType="number-pad"
+                  placeholder="09"
+                  placeholderTextColor="#607386"
+                  style={[styles.input, styles.numericInput]}
+                  maxLength={2}
+                  selectTextOnFocus
+                />
+              </View>
+              <View style={[styles.fieldBlock, styles.yearBlock]}>
+                <Text style={styles.fieldLabel}>AÑO</Text>
+                <TextInput
+                  value={year}
+                  onChangeText={value => setYear(digits(value, 4))}
+                  keyboardType="number-pad"
+                  placeholder="2026"
+                  placeholderTextColor="#607386"
+                  style={[styles.input, styles.numericInput]}
+                  maxLength={4}
+                  selectTextOnFocus
+                />
+              </View>
+            </View>
 
-            <Text style={styles.inputLabel}>HORA ARGENTINA · HH:MM</Text>
-            <TextInput
-              value={hour}
-              onChangeText={value => setHour(value.replace(/[^0-9:]/g, '').slice(0, 5))}
-              keyboardType="numeric"
-              placeholder="23:59"
-              placeholderTextColor="#607386"
-              style={styles.input}
-              maxLength={5}
-            />
+            <Text style={styles.inputLabel}>HORA ARGENTINA</Text>
+            <View style={styles.fieldRow}>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>HORA</Text>
+                <TextInput
+                  value={closeHour}
+                  onChangeText={value => setCloseHour(digits(value, 2))}
+                  keyboardType="number-pad"
+                  placeholder="23"
+                  placeholderTextColor="#607386"
+                  style={[styles.input, styles.numericInput]}
+                  maxLength={2}
+                  selectTextOnFocus
+                />
+              </View>
+              <View style={styles.fieldBlock}>
+                <Text style={styles.fieldLabel}>MINUTOS</Text>
+                <TextInput
+                  value={minute}
+                  onChangeText={value => setMinute(digits(value, 2))}
+                  keyboardType="number-pad"
+                  placeholder="59"
+                  placeholderTextColor="#607386"
+                  style={[styles.input, styles.numericInput]}
+                  maxLength={2}
+                  selectTextOnFocus
+                />
+              </View>
+            </View>
 
             <View style={styles.actions}>
               <Pressable
@@ -268,7 +360,11 @@ const styles = StyleSheet.create({
   modalEyebrow: { color: '#7fbfff', fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
   modalTitle: { color: '#fff', fontSize: 24, fontWeight: '900', marginTop: 4 },
   modalDescription: { color: '#aab9c6', fontSize: 12, lineHeight: 18, marginTop: 8, marginBottom: 8 },
-  inputLabel: { color: '#8fc8fa', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 12, marginBottom: 6 },
+  inputLabel: { color: '#8fc8fa', fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 12, marginBottom: 7 },
+  fieldRow: { flexDirection: 'row', gap: 8 },
+  fieldBlock: { flex: 1 },
+  yearBlock: { flex: 1.35 },
+  fieldLabel: { color: '#788d9f', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginBottom: 5 },
   input: {
     minHeight: 48,
     borderRadius: 12,
@@ -280,6 +376,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
+  numericInput: { textAlign: 'center', paddingHorizontal: 8 },
   actions: { flexDirection: 'row', gap: 9, marginTop: 18 },
   cancelButton: {
     flex: 1,
