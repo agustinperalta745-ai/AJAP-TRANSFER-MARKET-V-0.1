@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from http import HTTPStatus
 from urllib.parse import urlparse
 
+import club_access_revocation as access
 import mobile_read_api
 import mobile_write_api
 
@@ -114,22 +116,68 @@ def apply_mobile_parity_api_patch() -> None:
         return original_get(self)
     def post(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
-        if path != "/api/v1/admin/market": return original_post(self)
+        unassign_match = re.fullmatch(r"/api/v1/admin/assignments/(\d+)/unassign", path)
+        if path != "/api/v1/admin/market" and not unassign_match:
+            return original_post(self)
+
         conn = None
         try:
+            if unassign_match:
+                user_id = int(unassign_match.group(1))
+                with mobile_write_api.write_db() as conn:
+                    mobile_write_api.ensure_schema(conn)
+                    session = _staff_session(self.headers, conn)
+                    result = access.unassign_user_in_conn(
+                        conn,
+                        user_id,
+                        actor_id=int(session["user_id"]),
+                        source="ADMIN_MOBILE",
+                        queue_discord=True,
+                    )
+                    if not result.get("club"):
+                        raise mobile_write_api.ApiFailure(
+                            "La asignación ya no existe.", HTTPStatus.NOT_FOUND
+                        )
+                    conn.commit()
+                    self._json({
+                        "ok": True,
+                        "user_id": str(user_id),
+                        "club": result["club"],
+                        "sessions_revoked": result.get("sessions_revoked", 0),
+                        "message": (
+                            f"{result['club']} quedó libre y la vinculación de AJPA Mobile "
+                            "del usuario fue invalidada."
+                        ),
+                    })
+                    return
+
             payload = mobile_write_api._read_json(self)
             with mobile_write_api.write_db() as conn:
-                mobile_write_api.ensure_schema(conn); session = _staff_session(self.headers, conn); opened = payload.get("open")
-                if not isinstance(opened, bool): raise mobile_write_api.ApiFailure("Indicá el nuevo estado del mercado.")
-                result = set_market_state(conn, session, opened); conn.commit(); self._json(result); return
+                mobile_write_api.ensure_schema(conn)
+                session = _staff_session(self.headers, conn)
+                opened = payload.get("open")
+                if not isinstance(opened, bool):
+                    raise mobile_write_api.ApiFailure("Indicá el nuevo estado del mercado.")
+                result = set_market_state(conn, session, opened)
+                conn.commit()
+                self._json(result)
+                return
         except mobile_write_api.ApiFailure as exc:
             if conn is not None:
-                try: conn.rollback()
-                except Exception: pass
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
             self._json({"error": "request", "message": exc.message}, exc.status)
         except Exception as exc:
             if conn is not None:
-                try: conn.rollback()
-                except Exception: pass
-            print(f"AJPA mobile parity POST error: {type(exc).__name__}: {exc}"); self._json({"error": "internal_error", "message": "No se pudo completar la operación."}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            print(f"AJPA mobile parity POST error: {type(exc).__name__}: {exc}")
+            self._json(
+                {"error": "internal_error", "message": "No se pudo completar la operación."},
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
     handler.do_GET = get; handler.do_POST = post; handler.do_PUT = post; handler.do_PATCH = post; handler._ajpa_mobile_parity_api_patch = True

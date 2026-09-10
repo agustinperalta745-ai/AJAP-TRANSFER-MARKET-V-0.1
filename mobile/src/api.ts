@@ -213,6 +213,10 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   let payload: any = null;
   try { payload = await response.json(); } catch { payload = null; }
   if (!response.ok) {
+    if (response.status === 401) {
+      sessionToken = '';
+      await clearStoredSession();
+    }
     throw {
       message: String(payload?.message || payload?.error || `La API respondió ${response.status}.`),
       status: response.status,
@@ -273,6 +277,13 @@ export async function fetchHistory(): Promise<TransferHistoryItem[]> {
 export async function fetchAdminAssignments(): Promise<AdminAssignment[]> {
   const result = await apiRequest<{ assignments: AdminAssignment[] }>('/api/v1/admin/assignments');
   return result.assignments;
+}
+
+export function unassignAdminAssignment(userId: string) {
+  return apiRequest<{ ok: boolean; user_id: string; club: string; sessions_revoked: number; message: string }>(
+    `/api/v1/admin/assignments/${encodeURIComponent(userId)}/unassign`,
+    { method: 'POST', body: '{}' },
+  );
 }
 
 export function setAdminMarketOpen(open: boolean) {

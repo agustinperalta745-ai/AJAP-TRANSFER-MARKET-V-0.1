@@ -24,7 +24,7 @@ mustReplace(
 
 mustReplace(
   `  sendOffer,\n  setSessionToken,`,
-  `  sendOffer,\n  setAdminMarketOpen,\n  setSessionToken,`,
+  `  sendOffer,\n  setAdminMarketOpen,\n  setSessionToken,\n  unassignAdminAssignment,`,
   'la función Staff de mercado',
 );
 
@@ -168,14 +168,50 @@ const parityScreens = String.raw`  const leagueScreen = (
     </ScrollView>
   );
 
+  const confirmAdminUnassign = (item: AdminAssignment) => {
+    Alert.alert(
+      'Desasignar equipo',
+      '¿Querés liberar ' + item.club + ' del usuario ' + item.user_id + '?\n\nSe quitará la asignación y se invalidará su vinculación con AJPA Mobile.',
+      [
+        { text: 'CANCELAR', style: 'cancel' },
+        {
+          text: 'DESASIGNAR',
+          style: 'destructive',
+          onPress: async () => {
+            if (busy) return;
+            setBusy(true);
+            try {
+              const result = await unassignAdminAssignment(item.user_id);
+              setAssignments(await fetchAdminAssignments());
+              await loadAll(true);
+              Alert.alert('Equipo desasignado', result.message || (item.club + ' quedó libre.'));
+            } catch (error) {
+              Alert.alert('No se pudo desasignar', apiError(error));
+            } finally {
+              setBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const assignmentsScreen = (
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
-      <Title eyebrow="STAFF" title="Asignaciones" subtitle="Asignaciones actuales leídas desde la misma base del bot." />
+      <Title eyebrow="STAFF" title="Asignaciones" subtitle="Clubes vinculados a Discord. Desasignar también invalida el acceso de esa cuenta a la app." />
       {assignments.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay clubes asignados.</Text></View> : null}
       {assignments.map((item) => (
         <View style={s.card} key={item.user_id}>
           <Text style={s.playerName}>{item.club}</Text>
           <Text style={s.muted}>Discord ID: {item.user_id}</Text>
+          <View style={s.actionRow}>
+            <Button
+              label="DESASIGNAR EQUIPO"
+              kind="red"
+              disabled={busy}
+              onPress={() => confirmAdminUnassign(item)}
+            />
+          </View>
         </View>
       ))}
     </ScrollView>

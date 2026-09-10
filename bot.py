@@ -101,6 +101,7 @@ import admin_team_delete_patch  # noqa: F401,E402
 import roster_catalog_autosync_patch  # noqa: F401,E402
 import club_assignment_consistency_patch  # noqa: F401,E402
 import assignment_history_authority_patch  # noqa: F401,E402
+import discord_departure_unassignment_patch  # noqa: F401,E402
 import admin_rosters_visual_patch  # noqa: F401,E402
 import admin_roster_view_selector_patch  # noqa: F401,E402
 import roster_player_stats_patch  # noqa: F401,E402

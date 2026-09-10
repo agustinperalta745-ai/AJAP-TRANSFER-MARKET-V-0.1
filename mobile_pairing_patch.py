@@ -35,6 +35,14 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
                 and interaction.user.guild_permissions.administrator
             )
 
+            club = runtime.club_de(interaction.user.id)
+            if not is_staff and not club:
+                await interaction.response.send_message(
+                    "⚠️ Necesitás tener un club asignado para vincular AJPA Mobile.",
+                    ephemeral=True,
+                )
+                return
+
             # Critical: the code must be created in the exact same SQLite file
             # that /api/v1/auth/pair reads. Using runtime.db here depends on the
             # Discord guild ContextVar and can write the code to a different
@@ -48,7 +56,6 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
 
             # Keep this informational field based on the Discord guild where the
             # manager executed the command; it does not affect pairing storage.
-            club = runtime.club_de(interaction.user.id)
             embed = discord.Embed(
                 title="📱 Vincular AJPA Mobile",
                 description=(
