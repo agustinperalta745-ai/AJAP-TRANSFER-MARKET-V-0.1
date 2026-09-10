@@ -12,13 +12,18 @@ if (!ui.includes(cycleImport)) {
   ui = ui.replace(sessionImport, `${sessionImport}\n${cycleImport}`);
 }
 
-const stale = `<MenuTile emoji="🗓️" title="CAMBIAR TEMPORADA" onPress={() => Alert.alert('Cambiar temporada', 'La selección de temporada mantiene la validación Staff de Discord y todavía no expone una mutación móvil.')} />`;
-const live = `<MenuTile\n        emoji="🗓️"\n        title="CAMBIAR TEMPORADA"\n        subtitle="Gestionar la etapa oficial de AJPA"\n        onPress={() => {\n          void openCompetitionCycleManagement(async () => {\n            await loadAll(true);\n          });\n        }}\n      />`;
+const staleMenuTile = `<MenuTile emoji="🗓️" title="CAMBIAR TEMPORADA" onPress={() => Alert.alert('Cambiar temporada', 'La selección de temporada mantiene la validación Staff de Discord y todavía no expone una mutación móvil.')} />`;
+const liveMenuTile = `<MenuTile\n        emoji="🗓️"\n        title="CAMBIAR TEMPORADA"\n        subtitle="Gestionar la etapa oficial de AJPA"\n        onPress={() => {\n          void openCompetitionCycleManagement(async () => {\n            await loadAll(true);\n          });\n        }}\n      />`;
 
-if (ui.includes(stale)) {
-  ui = ui.replace(stale, live);
+const staleFeatureTile = `<FeatureTile emoji="🗓️" title="Cambiar temporada" subtitle="Seleccionar la temporada activa" onPress={() => Alert.alert('Cambiar temporada', 'La selección de temporada mantiene la validación Staff de Discord y todavía no expone una mutación móvil.')} />`;
+const liveFeatureTile = `<FeatureTile\n          emoji="🗓️"\n          title="Gestionar etapa"\n          subtitle="Cambiar la etapa oficial de AJPA"\n          onPress={() => {\n            void openCompetitionCycleManagement(async () => {\n              await loadAll(true);\n            });\n          }}\n        />`;
+
+if (ui.includes(staleFeatureTile)) {
+  ui = ui.replace(staleFeatureTile, liveFeatureTile);
+} else if (ui.includes(staleMenuTile)) {
+  ui = ui.replace(staleMenuTile, liveMenuTile);
 } else if (!ui.includes('openCompetitionCycleManagement(async () =>')) {
-  throw new Error('AJPA cycle mobile fix: no encontré el botón CAMBIAR TEMPORADA viejo');
+  throw new Error('AJPA cycle mobile fix: no encontré el control viejo de temporada');
 }
 
 if (ui.includes('todavía no expone una mutación móvil')) {
@@ -26,4 +31,4 @@ if (ui.includes('todavía no expone una mutación móvil')) {
 }
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA Mobile Gestión: CAMBIAR TEMPORADA conectado al endpoint real del ciclo');
+console.log('AJPA Mobile Gestión: etapa oficial conectada al endpoint real en la UI final');
