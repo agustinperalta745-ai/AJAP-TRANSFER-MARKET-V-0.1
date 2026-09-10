@@ -1,14 +1,12 @@
 """Radio Pasillo announces every official AJPA season start once.
 
-When the competition cycle enters a new `season` phase, persist a pending event.
-The next league refresh publishes a normal Discord message in Radio Pasillo,
-mentioning the DT role and using the correct season number (1, 2, 3, ...).
-Pending events are retried on bot ready and are never duplicated after restart.
+Every transition into a `season` phase is detected at the shared cycle.advance
+layer, so it works whether Staff starts the season from Discord or AJPA Mobile.
+The event is persisted in the same guild database, then the Discord runtime posts
+it in Radio Pasillo on refresh/ready. Reconnects never duplicate the announcement.
 """
 
 from __future__ import annotations
-
-import sqlite3
 
 import discord
 
@@ -17,7 +15,7 @@ import league_automation_patch as league
 import league_top5_overtake_radio_patch as radio
 
 
-_BASE_RUNTIME_ADVANCE = cycle.runtime_advance
+_BASE_ADVANCE = cycle.advance
 _BASE_REFRESH = league.refresh
 _EVENT_TABLE = "radio_pasillo_season_start_events"
 
@@ -72,19 +70,19 @@ def _announcement_text(guild, season_number: int) -> str:
     )
 
 
-def _queue_if_season_started(runtime, user_id: int, expected_phase=None):
-    before = None
+def _advance_with_season_event(conn, user_id: int, expected_phase=None):
+    before_phase = ""
     try:
-        before = cycle.runtime_state(runtime)
+        before = cycle.state_payload(conn)
+        before_phase = str(before.get("phase") or "")
     except Exception:
         pass
 
-    payload = _BASE_RUNTIME_ADVANCE(runtime, int(user_id), expected_phase)
+    payload = _BASE_ADVANCE(conn, int(user_id), expected_phase)
 
     try:
-        old_phase = str((before or {}).get("phase") or "")
         new_phase = str(payload.get("phase") or "")
-        if new_phase != cycle.SEASON or old_phase == cycle.SEASON:
+        if new_phase != cycle.SEASON or before_phase == cycle.SEASON:
             return payload
 
         season_number = int(payload.get("season_number") or 1)
@@ -92,18 +90,22 @@ def _queue_if_season_started(runtime, user_id: int, expected_phase=None):
         if competition_id is None:
             return payload
 
-        with runtime.db() as conn:
-            _ensure_schema(conn)
-            # Guild databases are isolated by runtime; guild_id is filled during refresh.
-            conn.execute(
-                f"""
-                INSERT OR IGNORE INTO {_EVENT_TABLE}
-                    (guild_id,season_number,competition_id,status)
-                VALUES (0,?,?, 'pending')
-                """,
-                (season_number, int(competition_id)),
-            )
-            conn.commit()
+        _ensure_schema(conn)
+        # The database itself is already isolated by guild. 0 is intentionally
+        # temporary and is replaced with the real Discord guild id by the outbox.
+        conn.execute(
+            f"""
+            INSERT OR IGNORE INTO {_EVENT_TABLE}
+                (guild_id,season_number,competition_id,status)
+            VALUES (0,?,?, 'pending')
+            """,
+            (season_number, int(competition_id)),
+        )
+        conn.commit()
+        print(
+            f"AJAP Radio Pasillo: inicio Temporada {season_number} encolado "
+            f"competencia={int(competition_id)}"
+        )
     except Exception as exc:
         print(
             "WARNING AJAP Radio Pasillo inicio temporada: no se pudo encolar "
@@ -112,14 +114,15 @@ def _queue_if_season_started(runtime, user_id: int, expected_phase=None):
     return payload
 
 
-cycle.runtime_advance = _queue_if_season_started
+# Shared mutation hook: Discord's runtime_advance resolves cycle.advance at call
+# time, and the mobile API also calls cycle.advance. One hook covers both paths.
+cycle.advance = _advance_with_season_event
 
 
 def _pending_rows(runtime, guild_id: int):
     conn = league.db(runtime, int(guild_id))
     try:
         _ensure_schema(conn)
-        # Events queued through runtime.db() belong to this isolated guild DB.
         conn.execute(
             f"UPDATE {_EVENT_TABLE} SET guild_id=? WHERE guild_id=0",
             (int(guild_id),),
@@ -138,7 +141,14 @@ def _pending_rows(runtime, guild_id: int):
         conn.close()
 
 
-def _mark_posted(runtime, guild_id: int, season_number: int, competition_id: int, channel_id: int, message_id: int) -> None:
+def _mark_posted(
+    runtime,
+    guild_id: int,
+    season_number: int,
+    competition_id: int,
+    channel_id: int,
+    message_id: int,
+) -> None:
     conn = league.db(runtime, int(guild_id))
     try:
         _ensure_schema(conn)
@@ -246,3 +256,7 @@ def _apply_with_season_start(runtime, bot):
 
 
 league.apply_league_automation_patch = _apply_with_season_start
+
+# Loaded at the very end of the Staff wrappers: Gestión no reconstructs the old
+# AdminView and acknowledges the component immediately, avoiding Discord timeout.
+import admin_management_timeout_fix_patch  # noqa: F401,E402
