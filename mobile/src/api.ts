@@ -116,6 +116,34 @@ export type LeagueData = {
   scorers: LeagueScorer[];
 };
 
+export type HonoursManager = {
+  user_id: string | null;
+  username: string;
+};
+
+export type LatestChampion = {
+  competition_id: number;
+  competition: string;
+  kind: string;
+  team: string;
+  manager: HonoursManager;
+};
+
+export type LatestTopScorer = {
+  competition_id: number;
+  competition: string;
+  player: string;
+  goals: number;
+  team: string;
+  manager: HonoursManager;
+};
+
+export type LatestHonours = {
+  season_champion: LatestChampion | null;
+  top_scorer: LatestTopScorer | null;
+  cup_champion: LatestChampion | null;
+};
+
 export type TransferHistoryItem = {
   id: number;
   player: string;
@@ -267,6 +295,10 @@ export function normalizeLeagueData(data: LeagueData): LeagueData {
 
 export async function fetchLeague(): Promise<LeagueData> {
   return normalizeLeagueData(await apiRequest<LeagueData>('/api/v1/league'));
+}
+
+export function fetchLatestHonours(): Promise<LatestHonours> {
+  return apiRequest<LatestHonours>('/api/v1/league/latest-honours');
 }
 
 export async function fetchHistory(): Promise<TransferHistoryItem[]> {

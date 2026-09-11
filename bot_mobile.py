@@ -38,6 +38,7 @@ import mobile_club_profiles_api_patch  # noqa: E402
 import mobile_club_profiles_runtime_fix  # noqa: E402
 import mobile_classic_rival_api_patch  # noqa: E402
 import classic_rival_ownership_reset_patch  # noqa: E402
+import mobile_latest_honours_api_patch  # noqa: E402
 import mobile_match_search_patch  # noqa: E402
 import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
@@ -72,6 +73,7 @@ mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()
 # Limpia una sola vez los clásicos existentes y evita que un nuevo dueño herede
 # solicitudes/parejas creadas por el DT anterior.
 classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()
+mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()
 mobile_match_search_patch.apply_mobile_match_search_patch()
 mobile_match_result_timeout_patch.apply_mobile_match_result_timeout_patch()
 mobile_resignation_api_patch.apply_mobile_resignation_api_patch()

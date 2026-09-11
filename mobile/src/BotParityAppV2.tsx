@@ -13,12 +13,14 @@ import {
 } from 'react-native';
 
 import {
+  LatestHonours,
   LeagueSnapshot,
   MarketItem,
   MobileProfile,
   OfferItem,
   RosterPlayer,
   acceptOffer,
+  fetchLatestHonours,
   fetchMe,
   fetchMyOffers,
   fetchRoster,
@@ -227,6 +229,7 @@ function OfferCard({
 export default function BotParityAppV2() {
   const [screen, setScreen] = useState<Screen>('home');
   const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);
+  const [latestHonours, setLatestHonours] = useState<LatestHonours | null>(null);
   const [profile, setProfile] = useState<MobileProfile | null>(null);
   const [roster, setRoster] = useState<RosterPlayer[]>([]);
   const [offers, setOffers] = useState<OffersState>({ incoming: [], outgoing: [] });
@@ -254,6 +257,12 @@ export default function BotParityAppV2() {
       manual ? setRefreshing(true) : setLoading(true);
       const snap = await fetchSnapshot();
       setSnapshot(snap);
+      try {
+        setLatestHonours(await fetchLatestHonours());
+      } catch {
+        // The home menu stays usable even if the compact historical feed is temporarily unavailable.
+        setLatestHonours(null);
+      }
       try {
         const me = await fetchMe();
         setProfile(me);
@@ -468,6 +477,53 @@ export default function BotParityAppV2() {
       </View>
       <View style={[s.marketState, snapshot.status.market_open ? s.marketOpen : s.marketClosed]}>
         <Text style={s.marketStateText}>{snapshot.status.market_open ? '🟢 MERCADO ABIERTO' : '🔒 MERCADO CERRADO'}</Text>
+      </View>
+
+      <View style={s.honoursWrap}>
+        <Text style={s.honoursHeading}>🏅 ÚLTIMOS LOGROS</Text>
+        <View style={s.honoursRow}>
+          <View style={s.honourCard}>
+            <Text style={s.honourLabel}>🏆 CAMPEÓN</Text>
+            {latestHonours?.season_champion ? (
+              <>
+                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.season_champion.team}</Text>
+                <Text numberOfLines={1} style={s.honourSecondary}>DT · {latestHonours.season_champion.manager.username}</Text>
+                <Text numberOfLines={1} style={s.honourMeta}>{latestHonours.season_champion.competition}</Text>
+              </>
+            ) : (
+              <Text style={s.honourEmpty}>Sin campeón registrado</Text>
+            )}
+          </View>
+
+          <View style={s.honourCard}>
+            <Text style={s.honourLabel}>⚽ GOLEADOR</Text>
+            {latestHonours?.top_scorer ? (
+              <>
+                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.top_scorer.player}</Text>
+                <Text numberOfLines={1} style={s.honourSecondary}>{latestHonours.top_scorer.goals} goles · {latestHonours.top_scorer.team}</Text>
+                <Text numberOfLines={1} style={s.honourMeta}>DT · {latestHonours.top_scorer.manager.username}</Text>
+              </>
+            ) : (
+              <Text style={s.honourEmpty}>Sin goleador registrado</Text>
+            )}
+          </View>
+
+          <View style={s.honourCard}>
+            <Text style={s.honourLabel}>🏆 COPA</Text>
+            {latestHonours?.cup_champion ? (
+              <>
+                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.cup_champion.team}</Text>
+                <Text numberOfLines={1} style={s.honourSecondary}>DT · {latestHonours.cup_champion.manager.username}</Text>
+                <Text numberOfLines={1} style={s.honourMeta}>{latestHonours.cup_champion.competition}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.honourEmpty}>Sin campeón todavía</Text>
+                <Text style={s.honourMeta}>Aún no se jugó copa</Text>
+              </>
+            )}
+          </View>
+        </View>
       </View>
 
       {profile?.club ? <MenuTile emoji="🏟️" title="MI CLUB" subtitle="Plantilla, economía, valor e información" onPress={() => requireClub('club')} /> : null}
@@ -837,6 +893,15 @@ const s = StyleSheet.create({
   marketOpen: { backgroundColor: 'rgba(7,27,18,0.82)', borderColor: '#245a3b' },
   marketClosed: { backgroundColor: 'rgba(27,11,13,0.82)', borderColor: '#613037' },
   marketStateText: { color: C.white, fontSize: 10, fontWeight: '900' },
+  honoursWrap: { gap: 6, marginTop: 1, marginBottom: 1 },
+  honoursHeading: { color: C.blueSoft, fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
+  honoursRow: { flexDirection: 'row', gap: 7 },
+  honourCard: { flex: 1, minWidth: 0, minHeight: 96, backgroundColor: 'rgba(7,17,27,0.88)', borderWidth: 1, borderColor: '#274157', borderRadius: 13, paddingHorizontal: 9, paddingVertical: 9 },
+  honourLabel: { color: C.blueSoft, fontSize: 7.5, fontWeight: '900', letterSpacing: 0.7, marginBottom: 6 },
+  honourPrimary: { color: C.white, fontSize: 10.5, fontWeight: '900', lineHeight: 13 },
+  honourSecondary: { color: '#c4d1dc', fontSize: 8.5, fontWeight: '700', lineHeight: 12, marginTop: 4 },
+  honourMeta: { color: C.muted, fontSize: 7.5, lineHeight: 10, marginTop: 4 },
+  honourEmpty: { color: '#c4d1dc', fontSize: 9, fontWeight: '700', lineHeight: 12, marginTop: 2 },
   card: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 14 },
   statCard: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 16 },
   statLabel: { color: C.blueSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
