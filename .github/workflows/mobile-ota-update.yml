@@ -132,6 +132,9 @@ jobs:
       - name: Connect real competition cycle management
         run: node scripts/fix-cycle-management-mobile.mjs
 
+      - name: Fix latest honours cards
+        run: node scripts/fix-latest-honours-cards.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
