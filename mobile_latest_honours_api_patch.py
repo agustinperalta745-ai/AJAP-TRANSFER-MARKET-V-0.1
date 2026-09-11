@@ -43,12 +43,11 @@ def _load_snapshot(raw) -> list[dict]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
-def _discord_username(user_id: int | None, club: str) -> str:
-    if not user_id:
+def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) -> str:
+    if user_id is None:
         return "Sin DT asignado"
 
-    # Prefer the real Discord username, not a server nickname. This is what the
-    # Mobile home label promises to show.
+    # Prefer the real Discord username, not the server display nickname.
     try:
         import run_bot
 
@@ -68,8 +67,9 @@ def _discord_username(user_id: int | None, club: str) -> str:
     except Exception:
         pass
 
+    # Fallback for a historical DT who may no longer be cached in Discord.
     try:
-        stored = profiles._stored_discord_name(None if False else _discord_username._conn, int(user_id))  # type: ignore[attr-defined]
+        stored = profiles._stored_discord_name(conn, int(user_id))
         if stored:
             suffix = f" | {club}"
             label = str(stored).strip()
@@ -83,21 +83,9 @@ def _discord_username(user_id: int | None, club: str) -> str:
     return f"Discord · {int(user_id)}"
 
 
-def _username_with_conn(conn: sqlite3.Connection, user_id: int | None, club: str) -> str:
-    # The helper above intentionally prefers the live Discord member. Expose the
-    # DB only for its nickname-state fallback without making it module-global.
-    try:
-        _discord_username._conn = conn  # type: ignore[attr-defined]
-        return _discord_username(user_id, club)
-    finally:
-        try:
-            delattr(_discord_username, "_conn")
-        except Exception:
-            pass
-
-
 def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> dict:
     user_id: int | None = None
+    history_found = False
     tables = _tables(conn)
 
     if closed_at and "club_assignment_history" in tables:
@@ -111,17 +99,21 @@ def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> d
             """,
             (club, closed_at),
         ).fetchone()
-        if row and str(row["action"] or "").strip().upper() in _ACTIVE_ASSIGNMENT_ACTIONS:
-            user_id = int(row["user_id"])
+        if row:
+            history_found = True
+            if str(row["action"] or "").strip().upper() in _ACTIVE_ASSIGNMENT_ACTIONS:
+                user_id = int(row["user_id"])
 
-    if user_id is None:
+    # Old databases may not have a usable assignment-history row. Only in that
+    # case use today's owner; never replace a known historical vacancy/change.
+    if not history_found and user_id is None:
         owner = profiles._owner_row(conn, club)
         if owner and owner["user_id"] is not None:
             user_id = int(owner["user_id"])
 
     return {
         "user_id": str(user_id) if user_id is not None else None,
-        "username": _username_with_conn(conn, user_id, club),
+        "username": _discord_username(conn, user_id, club),
     }
 
 
@@ -187,7 +179,7 @@ def _scorer_payload(conn: sqlite3.Connection, edition) -> dict | None:
 
 def latest_honours_payload(conn: sqlite3.Connection) -> dict:
     # Until the first ordinary season closes, the finished preseason is the last
-    # champion of AJPA and is intentionally shown. CUP remains independent.
+    # champion of AJPA and is intentionally shown. Cup history is independent.
     latest_league = _latest_finished(conn, ("SEASON", "PRESEASON"))
     latest_cup = _latest_finished(conn, ("CUP",))
     return {
