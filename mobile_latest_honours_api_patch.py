@@ -1,13 +1,16 @@
 """Compact latest-honours feed for the AJPA Mobile home screen.
 
-The home screen only needs three tiny pieces of historical information:
-- the latest finished league/preseason champion,
-- that same competition's Golden Boot/top scorer,
-- the latest finished cup champion.
+The home screen shows the last completed league/preseason champion, that same
+competition's top scorer, and the last completed cup champion. The active
+competition never replaces these cards until it has actually finished.
 
-Competition snapshots are the authority so starting a new season never changes an
-old champion. Manager attribution is resolved as-of the competition close time
-from assignment history when possible; the live assignment is only a fallback.
+With the AJPA cycle this means:
+- Temporada 1 shows Pretemporada.
+- Temporada 2 shows Temporada 1.
+- Temporada 3 shows Temporada 2, and so on.
+
+Manager attribution is resolved as-of the competition close time from assignment
+history when possible; the live assignment is only a fallback.
 """
 
 from __future__ import annotations
@@ -34,12 +37,36 @@ def _tables(conn: sqlite3.Connection) -> set[str]:
     }
 
 
-def _load_snapshot(raw) -> list[dict]:
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    if table not in _tables(conn):
+        return set()
+    return {str(row["name"]) for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()}
+
+
+def _snapshot(raw) -> dict:
+    """Read both the current {standings, scorers} snapshot and old list snapshots."""
+    if raw is None:
+        return {"standings": [], "scorers": []}
+    try:
+        value = json.loads(str(raw))
+    except (TypeError, ValueError):
+        return {"standings": [], "scorers": []}
+    if not isinstance(value, dict):
+        return {"standings": [], "scorers": []}
+    standings = value.get("standings")
+    scorers = value.get("scorers")
+    return {
+        "standings": [item for item in standings if isinstance(item, dict)] if isinstance(standings, list) else [],
+        "scorers": [item for item in scorers if isinstance(item, dict)] if isinstance(scorers, list) else [],
+    }
+
+
+def _legacy_list(raw) -> list[dict]:
     if raw is None:
         return []
     try:
         value = json.loads(str(raw))
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except (TypeError, ValueError):
         return []
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
@@ -121,45 +148,83 @@ def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> d
 def _latest_finished(conn: sqlite3.Connection, kinds: tuple[str, ...]):
     if "competition_editions" not in _tables(conn):
         return None
-    placeholders = ",".join("?" for _ in kinds)
-    return conn.execute(
-        f"""
-        SELECT id, kind, name, sequence, closed_at, standings_snapshot, scorers_snapshot
-        FROM competition_editions
-        WHERE status='FINISHED' AND kind IN ({placeholders})
-        ORDER BY COALESCE(closed_at, started_at) DESC, id DESC
-        LIMIT 1
-        """,
-        tuple(kinds),
-    ).fetchone()
+    cols = _columns(conn, "competition_editions")
+    lowered = tuple(str(kind).lower() for kind in kinds)
+    placeholders = ",".join("?" for _ in lowered)
+
+    # Current AJPA schema (competition_cycle.py).
+    if {"label", "season_number", "ended_at", "final_snapshot_json"}.issubset(cols):
+        return conn.execute(
+            f"""
+            SELECT id, kind, season_number, label, started_at, ended_at, final_snapshot_json
+            FROM competition_editions
+            WHERE LOWER(status)='finished' AND LOWER(kind) IN ({placeholders})
+            ORDER BY COALESCE(ended_at, started_at) DESC, id DESC
+            LIMIT 1
+            """,
+            lowered,
+        ).fetchone()
+
+    # Compatibility with the short-lived legacy honours schema.
+    if {"name", "sequence", "closed_at", "standings_snapshot", "scorers_snapshot"}.issubset(cols):
+        return conn.execute(
+            f"""
+            SELECT id, kind, name, sequence, closed_at, standings_snapshot, scorers_snapshot
+            FROM competition_editions
+            WHERE LOWER(status)='finished' AND LOWER(kind) IN ({placeholders})
+            ORDER BY closed_at DESC, id DESC
+            LIMIT 1
+            """,
+            lowered,
+        ).fetchone()
+    return None
+
+
+def _edition_data(edition) -> tuple[str, str | None, list[dict], list[dict]]:
+    keys = set(edition.keys()) if edition is not None else set()
+    if "final_snapshot_json" in keys:
+        snap = _snapshot(edition["final_snapshot_json"])
+        return (
+            str(edition["label"] or "Competencia"),
+            str(edition["ended_at"] or "") or None,
+            snap["standings"],
+            snap["scorers"],
+        )
+    return (
+        str(edition["name"] or "Competencia"),
+        str(edition["closed_at"] or "") or None,
+        _legacy_list(edition["standings_snapshot"]),
+        _legacy_list(edition["scorers_snapshot"]),
+    )
 
 
 def _champion_payload(conn: sqlite3.Connection, edition) -> dict | None:
     if not edition:
         return None
-    standings = _load_snapshot(edition["standings_snapshot"])
+    competition, closed_at, standings, _ = _edition_data(edition)
     if not standings:
         return None
-    first = standings[0]
+    # Current snapshots are already sorted, but position=1 wins if present.
+    first = next((row for row in standings if int(row.get("position") or 0) == 1), standings[0])
     team = str(first.get("team") or "").strip()
     if not team:
         return None
     return {
         "competition_id": int(edition["id"]),
-        "competition": str(edition["name"]),
+        "competition": competition,
         "kind": str(edition["kind"]),
         "team": team,
-        "manager": _manager_at(conn, team, str(edition["closed_at"] or "") or None),
+        "manager": _manager_at(conn, team, closed_at),
     }
 
 
 def _scorer_payload(conn: sqlite3.Connection, edition) -> dict | None:
     if not edition:
         return None
-    scorers = _load_snapshot(edition["scorers_snapshot"])
+    competition, closed_at, _, scorers = _edition_data(edition)
     if not scorers:
         return None
-    first = scorers[0]
+    first = max(scorers, key=lambda row: int(row.get("goals") or 0))
     player = str(first.get("player") or "").strip()
     team = str(first.get("team") or "").strip()
     try:
@@ -170,19 +235,20 @@ def _scorer_payload(conn: sqlite3.Connection, edition) -> dict | None:
         return None
     return {
         "competition_id": int(edition["id"]),
-        "competition": str(edition["name"]),
+        "competition": competition,
         "player": player,
         "goals": goals,
         "team": team,
-        "manager": _manager_at(conn, team, str(edition["closed_at"] or "") or None),
+        "manager": _manager_at(conn, team, closed_at),
     }
 
 
 def latest_honours_payload(conn: sqlite3.Connection) -> dict:
-    # Until the first ordinary season closes, the finished preseason is the last
-    # champion of AJPA and is intentionally shown. Cup history is independent.
-    latest_league = _latest_finished(conn, ("SEASON", "PRESEASON"))
-    latest_cup = _latest_finished(conn, ("CUP",))
+    # Always show the last COMPLETED league-like competition. Therefore while
+    # Temporada 1 is active this is Pretemporada; during Temporada 2 it is
+    # Temporada 1; during Temporada 3 it is Temporada 2, etc.
+    latest_league = _latest_finished(conn, ("season", "preseason"))
+    latest_cup = _latest_finished(conn, ("cup",))
     return {
         "season_champion": _champion_payload(conn, latest_league),
         "top_scorer": _scorer_payload(conn, latest_league),
