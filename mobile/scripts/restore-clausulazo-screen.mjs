@@ -15,13 +15,20 @@ if (!ui.includes(dispatch)) {
 if (!ui.includes(screenMarker)) {
   const patchSource = fs.readFileSync(clausulazoPatchPath, 'utf8');
   const startMarker = 'const screen = String.raw`';
-  const endMarker = '`;\nui = ui.replace(marker, screen + marker);';
+  const endCandidates = [
+    "`;\nif (!ui.includes('  const clausulazoScreen = (')) {",
+    '`;\nui = ui.replace(marker, screen + marker);',
+  ];
   const start = patchSource.indexOf(startMarker);
   if (start < 0) {
     throw new Error('AJPA Clausulazo guard: no pude localizar el bloque fuente de Clausulazo');
   }
   const contentStart = start + startMarker.length;
-  const end = patchSource.indexOf(endMarker, contentStart);
+  let end = -1;
+  for (const endMarker of endCandidates) {
+    end = patchSource.indexOf(endMarker, contentStart);
+    if (end >= 0) break;
+  }
   if (end < 0) {
     throw new Error('AJPA Clausulazo guard: no pude cerrar el bloque fuente de Clausulazo');
   }
