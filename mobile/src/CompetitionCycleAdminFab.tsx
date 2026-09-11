@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   AppState,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 import { apiRequest, getSessionToken } from './api';
 
@@ -56,10 +58,74 @@ type GesSyncResult = {
   warnings: string[];
 };
 
+type GesDraft = {
+  competition_id: number | null;
+  ges_url: string;
+  results_url: string;
+  scorers_url: string;
+};
+
+const GES_DRAFT_KEY = 'ajpa.mobile.ges-links-draft.v1';
+
 const errorMessage = (error: unknown, fallback: string) =>
   typeof error === 'object' && error && 'message' in error
     ? String((error as { message?: string }).message || fallback)
     : fallback;
+
+const parseGesDraft = (raw: string | null | undefined): GesDraft | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<GesDraft>;
+    if (
+      typeof parsed.ges_url !== 'string' ||
+      typeof parsed.results_url !== 'string' ||
+      typeof parsed.scorers_url !== 'string'
+    ) return null;
+    return {
+      competition_id: typeof parsed.competition_id === 'number' ? parsed.competition_id : null,
+      ges_url: parsed.ges_url,
+      results_url: parsed.results_url,
+      scorers_url: parsed.scorers_url,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const loadGesDraft = async (): Promise<GesDraft | null> => {
+  try {
+    if (Platform.OS === 'web') {
+      const storage = (globalThis as any)?.localStorage;
+      return parseGesDraft(storage?.getItem?.(GES_DRAFT_KEY));
+    }
+    return parseGesDraft(await SecureStore.getItemAsync(GES_DRAFT_KEY));
+  } catch {
+    return null;
+  }
+};
+
+const persistGesDraft = async (draft: GesDraft): Promise<void> => {
+  const serialized = JSON.stringify(draft);
+  try {
+    if (Platform.OS === 'web') {
+      const storage = (globalThis as any)?.localStorage;
+      storage?.setItem?.(GES_DRAFT_KEY, serialized);
+      return;
+    }
+    await SecureStore.setItemAsync(GES_DRAFT_KEY, serialized);
+  } catch {}
+};
+
+const clearGesDraft = async (): Promise<void> => {
+  try {
+    if (Platform.OS === 'web') {
+      const storage = (globalThis as any)?.localStorage;
+      storage?.removeItem?.(GES_DRAFT_KEY);
+      return;
+    }
+    await SecureStore.deleteItemAsync(GES_DRAFT_KEY);
+  } catch {}
+};
 
 export default function CompetitionCycleAdminFab() {
   const [visible, setVisible] = useState(false);
@@ -74,15 +140,33 @@ export default function CompetitionCycleAdminFab() {
   const [gesUrl, setGesUrl] = useState('');
   const [resultsUrl, setResultsUrl] = useState('');
   const [scorersUrl, setScorersUrl] = useState('');
+  const gesDraftRef = useRef<GesDraft | null>(null);
 
   const loadGesConfig = useCallback(async (showError = false) => {
     if (!getSessionToken()) return;
     try {
       const data = await apiRequest<GesConfig>('/api/v1/admin/ges-config');
       setGesConfig(data);
-      setGesUrl(data.ges_url || '');
-      setResultsUrl(data.results_url || '');
-      setScorersUrl(data.scorers_url || '');
+
+      let draft = gesDraftRef.current ?? await loadGesDraft();
+      if (draft && (draft.competition_id === null || draft.competition_id === data.competition_id)) {
+        if (draft.competition_id === null) {
+          draft = { ...draft, competition_id: data.competition_id };
+          void persistGesDraft(draft);
+        }
+        gesDraftRef.current = draft;
+        setGesUrl(draft.ges_url);
+        setResultsUrl(draft.results_url);
+        setScorersUrl(draft.scorers_url);
+      } else {
+        if (draft) {
+          gesDraftRef.current = null;
+          void clearGesDraft();
+        }
+        setGesUrl(data.ges_url || '');
+        setResultsUrl(data.results_url || '');
+        setScorersUrl(data.scorers_url || '');
+      }
     } catch (error) {
       if (showError) Alert.alert('AJPA', errorMessage(error, 'No se pudo cargar la configuración GES.'));
     }
@@ -124,6 +208,25 @@ export default function CompetitionCycleAdminFab() {
       sub.remove();
     };
   }, [refresh]);
+
+  const updateGesDraftField = useCallback((field: 'ges_url' | 'results_url' | 'scorers_url', value: string) => {
+    const current = gesDraftRef.current ?? {
+      competition_id: gesConfig?.competition_id ?? cycle?.competition_id ?? null,
+      ges_url: gesUrl,
+      results_url: resultsUrl,
+      scorers_url: scorersUrl,
+    };
+    const next: GesDraft = {
+      ...current,
+      competition_id: gesConfig?.competition_id ?? cycle?.competition_id ?? current.competition_id,
+      [field]: value,
+    };
+    gesDraftRef.current = next;
+    if (field === 'ges_url') setGesUrl(value);
+    if (field === 'results_url') setResultsUrl(value);
+    if (field === 'scorers_url') setScorersUrl(value);
+    void persistGesDraft(next);
+  }, [cycle?.competition_id, gesConfig?.competition_id, gesUrl, resultsUrl, scorersUrl]);
 
   const seasonActive = cycle?.phase === 'season';
   const canStartSeason = cycle?.next_action?.key === 'start_season' || cycle?.next_action?.key === 'market2_season';
@@ -240,7 +343,12 @@ export default function CompetitionCycleAdminFab() {
           scorers_url: scorersUrl.trim(),
         }),
       });
+      await clearGesDraft();
+      gesDraftRef.current = null;
       setGesConfig(data);
+      setGesUrl(data.ges_url || '');
+      setResultsUrl(data.results_url || '');
+      setScorersUrl(data.scorers_url || '');
       setShowGesConfig(false);
       Alert.alert('AJPA', 'Enlaces GES guardados para esta competencia.');
     } catch (error) {
@@ -405,11 +513,11 @@ export default function CompetitionCycleAdminFab() {
                 {showGesConfig ? (
                   <View style={styles.configBox}>
                     <Text style={styles.inputLabel}>GES / TABLA</Text>
-                    <TextInput value={gesUrl} onChangeText={setGesUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de tabla GES" placeholderTextColor="#607080" style={styles.input} />
+                    <TextInput value={gesUrl} onChangeText={value => updateGesDraftField('ges_url', value)} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de tabla GES" placeholderTextColor="#607080" style={styles.input} />
                     <Text style={styles.inputLabel}>RESULTADOS</Text>
-                    <TextInput value={resultsUrl} onChangeText={setResultsUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de resultados" placeholderTextColor="#607080" style={styles.input} />
+                    <TextInput value={resultsUrl} onChangeText={value => updateGesDraftField('results_url', value)} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de resultados" placeholderTextColor="#607080" style={styles.input} />
                     <Text style={styles.inputLabel}>GOLEADORES</Text>
-                    <TextInput value={scorersUrl} onChangeText={setScorersUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de goleadores" placeholderTextColor="#607080" style={styles.input} />
+                    <TextInput value={scorersUrl} onChangeText={value => updateGesDraftField('scorers_url', value)} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="URL de goleadores" placeholderTextColor="#607080" style={styles.input} />
                     <Pressable disabled={blocked} onPress={() => { void saveGesConfig(); }} style={({ pressed }) => [styles.saveButton, (pressed || blocked) && styles.pressed]}>
                       {configSaving ? <ActivityIndicator /> : <Text style={styles.saveText}>💾 GUARDAR ENLACES</Text>}
                     </Pressable>
