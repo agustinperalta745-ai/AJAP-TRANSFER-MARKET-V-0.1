@@ -120,6 +120,92 @@ def _candidate_club(conn: sqlite3.Connection, user_id: int) -> str | None:
     return None
 
 
+def _detach_classic_state(
+    conn: sqlite3.Connection,
+    *,
+    user_id: int,
+    club: str | None,
+) -> dict:
+    """Drop every pending/active classic inherited from this DT assignment.
+
+    This runs in the same transaction as unassignment, so a club can never be
+    left ownerless while an old classic remains active. League match results are
+    intentionally untouched.
+    """
+    affected: set[str] = set()
+    if club:
+        affected.add(str(club).strip())
+
+    if _table_exists(conn, "classic_rival_requests"):
+        rows = conn.execute(
+            """
+            SELECT requester_club, target_club
+            FROM classic_rival_requests
+            WHERE requester_user_id=? OR target_user_id=?
+            """,
+            (int(user_id), int(user_id)),
+        ).fetchall()
+        for row in rows:
+            requester = str(row["requester_club"] or "").strip()
+            target = str(row["target_club"] or "").strip()
+            if requester:
+                affected.add(requester)
+            if target:
+                affected.add(target)
+
+    requests_cancelled = 0
+    classic_ids: list[int] = []
+    for affected_club in affected:
+        if _table_exists(conn, "classic_rival_requests"):
+            cur = conn.execute(
+                """
+                UPDATE classic_rival_requests
+                SET status='CANCELLED_OWNER_CHANGED', responded_at=CURRENT_TIMESTAMP
+                WHERE status='PENDING'
+                  AND (requester_club=? COLLATE NOCASE OR target_club=? COLLATE NOCASE)
+                """,
+                (affected_club, affected_club),
+            )
+            requests_cancelled += max(0, int(cur.rowcount or 0))
+
+        if _table_exists(conn, "classic_rivals"):
+            rows = conn.execute(
+                """
+                SELECT id
+                FROM classic_rivals
+                WHERE active=1
+                  AND (club_a=? COLLATE NOCASE OR club_b=? COLLATE NOCASE)
+                """,
+                (affected_club, affected_club),
+            ).fetchall()
+            classic_ids.extend(int(row["id"]) for row in rows)
+
+    classic_ids = sorted(set(classic_ids))
+    classics_released = 0
+    for classic_id in classic_ids:
+        cur = conn.execute(
+            """
+            UPDATE classic_rivals
+            SET active=0,
+                released_at=CURRENT_TIMESTAMP,
+                release_reason='OWNER_CHANGED_OR_VACANT'
+            WHERE id=? AND active=1
+            """,
+            (classic_id,),
+        )
+        classics_released += max(0, int(cur.rowcount or 0))
+        if _table_exists(conn, "classic_market_outbox"):
+            conn.execute(
+                "DELETE FROM classic_market_outbox WHERE classic_id=?",
+                (classic_id,),
+            )
+
+    return {
+        "classic_requests_cancelled": requests_cancelled,
+        "classics_released": classics_released,
+    }
+
+
 def revoke_mobile_access(
     conn: sqlite3.Connection,
     user_id: int,
@@ -244,15 +330,18 @@ def unassign_user_in_conn(
 
     if not club:
         conn.execute("DELETE FROM clubs WHERE user_id=?", (user_id,))
+        classic_cleanup = _detach_classic_state(conn, user_id=user_id, club=None)
         return {
             "ok": True,
             "user_id": user_id,
             "club": None,
             "changed": False,
+            **classic_cleanup,
             **mobile,
         }
 
     conn.execute("DELETE FROM clubs WHERE user_id=?", (user_id,))
+    classic_cleanup = _detach_classic_state(conn, user_id=user_id, club=club)
     conn.execute(
         """
         INSERT INTO club_assignment_history(user_id, club, action, actor_id)
@@ -299,5 +388,6 @@ def unassign_user_in_conn(
         "user_id": user_id,
         "club": club,
         "changed": True,
+        **classic_cleanup,
         **mobile,
     }
