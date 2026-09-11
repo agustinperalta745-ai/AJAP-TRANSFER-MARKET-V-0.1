@@ -10,8 +10,6 @@ base cada vez que se construye la vista.
 
 import discord
 
-from market_state_radio_patch import apply_market_state_radio_patch
-
 
 def ensure_schema(runtime):
     with runtime.db() as conn:
@@ -148,16 +146,10 @@ def apply_market_persistence_patch(runtime):
     ensure_schema(runtime)
     install_persistent_state(runtime)
     patch_admin_view(runtime)
-
-    # La publicación de Radio Pasillo se engancha a los botones Staff reales y
-    # lee este mismo estado persistente antes/después de la acción.
-    apply_market_state_radio_patch(runtime, getattr(runtime, "bot", None))
-
     runtime._ajap_market_persistence_patch = True
 
     state = "ABIERTO" if runtime.mercado_abierto() else "CERRADO"
     print(
         "AJAP market persistence activo: estado restaurado desde SQLite = "
         + state
-        + " • Radio Pasillo conectado a abrir/cerrar"
     )
