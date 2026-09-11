@@ -25,21 +25,7 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
 def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
     if not _table_exists(conn, table):
         return set()
-    return {
-        str(row["name"])
-        for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()
-    }
-
-
-def _club_deleted(conn: sqlite3.Connection, club: str | None) -> bool:
-    if not club or not _table_exists(conn, "deleted_teams"):
-        return False
-    return bool(
-        conn.execute(
-            "SELECT 1 FROM deleted_teams WHERE name=? COLLATE NOCASE LIMIT 1",
-            (club,),
-        ).fetchone()
-    )
+    return {str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()}
 
 
 def ensure_assignment_schema(conn: sqlite3.Connection) -> None:
@@ -110,7 +96,7 @@ def _candidate_club(conn: sqlite3.Connection, user_id: int) -> str | None:
             (int(user_id),),
         ).fetchone()
         if row and bool(row["active"]):
-            club = str(row["club"] or "").strip()
+            club = str(row["club"] or "").strip() or None
             if club:
                 return club
 
@@ -128,7 +114,7 @@ def _candidate_club(conn: sqlite3.Connection, user_id: int) -> str | None:
             "ASIGNADO",
             "ASIGNADO_VACANTE_ADMIN",
         }:
-            club = str(row["club"] or "").strip()
+            club = str(row["club"] or "").strip() or None
             if club:
                 return club
     return None
@@ -153,8 +139,7 @@ def revoke_mobile_access(
     staff_pair_codes_preserved = 0
 
     if _table_exists(conn, "mobile_sessions"):
-        session_cols = _columns(conn, "mobile_sessions")
-        has_staff = "is_staff" in session_cols
+        has_staff = "is_staff" in _columns(conn, "mobile_sessions")
         if preserve_staff and has_staff:
             row = conn.execute(
                 """
@@ -185,8 +170,7 @@ def revoke_mobile_access(
         sessions = max(0, int(cur.rowcount or 0))
 
     if _table_exists(conn, "mobile_pair_codes"):
-        code_cols = _columns(conn, "mobile_pair_codes")
-        has_staff = "is_staff" in code_cols
+        has_staff = "is_staff" in _columns(conn, "mobile_pair_codes")
         if preserve_staff and has_staff:
             row = conn.execute(
                 """
@@ -252,11 +236,10 @@ def unassign_user_in_conn(
 
     # Removing a club must not lock Staff out of AJPA Mobile. A real guild
     # departure is different: it invalidates both DT and Staff credentials.
-    preserve_staff = not source.startswith("DISCORD_LEFT")
     mobile = revoke_mobile_access(
         conn,
         user_id,
-        preserve_staff=preserve_staff,
+        preserve_staff=not source.startswith("DISCORD_LEFT"),
     )
 
     if not club:
