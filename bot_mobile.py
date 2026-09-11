@@ -22,6 +22,9 @@ import sitecustomize  # noqa: F401
 os.environ.setdefault("AJPA_MOBILE_API_ENABLED", "1")
 os.environ.setdefault("AJPA_MOBILE_GUILD_ID", "1541577795426324571")
 
+# run_bot imports apply_guild_isolation_patch by value. Install this bridge first
+# so the real Discord runtime also restores the GES config + manual sync layers.
+import ges_startup_bridge_patch  # noqa: F401,E402
 import mobile_auth_patch  # noqa: E402
 import mobile_write_api  # noqa: E402
 import mobile_clausulazo_api_patch  # noqa: E402
