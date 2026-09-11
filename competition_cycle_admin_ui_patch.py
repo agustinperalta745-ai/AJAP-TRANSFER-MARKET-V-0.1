@@ -1,4 +1,4 @@
-"""Surface the official AJPA cycle inside Administración and avoid raw phase toggles."""
+"""Surface the official AJPA cycle inside Administración without coupling it to the market."""
 
 import discord
 
@@ -7,6 +7,57 @@ import discord
 import ges_manual_sync_startup_patch  # noqa: F401
 import competition_cycle as cycle
 import staff_admin_organized_patch as staff
+
+
+# The competition lifecycle and the transfer market are independent systems.
+# competition_cycle.advance() still calls its legacy _market() hook while moving
+# between historical phase names (market_1/market_2). Neutralize ONLY that hook
+# here so changing an AJPA stage can never open/close the real market_state.
+# Staff's normal ABRIR/CERRAR MERCADO buttons remain the sole authority.
+def _ignore_cycle_market_change(conn, opened, user_id):
+    return None
+
+
+cycle._market = _ignore_cycle_market_change
+
+
+# Keep the lifecycle wording explicit: "Mercado 1/2" is a competition stage,
+# not an instruction to mutate the manually-controlled transfer market.
+def _manual_market_action(phase, n):
+    if phase == cycle.PRESEASON:
+        return {
+            "key": "start_season",
+            "label": f"INICIAR TEMPORADA {n}",
+            "description": "Archiva la pretemporada y crea la temporada oficial en cero.",
+        }
+    if phase == cycle.SEASON:
+        return {
+            "key": "season_market1",
+            "label": "AVANZAR A ETAPA MERCADO 1",
+            "description": "Archiva la temporada y avanza de etapa. El mercado se abre o cierra manualmente desde Administración.",
+        }
+    if phase == cycle.MARKET_1:
+        return {
+            "key": "market1_cup",
+            "label": "FINALIZAR ETAPA MERCADO 1 + INICIAR COPA",
+            "description": "Finaliza esta etapa e inicia una Copa nueva. No modifica el estado del mercado.",
+        }
+    if phase == cycle.CUP:
+        return {
+            "key": "cup_market2",
+            "label": "FINALIZAR COPA + AVANZAR A ETAPA MERCADO 2",
+            "description": "Archiva la Copa y avanza de etapa. El mercado conserva su estado manual.",
+        }
+    if phase == cycle.MARKET_2:
+        return {
+            "key": "market2_season",
+            "label": f"FINALIZAR ETAPA MERCADO 2 + INICIAR TEMPORADA {n+1}",
+            "description": "Finaliza esta etapa e inicia la siguiente temporada sin abrir ni cerrar el mercado.",
+        }
+    raise cycle.CycleError(f"Etapa inválida: {phase}")
+
+
+cycle._action = _manual_market_action
 
 
 class ManageCycleButton(discord.ui.Button):
@@ -53,10 +104,10 @@ def _patch_view(view, remove_needles, *, add_cycle=True):
 
 
 def apply_patch():
-    # Season and market open/close are one state machine. Removing the legacy
-    # direct toggles prevents combinations such as "Temporada activa + Mercado abierto".
+    # The cycle replaces only the old season-stage control. The MarketView is
+    # intentionally left untouched so ABRIR/CERRAR MERCADO stays available and
+    # independent at all times.
     _patch_view(staff.ManagementView, ("cambiar temporada",))
-    _patch_view(staff.MarketView, ("abrir mercado", "cerrar mercado"))
 
     original_embed = staff.admin_home_embed
 
@@ -89,16 +140,16 @@ def apply_patch():
             if "cambiar temporada" in low:
                 text = "🗓️ Gestionar etapa AJPA"
             elif "abrir o cerrar" in low:
-                text = "🗓️ Apertura/cierre según etapa AJPA"
+                text = "🟢/🔒 Abrir o cerrar mercado manualmente"
             items.append(text)
         return original_section_embed(title, description, items)
 
     staff.section_embed = section_embed
-    print("AJPA Administración: temporada/mercado controlados por Gestionar etapa")
+    print("AJPA Administración: etapa independiente + mercado manual")
 
 
 apply_patch()
 
-# Keep the countdown layer after the cycle UI wrapper so Gestión receives the
-# final countdown button without restoring any legacy season/market toggles.
+# Keep the countdown layer after the cycle UI wrapper. Market controls remain
+# owned by the normal Staff market panel and are never derived from the stage.
 import season_countdown_patch  # noqa: E402,F401
