@@ -20,7 +20,7 @@ jobs:
           ref: main
           fetch-depth: 1
 
-      - name: Wire latest honours backend and build pipelines
+      - name: Wire latest honours backend
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -48,36 +48,6 @@ jobs:
               'classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()\nmobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
               'mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()',
           )
-
-          replace_once(
-              '.github/workflows/mobile-ota-update.yml',
-              '      - name: TypeScript check\n        run: npx tsc --noEmit',
-              '      - name: Apply compact latest honours home\n        run: node scripts/apply-latest-honours-home.mjs\n\n      - name: TypeScript check\n        run: npx tsc --noEmit',
-              'Apply compact latest honours home',
-          )
-          replace_once(
-              '.github/workflows/mobile-preview-apk.yml',
-              '      - name: TypeScript check\n        run: npx tsc --noEmit',
-              '      - name: Apply compact latest honours home\n        run: node scripts/apply-latest-honours-home.mjs\n\n      - name: TypeScript check\n        run: npx tsc --noEmit',
-              'Apply compact latest honours home',
-          )
-
-          p = Path('.github/workflows/mobile-read-api-test.yml')
-          text = p.read_text(encoding='utf-8')
-          if "      - 'mobile_latest_honours_api_patch.py'" not in text:
-              anchor = "      - 'mobile_classic_rival_api_patch.py'\n"
-              if anchor not in text:
-                  raise SystemExit('mobile-read-api-test.yml: path anchor missing')
-              text = text.replace(anchor, anchor + "      - 'mobile_latest_honours_api_patch.py'\n")
-          compile_anchor = 'mobile_classic_rival_api_patch.py classic_rival_ownership_reset_patch.py'
-          if 'mobile_classic_rival_api_patch.py mobile_latest_honours_api_patch.py classic_rival_ownership_reset_patch.py' not in text:
-              if compile_anchor not in text:
-                  raise SystemExit('mobile-read-api-test.yml: compile anchor missing')
-              text = text.replace(
-                  compile_anchor,
-                  'mobile_classic_rival_api_patch.py mobile_latest_honours_api_patch.py classic_rival_ownership_reset_patch.py',
-              )
-          p.write_text(text, encoding='utf-8')
           PY
 
       - name: Apply compact home UI to source
@@ -108,10 +78,6 @@ jobs:
             bot_mobile.py \
             mobile/src/api.ts \
             mobile/src/BotParityAppV2.tsx \
-            mobile/scripts/apply-latest-honours-home.mjs \
-            .github/workflows/mobile-ota-update.yml \
-            .github/workflows/mobile-preview-apk.yml \
-            .github/workflows/mobile-read-api-test.yml \
             .ota-trigger
           if git diff --cached --quiet; then
             echo "Latest honours feature already applied."
