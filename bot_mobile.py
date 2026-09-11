@@ -30,6 +30,7 @@ import mobile_transport_patch  # noqa: E402
 import mobile_parity_api_patch  # noqa: E402
 import mobile_league_history_api_patch  # noqa: E402
 import mobile_competition_cycle_api_patch  # noqa: E402
+import competition_cycle_market_independence_patch  # noqa: E402
 import competition_bootstrap_repair_patch  # noqa: E402
 import mobile_staff_api_patch  # noqa: E402
 import mobile_staff_economy_api_patch  # noqa: E402
@@ -56,6 +57,9 @@ competition_bootstrap_repair_patch.apply_bootstrap_repair()
 mobile_clausulazo_api_patch.apply_mobile_clausulazo_api_patch()
 mobile_parity_api_patch.apply_mobile_parity_api_patch()
 mobile_league_history_api_patch.apply_mobile_league_history_api_patch()
+# El mercado sólo cambia desde los controles Staff de mercado. Las etapas nunca
+# lo abren ni lo cierran automáticamente.
+competition_cycle_market_independence_patch.apply_competition_cycle_market_independence_patch()
 # Must run after league history: it keeps historical cards untouched and replaces
 # only current standings/scorers with the active competition slice.
 mobile_competition_cycle_api_patch.apply_mobile_competition_cycle_api_patch()
