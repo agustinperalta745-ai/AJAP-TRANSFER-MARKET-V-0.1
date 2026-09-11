@@ -37,5 +37,20 @@ let colorSource = fs.readFileSync(colorPass, 'utf8');
 const exchangePublicationHook = "await import('./apply-exchange-publication.mjs');";
 if (!colorSource.includes(exchangePublicationHook)) {
   colorSource = `${colorSource.trimEnd()}\n${exchangePublicationHook}\n`;
-  fs.writeFileSync(colorPass, colorSource);
+}
+
+// The compact home honours strip must survive every legacy layout transform.
+// Preview builds end at the color pass, while OTA also runs the competition-cycle
+// pass afterwards, so hook the idempotent patch into both final locations.
+const honoursHook = "await import('./apply-latest-honours-home.mjs');";
+if (!colorSource.includes(honoursHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${honoursHook}\n`;
+}
+fs.writeFileSync(colorPass, colorSource);
+
+const cyclePass = new URL('./fix-cycle-management-mobile.mjs', import.meta.url);
+let cycleSource = fs.readFileSync(cyclePass, 'utf8');
+if (!cycleSource.includes(honoursHook)) {
+  cycleSource = `${cycleSource.trimEnd()}\n${honoursHook}\n`;
+  fs.writeFileSync(cyclePass, cycleSource);
 }
