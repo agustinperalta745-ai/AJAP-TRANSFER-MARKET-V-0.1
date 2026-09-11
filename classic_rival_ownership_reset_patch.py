@@ -69,6 +69,26 @@ def _request_owners_still_match(conn: sqlite3.Connection, row) -> bool:
     )
 
 
+def _pair_owners_still_match(conn: sqlite3.Connection, pair) -> bool:
+    owner_a = classic._owner_id(conn, str(pair["club_a"]))
+    owner_b = classic._owner_id(conn, str(pair["club_b"]))
+    if owner_a is None or owner_b is None:
+        return False
+
+    request_id = pair["accepted_request_id"]
+    if request_id is None:
+        return False
+    request = conn.execute(
+        """
+        SELECT requester_club, target_club, requester_user_id, target_user_id
+        FROM classic_rival_requests
+        WHERE id=? LIMIT 1
+        """,
+        (int(request_id),),
+    ).fetchone()
+    return request is not None and _request_owners_still_match(conn, request)
+
+
 def _cleanup_stale_ownership(conn: sqlite3.Connection) -> tuple[int, int]:
     """Quita estado heredado cuando cambia o desaparece el dueño de un club."""
     cancelled = 0
@@ -102,28 +122,7 @@ def _cleanup_stale_ownership(conn: sqlite3.Connection) -> tuple[int, int]:
         """
     ).fetchall()
     for pair in active_pairs:
-        owner_a = classic._owner_id(conn, str(pair["club_a"]))
-        owner_b = classic._owner_id(conn, str(pair["club_b"]))
-        stale = owner_a is None or owner_b is None
-
-        request_id = pair["accepted_request_id"]
-        if not stale:
-            # Todo clásico creado por la versión actual conserva la solicitud que
-            # identifica a los dos DT originales. Si cambia uno, se desactiva.
-            if request_id is None:
-                stale = True
-            else:
-                request = conn.execute(
-                    """
-                    SELECT requester_club, target_club, requester_user_id, target_user_id
-                    FROM classic_rival_requests
-                    WHERE id=? LIMIT 1
-                    """,
-                    (int(request_id),),
-                ).fetchone()
-                stale = request is None or not _request_owners_still_match(conn, request)
-
-        if not stale:
+        if _pair_owners_still_match(conn, pair):
             continue
         conn.execute(
             """
@@ -149,6 +148,28 @@ def _cleanup_stale_ownership(conn: sqlite3.Connection) -> tuple[int, int]:
     return cancelled, released
 
 
+def _is_query_only(conn: sqlite3.Connection) -> bool:
+    try:
+        row = conn.execute("PRAGMA query_only").fetchone()
+        return bool(row and int(row[0]))
+    except Exception:
+        return False
+
+
+def _reset_already_applied_readonly(conn: sqlite3.Connection) -> bool:
+    try:
+        if "classic_system_meta" not in classic._tables(conn):
+            return False
+        return bool(
+            conn.execute(
+                "SELECT 1 FROM classic_system_meta WHERE key=? LIMIT 1",
+                (RESET_KEY,),
+            ).fetchone()
+        )
+    except Exception:
+        return False
+
+
 def _ensure_with_ownership_guard(conn: sqlite3.Connection) -> None:
     # Algunas acciones llaman ensure_schema dentro de BEGIN IMMEDIATE. En ese
     # caso participamos de la transacción sin hacer commit. Fuera de una
@@ -162,6 +183,17 @@ def _ensure_with_ownership_guard(conn: sqlite3.Connection) -> None:
 
 
 def _public_payload_with_guard(conn: sqlite3.Connection, club: str):
+    # Los perfiles públicos se sirven desde una conexión SQLite query_only. No
+    # intentamos migrar ni limpiar ahí: ocultamos cualquier estado viejo/inválido
+    # y dejamos la escritura para la conexión operativa del API/bot.
+    if _is_query_only(conn):
+        if not _reset_already_applied_readonly(conn):
+            return None
+        pair = classic._active_pair(conn, club)
+        if not pair or not _pair_owners_still_match(conn, pair):
+            return None
+        return _ORIGINAL_PUBLIC_PAYLOAD(conn, club)
+
     _ensure_with_ownership_guard(conn)
     return _ORIGINAL_PUBLIC_PAYLOAD(conn, club)
 
