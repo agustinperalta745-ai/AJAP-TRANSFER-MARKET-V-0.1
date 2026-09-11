@@ -1,0 +1,121 @@
+name: Apply Latest Honours Home
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-latest-honours-home.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Wire latest honours backend and build pipelines
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new, marker):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if marker in text:
+                  print(f'{path}: already wired')
+                  return
+              if old not in text:
+                  raise SystemExit(f'{path}: anchor not found for {marker}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+              print(f'{path}: wired {marker}')
+
+          replace_once(
+              'bot_mobile.py',
+              'import mobile_classic_rival_api_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
+              'import mobile_classic_rival_api_patch  # noqa: E402\nimport mobile_latest_honours_api_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
+              'import mobile_latest_honours_api_patch',
+          )
+          replace_once(
+              'bot_mobile.py',
+              'mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
+              'mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()\nmobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
+              'mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()',
+          )
+
+          replace_once(
+              '.github/workflows/mobile-ota-update.yml',
+              '      - name: TypeScript check\n        run: npx tsc --noEmit',
+              '      - name: Apply compact latest honours home\n        run: node scripts/apply-latest-honours-home.mjs\n\n      - name: TypeScript check\n        run: npx tsc --noEmit',
+              'Apply compact latest honours home',
+          )
+          replace_once(
+              '.github/workflows/mobile-preview-apk.yml',
+              '      - name: TypeScript check\n        run: npx tsc --noEmit',
+              '      - name: Apply compact latest honours home\n        run: node scripts/apply-latest-honours-home.mjs\n\n      - name: TypeScript check\n        run: npx tsc --noEmit',
+              'Apply compact latest honours home',
+          )
+
+          p = Path('.github/workflows/mobile-read-api-test.yml')
+          text = p.read_text(encoding='utf-8')
+          if "      - 'mobile_latest_honours_api_patch.py'" not in text:
+              anchor = "      - 'mobile_classic_rival_api_patch.py'\n"
+              if anchor not in text:
+                  raise SystemExit('mobile-read-api-test.yml: path anchor missing')
+              text = text.replace(anchor, anchor + "      - 'mobile_latest_honours_api_patch.py'\n")
+          compile_anchor = 'mobile_classic_rival_api_patch.py classic_rival_ownership_reset_patch.py'
+          if 'mobile_classic_rival_api_patch.py mobile_latest_honours_api_patch.py classic_rival_ownership_reset_patch.py' not in text:
+              if compile_anchor not in text:
+                  raise SystemExit('mobile-read-api-test.yml: compile anchor missing')
+              text = text.replace(
+                  compile_anchor,
+                  'mobile_classic_rival_api_patch.py mobile_latest_honours_api_patch.py classic_rival_ownership_reset_patch.py',
+              )
+          p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Apply compact home UI to source
+        run: |
+          cd mobile
+          node scripts/apply-latest-honours-home.mjs
+
+      - name: Validate backend syntax
+        run: python -m py_compile mobile_latest_honours_api_patch.py bot_mobile.py
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install
+
+      - name: TypeScript check
+        working-directory: mobile
+        run: npx tsc --noEmit
+
+      - name: Validate source diff
+        run: git diff --check
+
+      - name: Trigger OTA and commit
+        run: |
+          printf 'latest-honours-home-%s\n' "$(date -u +%Y%m%dT%H%M%SZ)" > .ota-trigger
+          git config user.name "AJPA Feature Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            bot_mobile.py \
+            mobile/src/api.ts \
+            mobile/src/BotParityAppV2.tsx \
+            mobile/scripts/apply-latest-honours-home.mjs \
+            .github/workflows/mobile-ota-update.yml \
+            .github/workflows/mobile-preview-apk.yml \
+            .github/workflows/mobile-read-api-test.yml \
+            .ota-trigger
+          if git diff --cached --quiet; then
+            echo "Latest honours feature already applied."
+            exit 0
+          fi
+          git commit -m "feat: show latest AJPA honours on mobile home"
+          git push origin HEAD:main
