@@ -153,6 +153,8 @@ apply_patch()
 # Install the Radio Pasillo bridge before run_bot builds the persistent market
 # runtime. It reacts only to real manual market_state transitions.
 import radio_market_status_patch  # noqa: E402,F401
+# Materialize the exact transparent artworks supplied by Staff.
+import radio_market_status_assets_patch  # noqa: E402,F401
 
 # Keep the countdown layer after the cycle UI wrapper. Market controls remain
 # owned by the normal Staff market panel and are never derived from the stage.
