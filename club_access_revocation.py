@@ -22,6 +22,12 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
     )
 
 
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    if not _table_exists(conn, table):
+        return set()
+    return {str(row[1]) for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()}
+
+
 def ensure_assignment_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
@@ -90,7 +96,7 @@ def _candidate_club(conn: sqlite3.Connection, user_id: int) -> str | None:
             (int(user_id),),
         ).fetchone()
         if row and bool(row["active"]):
-            club = str(row["club"] or "").strip()
+            club = str(row["club"] or "").strip() or None
             if club:
                 return club
 
@@ -108,41 +114,101 @@ def _candidate_club(conn: sqlite3.Connection, user_id: int) -> str | None:
             "ASIGNADO",
             "ASIGNADO_VACANTE_ADMIN",
         }:
-            club = str(row["club"] or "").strip()
+            club = str(row["club"] or "").strip() or None
             if club:
                 return club
     return None
 
 
-def revoke_mobile_access(conn: sqlite3.Connection, user_id: int) -> dict:
-    """Revoke every paired APK session and every still-usable pairing code."""
+def revoke_mobile_access(
+    conn: sqlite3.Connection,
+    user_id: int,
+    *,
+    preserve_staff: bool = True,
+) -> dict:
+    """Revoke DT Mobile credentials while optionally preserving Staff access.
+
+    Club unassignment must remove a normal manager's app access, but a Staff/admin
+    account is allowed to use AJPA Mobile without owning a club. Discord departure
+    passes ``preserve_staff=False`` so leaving the guild still revokes everything.
+    """
     now = int(time.time())
     sessions = 0
     pair_codes = 0
+    staff_sessions_preserved = 0
+    staff_pair_codes_preserved = 0
 
     if _table_exists(conn, "mobile_sessions"):
-        cur = conn.execute(
-            """
-            UPDATE mobile_sessions
-            SET revoked_at=?
-            WHERE user_id=? AND revoked_at IS NULL
-            """,
-            (now, int(user_id)),
-        )
+        has_staff = "is_staff" in _columns(conn, "mobile_sessions")
+        if preserve_staff and has_staff:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM mobile_sessions
+                WHERE user_id=? AND revoked_at IS NULL AND COALESCE(is_staff, 0)=1
+                """,
+                (int(user_id),),
+            ).fetchone()
+            staff_sessions_preserved = int(row["n"] if row else 0)
+            cur = conn.execute(
+                """
+                UPDATE mobile_sessions
+                SET revoked_at=?
+                WHERE user_id=? AND revoked_at IS NULL AND COALESCE(is_staff, 0)=0
+                """,
+                (now, int(user_id)),
+            )
+        else:
+            cur = conn.execute(
+                """
+                UPDATE mobile_sessions
+                SET revoked_at=?
+                WHERE user_id=? AND revoked_at IS NULL
+                """,
+                (now, int(user_id)),
+            )
         sessions = max(0, int(cur.rowcount or 0))
 
     if _table_exists(conn, "mobile_pair_codes"):
-        cur = conn.execute(
-            """
-            UPDATE mobile_pair_codes
-            SET used_at=COALESCE(used_at, ?)
-            WHERE user_id=? AND used_at IS NULL
-            """,
-            (now, int(user_id)),
-        )
+        has_staff = "is_staff" in _columns(conn, "mobile_pair_codes")
+        if preserve_staff and has_staff:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS n
+                FROM mobile_pair_codes
+                WHERE user_id=? AND used_at IS NULL AND COALESCE(is_staff, 0)=1
+                """,
+                (int(user_id),),
+            ).fetchone()
+            staff_pair_codes_preserved = int(row["n"] if row else 0)
+            cur = conn.execute(
+                """
+                UPDATE mobile_pair_codes
+                SET used_at=COALESCE(used_at, ?)
+                WHERE user_id=? AND used_at IS NULL AND COALESCE(is_staff, 0)=0
+                """,
+                (now, int(user_id)),
+            )
+        else:
+            cur = conn.execute(
+                """
+                UPDATE mobile_pair_codes
+                SET used_at=COALESCE(used_at, ?)
+                WHERE user_id=? AND used_at IS NULL
+                """,
+                (now, int(user_id)),
+            )
         pair_codes = max(0, int(cur.rowcount or 0))
 
-    return {"sessions_revoked": sessions, "pair_codes_revoked": pair_codes}
+    return {
+        "sessions_revoked": sessions,
+        "pair_codes_revoked": pair_codes,
+        "staff_sessions_preserved": staff_sessions_preserved,
+        "staff_pair_codes_preserved": staff_pair_codes_preserved,
+        "staff_access_preserved": bool(
+            staff_sessions_preserved or staff_pair_codes_preserved
+        ),
+    }
 
 
 def unassign_user_in_conn(
@@ -153,7 +219,11 @@ def unassign_user_in_conn(
     source: str = "ADMIN",
     queue_discord: bool = False,
 ) -> dict:
-    """Free the club, make the inactive history authoritative and revoke the app.
+    """Free the club and make the inactive history authoritative.
+
+    Normal DT Mobile credentials are revoked. Staff credentials remain valid when
+    only the club assignment is removed, because Staff can use the app without a
+    club. A real Discord departure revokes every credential.
 
     The operation is idempotent. The caller owns commit/rollback.
     """
@@ -164,9 +234,13 @@ def unassign_user_in_conn(
     ensure_assignment_schema(conn)
     club = _candidate_club(conn, user_id)
 
-    # Always revoke Mobile access even if a previous partial cleanup already
-    # removed the live clubs row.
-    mobile = revoke_mobile_access(conn, user_id)
+    # Removing a club must not lock Staff out of AJPA Mobile. A real guild
+    # departure is different: it invalidates both DT and Staff credentials.
+    mobile = revoke_mobile_access(
+        conn,
+        user_id,
+        preserve_staff=not source.startswith("DISCORD_LEFT"),
+    )
 
     if not club:
         conn.execute("DELETE FROM clubs WHERE user_id=?", (user_id,))
