@@ -10,6 +10,7 @@ import brand_identity_patch  # noqa: F401
 import mobile_write_api
 import classic_rival_discord_patch
 import classic_rival_myclub_button_patch
+import classic_rival_ownership_reset_patch
 import ges_authoritative_snapshot_patch
 import ges_new_result_cards_patch
 import my_club_menu_patch as my_club
@@ -77,6 +78,10 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
                 "⚠️ No pude generar el código de la app. Intentá nuevamente.",
                 ephemeral=True,
             )
+
+    # Instala la misma limpieza/validación antes de montar la interfaz Discord.
+    # Es idempotente: si el proceso Mobile ya la aplicó, no vuelve a tocar nada.
+    classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()
 
     # Mounted after guild isolation and after bot.py imported the final MI CLUB
     # Treasury layer. This keeps Discord and Mobile on the same classic tables and
