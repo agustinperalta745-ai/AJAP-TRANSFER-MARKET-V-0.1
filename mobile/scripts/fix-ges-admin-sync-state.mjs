@@ -3,6 +3,17 @@ import fs from 'node:fs';
 const file = 'src/CompetitionCycleAdminFab.tsx';
 let source = fs.readFileSync(file, 'utf8');
 
+// El Panel Maestro nuevo ya maneja el estado guardado de GES directamente.
+// Este parche existe sólo para la pantalla administrativa anterior; si detectamos
+// la nueva interfaz no debemos intentar reescribir anclas legacy.
+if (
+  source.includes('PANEL MAESTRO · STAFF') &&
+  source.includes("const gesStatus = gesConfig?.configured ? 'CONFIGURADA' : 'NO CONFIGURADA';")
+) {
+  console.log('AJPA Mobile: Panel Maestro detectado; fix GES legacy no requerido');
+  process.exit(0);
+}
+
 function replaceOnce(before, after, label) {
   if (!source.includes(before)) {
     throw new Error(`GES admin OTA patch: no se encontró ${label}`);
