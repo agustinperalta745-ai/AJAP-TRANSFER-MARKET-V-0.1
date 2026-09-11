@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 from http import HTTPStatus
 from urllib.parse import urlparse
 
@@ -47,11 +48,11 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
     if user_id is None:
         return "Sin DT asignado"
 
-    # Prefer the real Discord username, not the server display nickname.
+    # Prefer the real Discord username, not the server display nickname. Never
+    # import run_bot here: an API read must not be able to start Discord as a side effect.
     try:
-        import run_bot
-
-        runtime = getattr(run_bot, "runtime", None)
+        run_bot = sys.modules.get("run_bot")
+        runtime = getattr(run_bot, "runtime", None) if run_bot else None
         bot = getattr(runtime, "bot", None)
         raw_guild = (
             os.getenv("AJPA_MOBILE_GUILD_ID")
