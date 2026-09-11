@@ -71,12 +71,26 @@ def _legacy_list(raw) -> list[dict]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
+def _clean_discord_name(value, club: str) -> str | None:
+    """Return a human Discord name and never expose a raw snowflake/user id."""
+    label = str(value or "").strip()
+    if not label:
+        return None
+    suffix = f" | {club}"
+    if label.casefold().endswith(suffix.casefold()):
+        label = label[: -len(suffix)].rstrip()
+    if not label or label.isdigit():
+        return None
+    return label
+
+
 def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) -> str:
     if user_id is None:
         return "Sin DT asignado"
 
-    # Prefer the real Discord username, not the server display nickname. Never
-    # import run_bot here: an API read must not be able to start Discord as a side effect.
+    # The mobile label must contain a Discord name, never the numeric Discord ID.
+    # Prefer the visible server name, then global/username. Avoid importing
+    # run_bot here because an API read must not be able to start Discord.
     try:
         run_bot = sys.modules.get("run_bot")
         runtime = getattr(run_bot, "runtime", None) if run_bot else None
@@ -89,26 +103,40 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
         guild = bot.get_guild(int(raw_guild)) if bot and raw_guild else None
         member = guild.get_member(int(user_id)) if guild else None
         if member:
-            username = str(getattr(member, "name", "") or "").strip()
-            if username:
-                return username
+            for candidate in (
+                getattr(member, "display_name", None),
+                getattr(member, "global_name", None),
+                getattr(member, "name", None),
+            ):
+                username = _clean_discord_name(candidate, club)
+                if username:
+                    return username
+
+        # The user cache can still resolve a real Discord username when member
+        # cache is unavailable for the configured guild.
+        cached_user = bot.get_user(int(user_id)) if bot else None
+        if cached_user:
+            for candidate in (
+                getattr(cached_user, "global_name", None),
+                getattr(cached_user, "name", None),
+            ):
+                username = _clean_discord_name(candidate, club)
+                if username:
+                    return username
     except Exception:
         pass
 
     # Fallback for a historical DT who may no longer be cached in Discord.
     try:
         stored = profiles._stored_discord_name(conn, int(user_id))
-        if stored:
-            suffix = f" | {club}"
-            label = str(stored).strip()
-            if label.casefold().endswith(suffix.casefold()):
-                label = label[: -len(suffix)].rstrip()
-            if label:
-                return label
+        username = _clean_discord_name(stored, club)
+        if username:
+            return username
     except Exception:
         pass
 
-    return f"Discord · {int(user_id)}"
+    # Never leak the Discord snowflake as if it were the DT's name.
+    return "Nombre de Discord no disponible"
 
 
 def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> dict:
