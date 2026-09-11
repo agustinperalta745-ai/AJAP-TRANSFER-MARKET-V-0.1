@@ -15,11 +15,16 @@ replaceOnce(
   'tipos de Clausulazo',
 );
 
-replaceOnce(
-  `  acceptOffer,\n  fetchAdminAssignments,`,
-  `  acceptOffer,\n  executeClausulazo,\n  fetchAdminAssignments,\n  fetchClausulazo,`,
-  'API de Clausulazo',
-);
+// Keep this anchor independent from the read-function ordering. Other features
+// (for example the compact latest-honours feed) may insert their own fetch call
+// between acceptOffer and fetchAdminAssignments before the OTA composition runs.
+if (!(ui.includes('  executeClausulazo,\n') && ui.includes('  fetchClausulazo,\n'))) {
+  replaceOnce(
+    `  acceptOffer,\n`,
+    `  acceptOffer,\n  executeClausulazo,\n  fetchClausulazo,\n`,
+    'API de Clausulazo',
+  );
+}
 
 replaceOnce(
   `  const [assignments, setAssignments] = useState<AdminAssignment[]>([]);\n  const [loading, setLoading] = useState(true);`,
@@ -158,7 +163,9 @@ const screen = String.raw`  const clausulazoScreen = (
   );
 
 `;
-ui = ui.replace(marker, screen + marker);
+if (!ui.includes('  const clausulazoScreen = (')) {
+  ui = ui.replace(marker, screen + marker);
+}
 
 replaceOnce(
   `  else if (screen === 'clausulazo') body = placeholder('Clausulazo', 'Ejecución de cláusula de rescisión con las reglas del bot.');`,
