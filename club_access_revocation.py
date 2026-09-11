@@ -130,28 +130,34 @@ def _detach_classic_state(
 
     This runs in the same transaction as unassignment, so a club can never be
     left ownerless while an old classic remains active. League match results are
-    intentionally untouched.
+    intentionally untouched. Counterpart clubs are never treated as affected
+    merely because they had a request with this DT.
     """
     affected: set[str] = set()
     if club:
         affected.add(str(club).strip())
 
+    # If the live club row was already removed by an older/partial cleanup,
+    # recover only the club side that belonged to this user. Do not add the
+    # counterpart club, or an unrelated request/classic of that DT could be lost.
     if _table_exists(conn, "classic_rival_requests"):
         rows = conn.execute(
             """
-            SELECT requester_club, target_club
+            SELECT requester_club, target_club, requester_user_id, target_user_id
             FROM classic_rival_requests
             WHERE requester_user_id=? OR target_user_id=?
             """,
             (int(user_id), int(user_id)),
         ).fetchall()
         for row in rows:
-            requester = str(row["requester_club"] or "").strip()
-            target = str(row["target_club"] or "").strip()
-            if requester:
-                affected.add(requester)
-            if target:
-                affected.add(target)
+            if int(row["requester_user_id"]) == int(user_id):
+                requester = str(row["requester_club"] or "").strip()
+                if requester:
+                    affected.add(requester)
+            if int(row["target_user_id"]) == int(user_id):
+                target = str(row["target_club"] or "").strip()
+                if target:
+                    affected.add(target)
 
     requests_cancelled = 0
     classic_ids: list[int] = []
