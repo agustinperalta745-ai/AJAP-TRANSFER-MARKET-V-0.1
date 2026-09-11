@@ -20,7 +20,9 @@ import os
 import sqlite3
 import sys
 from http import HTTPStatus
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 import mobile_club_profiles_api_patch as profiles
 import mobile_read_api
@@ -84,13 +86,55 @@ def _clean_discord_name(value, club: str) -> str | None:
     return label
 
 
+def _discord_rest_name(user_id: int, club: str) -> str | None:
+    """Resolve a member name even when discord.py's member cache is unavailable."""
+    raw_guild = (
+        os.getenv("AJPA_MOBILE_GUILD_ID")
+        or os.getenv("DISCORD_GUILD_ID")
+        or ""
+    ).strip()
+    token = (
+        os.getenv("DISCORD_TOKEN")
+        or os.getenv("BOT_TOKEN")
+        or os.getenv("DISCORD_BOT_TOKEN")
+        or os.getenv("TOKEN")
+        or ""
+    ).strip()
+    if not raw_guild or not token:
+        return None
+
+    request = Request(
+        f"https://discord.com/api/v10/guilds/{int(raw_guild)}/members/{int(user_id)}",
+        headers={
+            "Authorization": f"Bot {token}",
+            "User-Agent": "AJPA-Mobile/1.0",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=4) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, ValueError, OSError):
+        return None
+
+    user = payload.get("user") if isinstance(payload, dict) else None
+    user = user if isinstance(user, dict) else {}
+    for candidate in (
+        payload.get("nick") if isinstance(payload, dict) else None,
+        user.get("global_name"),
+        user.get("username"),
+    ):
+        username = _clean_discord_name(candidate, club)
+        if username:
+            return username
+    return None
+
+
 def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) -> str:
     if user_id is None:
         return "Sin DT asignado"
 
-    # The mobile label must contain a Discord name, never the numeric Discord ID.
-    # Prefer the visible server name, then global/username. Avoid importing
-    # run_bot here because an API read must not be able to start Discord.
+    # Prefer the local Discord cache when available.
     try:
         run_bot = sys.modules.get("run_bot")
         runtime = getattr(run_bot, "runtime", None) if run_bot else None
@@ -112,8 +156,6 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
                 if username:
                     return username
 
-        # The user cache can still resolve a real Discord username when member
-        # cache is unavailable for the configured guild.
         cached_user = bot.get_user(int(user_id)) if bot else None
         if cached_user:
             for candidate in (
@@ -126,7 +168,13 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
     except Exception:
         pass
 
-    # Fallback for a historical DT who may no longer be cached in Discord.
+    # The mobile HTTP server can start before Discord's member cache is ready.
+    # Resolve the member directly from Discord so the app still shows the real DT.
+    live_name = _discord_rest_name(int(user_id), club)
+    if live_name:
+        return live_name
+
+    # Historical fallback stored by the nickname system.
     try:
         stored = profiles._stored_discord_name(conn, int(user_id))
         username = _clean_discord_name(stored, club)
@@ -135,7 +183,6 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
     except Exception:
         pass
 
-    # Never leak the Discord snowflake as if it were the DT's name.
     return "Nombre de Discord no disponible"
 
 
@@ -160,8 +207,6 @@ def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> d
             if str(row["action"] or "").strip().upper() in _ACTIVE_ASSIGNMENT_ACTIONS:
                 user_id = int(row["user_id"])
 
-    # Old databases may not have a usable assignment-history row. Only in that
-    # case use today's owner; never replace a known historical vacancy/change.
     if not history_found and user_id is None:
         owner = profiles._owner_row(conn, club)
         if owner and owner["user_id"] is not None:
@@ -180,7 +225,6 @@ def _latest_finished(conn: sqlite3.Connection, kinds: tuple[str, ...]):
     lowered = tuple(str(kind).lower() for kind in kinds)
     placeholders = ",".join("?" for _ in lowered)
 
-    # Current AJPA schema (competition_cycle.py).
     if {"label", "season_number", "ended_at", "final_snapshot_json"}.issubset(cols):
         return conn.execute(
             f"""
@@ -193,7 +237,6 @@ def _latest_finished(conn: sqlite3.Connection, kinds: tuple[str, ...]):
             lowered,
         ).fetchone()
 
-    # Compatibility with the short-lived legacy honours schema.
     if {"name", "sequence", "closed_at", "standings_snapshot", "scorers_snapshot"}.issubset(cols):
         return conn.execute(
             f"""
@@ -232,7 +275,6 @@ def _champion_payload(conn: sqlite3.Connection, edition) -> dict | None:
     competition, closed_at, standings, _ = _edition_data(edition)
     if not standings:
         return None
-    # Current snapshots are already sorted, but position=1 wins if present.
     first = next((row for row in standings if int(row.get("position") or 0) == 1), standings[0])
     team = str(first.get("team") or "").strip()
     if not team:
@@ -272,9 +314,6 @@ def _scorer_payload(conn: sqlite3.Connection, edition) -> dict | None:
 
 
 def latest_honours_payload(conn: sqlite3.Connection) -> dict:
-    # Always show the last COMPLETED league-like competition. Therefore while
-    # Temporada 1 is active this is Pretemporada; during Temporada 2 it is
-    # Temporada 1; during Temporada 3 it is Temporada 2, etc.
     latest_league = _latest_finished(conn, ("season", "preseason"))
     latest_cup = _latest_finished(conn, ("cup",))
     return {
