@@ -38,14 +38,14 @@ jobs:
 
           replace_once(
               'bot_mobile.py',
-              'import mobile_classic_rival_api_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
-              'import mobile_classic_rival_api_patch  # noqa: E402\nimport mobile_latest_honours_api_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
+              'import classic_rival_ownership_reset_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
+              'import classic_rival_ownership_reset_patch  # noqa: E402\nimport mobile_latest_honours_api_patch  # noqa: E402\nimport mobile_match_search_patch  # noqa: E402',
               'import mobile_latest_honours_api_patch',
           )
           replace_once(
               'bot_mobile.py',
-              'mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
-              'mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()\nmobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
+              'classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
+              'classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()\nmobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()\nmobile_match_search_patch.apply_mobile_match_search_patch()',
               'mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()',
           )
 
