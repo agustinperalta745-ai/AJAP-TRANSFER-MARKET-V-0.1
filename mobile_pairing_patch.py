@@ -13,6 +13,7 @@ import classic_rival_myclub_button_patch
 import classic_rival_ownership_reset_patch
 import ges_authoritative_snapshot_patch
 import ges_new_result_cards_patch
+import mobile_manager_names_patch
 import my_club_menu_patch as my_club
 
 
@@ -92,6 +93,9 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     # GES is the absolute source of truth for the active competition. Mount this
     # after the Mobile/league patch chain so its snapshot reader is the final one.
     ges_authoritative_snapshot_patch.apply_authoritative_ges_snapshot(runtime, bot)
+    # Manager names decorate the final GES standings, so they must mount after
+    # the authoritative snapshot reader instead of duplicating standings logic.
+    mobile_manager_names_patch.apply_mobile_manager_names_patch(runtime, bot)
     # After the authoritative reader is installed, detect fixtures that were not
     # present before this sync and publish only those with the existing result card.
     ges_new_result_cards_patch.apply_ges_new_result_cards(runtime, bot)
