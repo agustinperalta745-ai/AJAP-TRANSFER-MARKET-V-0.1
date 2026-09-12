@@ -48,6 +48,7 @@ import mobile_resignation_api_patch  # noqa: E402
 import mobile_ota_api_patch  # noqa: E402
 import mobile_results_background_api_patch  # noqa: E402
 import mobile_player_stats_api_patch  # noqa: E402
+import mobile_cup_tournaments_api_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
@@ -86,6 +87,9 @@ mobile_results_background_api_patch.apply_mobile_results_background_api_patch()
 # Read-only PES6 player details are installed after every other GET wrapper so
 # the new endpoint cannot disturb the existing Liga/Staff/mobile routes.
 mobile_player_stats_api_patch.apply_mobile_player_stats_api_patch()
+# Champions + Europa is installed before the transport tunnel so every Staff
+# mutation remains reachable from Android over the proven GET transport.
+mobile_cup_tournaments_api_patch.apply_mobile_cup_tournaments_api_patch()
 # Transport stays last so its GET tunnel captures every authenticated mutation.
 mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
