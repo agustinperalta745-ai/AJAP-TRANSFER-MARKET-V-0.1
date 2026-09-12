@@ -84,3 +84,5 @@ console.log('Club profiles and player cards now use their current club theme; ba
 await import('./apply-league-team-card-colors.mjs');
 // Las zonas clasificatorias se agregan después de construir la tabla real.
 await import('./apply-league-qualification-zones.mjs');
+// El DT va entre el nombre del equipo y la clasificación ya terminada.
+await import('./apply-league-manager-names.mjs');
