@@ -7,6 +7,7 @@ after guild isolation, Liga and the competition schema are all ready.
 """
 
 import competition_cycle
+from ges_config_mobile_transport_fix import apply_final_ges_mobile_mutation_tunnel
 from league_ges_manual_sync_patch import apply_manual_ges_sync
 from season_ges_authority_patch import apply_season_ges_authority
 
@@ -19,9 +20,13 @@ if not getattr(competition_cycle, "_ajpa_ges_startup_bridge_installed", False):
         # Install the authenticated /admin/ges-sync endpoint and capture the
         # running Discord event loop on_ready.
         apply_manual_ges_sync(runtime, bot)
-        # Must be last: each competition owns its GES links and this replaces
-        # sync_from_ges with the season-aware authoritative implementation.
+        # Each competition owns its GES links and this replaces sync_from_ges
+        # with the season-aware authoritative implementation.
         apply_season_ges_authority(runtime, bot)
+        # GES authority installs a late GET /ges-config handler. Re-assert the
+        # Android mutation tunnel afterwards so GUARDAR ENLACES reaches POST
+        # instead of being mistaken for another GET.
+        apply_final_ges_mobile_mutation_tunnel()
 
     competition_cycle.apply_competition_cycle = _apply_cycle_with_ges
     competition_cycle._ajpa_ges_startup_bridge_installed = True
