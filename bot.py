@@ -219,6 +219,9 @@ import league_result_message_sync_patch  # noqa: F401,E402
 # Goleadores en Radio Pasillo: manda ahora una foto real del Top 5 y, después,
 # vuelve a publicar solo cuando un goleador ya ubicado 1.º-5.º supera a otro.
 import league_top5_scorers_radio_patch  # noqa: F401,E402
+# Temporada 1: al quedar tres fechas o menos, Radio Pasillo activa automáticamente
+# La Recta Final y publica una sola previa por fecha usando el estado oficial de GES.
+import radio_pasillo_final_stretch_patch  # noqa: F401,E402
 
 # Periodic Radio Pasillo reminders: every two hours, rotate a short DT-facing
 # feature tip. The AJPA Mobile download ad joins the rotation once its real URL
@@ -230,6 +233,6 @@ import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-04T-pes6-alias-resolver-v2"
+AJAP_RESTART_MARKER = "2026-09-11T-final-stretch-t1-v1"
 
 import run_bot  # noqa: F401,E402
