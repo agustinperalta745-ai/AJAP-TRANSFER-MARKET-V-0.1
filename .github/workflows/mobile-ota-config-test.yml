@@ -77,10 +77,11 @@ jobs:
           node scripts/apply-profile-team-badges.mjs
           node scripts/apply-team-card-gradients.mjs
           node scripts/apply-club-player-card-colors.mjs
-          grep -q "league-team-card-colors applied" src/BotParityAppV2.tsx
-          grep -q "<TeamCardBackdrop club={row.team} />" src/BotParityAppV2.tsx
-          grep -q "<ClubBadge club={row.team} size={46}" src/BotParityAppV2.tsx
-          echo 'AJPA OTA visual pipeline OK: Liga tematizada con assets aprobados.'
+          grep -q "league-real-table applied" src/BotParityAppV2.tsx
+          grep -q "s.leagueTableHeader" src/BotParityAppV2.tsx
+          grep -q "<ClubBadge club={row.team} size={26}" src/BotParityAppV2.tsx
+          grep -q ">PTS</Text>" src/BotParityAppV2.tsx
+          echo 'AJPA OTA visual pipeline OK: Liga usa tabla real con escudos aprobados.'
 
       - name: Check OTA publisher syntax
         run: node --check scripts/build-ota-manifest.mjs
@@ -112,7 +113,7 @@ jobs:
       - name: Verify expo-updates native wiring
         run: |
           grep -R "expo.modules.updates.EXPO_UPDATE_URL" android/app/src/main/AndroidManifest.xml
-          grep -R "expo.modules.updates.EXPO_RUNTIME_VERSION" android/app/src/main/AndroidManifest.xml
+          grep -R "expo.modules.updates.EXPO_RUNTIME_VERSION" android/app/src/main/res android/app/src/main/AndroidManifest.xml
           grep -R "api/v1/ota/manifest" android/app/src/main/res android/app/src/main/AndroidManifest.xml
           grep -R ">1<" android/app/src/main/res/values || true
           echo "AJPA expo-updates quedó conectado al binario Android."
