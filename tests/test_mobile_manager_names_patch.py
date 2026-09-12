@@ -16,6 +16,14 @@ class _Member:
         self.name = display_name
 
 
+class _User:
+    def __init__(self, user_id: int, username: str, global_name: str | None = None):
+        self.id = user_id
+        self.display_name = global_name or username
+        self.global_name = global_name
+        self.name = username
+
+
 class _Guild:
     def __init__(self, guild_id: int, members: list[_Member]):
         self.id = guild_id
@@ -32,12 +40,22 @@ class _Guild:
 
 
 class _Bot:
-    def __init__(self, guild: _Guild):
+    def __init__(self, guild: _Guild, users: list[_User] | None = None):
         self._guild = guild
         self.guilds = [guild]
+        self._users = {user.id: user for user in (users or [])}
 
     def get_guild(self, guild_id: int):
         return self._guild if int(guild_id) == self._guild.id else None
+
+    def get_user(self, user_id: int):
+        return self._users.get(int(user_id))
+
+    async def fetch_user(self, user_id: int):
+        user = self.get_user(user_id)
+        if user is None:
+            raise LookupError(user_id)
+        return user
 
 
 class MobileManagerNamesTests(unittest.IsolatedAsyncioTestCase):
@@ -111,6 +129,26 @@ class MobileManagerNamesTests(unittest.IsolatedAsyncioTestCase):
             "Tomi",
         )
         self.assertEqual(manager_map[managers._club_key("Ajax")]["manager_name"], "Santi")
+
+    async def test_missing_guild_member_uses_global_discord_user(self):
+        with sqlite3.connect(self.assignment_db) as conn:
+            conn.execute("INSERT INTO clubs(user_id,name) VALUES(?,?)", (40, "Fulham"))
+        self.bot = _Bot(self.guild, [_User(40, "fulham_dt", "FulhamManager")])
+
+        await managers._refresh_manager_names(self.runtime, self.bot)
+
+        conn = sqlite3.connect(self.mobile_db)
+        conn.row_factory = sqlite3.Row
+        try:
+            manager_map = managers._manager_map(conn)
+        finally:
+            conn.close()
+
+        self.assertEqual(
+            manager_map[managers._club_key("Fulham")]["manager_name"],
+            "FulhamManager",
+        )
+        self.assertNotIn("Usuario 40", manager_map[managers._club_key("Fulham")]["manager_name"])
 
     def test_known_ges_aliases_share_the_same_key(self):
         self.assertEqual(managers._club_key("PSG"), managers._club_key("Paris Saint-Germain"))
