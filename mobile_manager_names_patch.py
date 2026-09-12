@@ -25,6 +25,13 @@ CREATE TABLE IF NOT EXISTS mobile_manager_names (
 )
 """
 
+# Last-resort labels for current AJPA assignments whose Discord account cannot
+# be resolved live and that predate discord_nickname_state. Live/stored names
+# always win, so this only prevents a raw numeric id from leaking to the app.
+_LEGACY_MANAGER_FALLBACKS = {
+    "fulham": "CyclopsMVG",
+}
+
 
 def _ensure_table(conn) -> None:
     conn.execute(_TABLE_SQL)
@@ -118,9 +125,16 @@ def _usable_cached_name(value: str, user_id: int) -> str:
     name = str(value or "").strip()
     if not name:
         return ""
-    if name.casefold() == f"usuario {int(user_id)}".casefold():
+    lowered = name.casefold()
+    if lowered == f"usuario {int(user_id)}".casefold():
+        return ""
+    if name.isdigit() or lowered in {str(int(user_id)).casefold(), f"id {int(user_id)}".casefold()}:
         return ""
     return name
+
+
+def _legacy_manager_name(club: str) -> str:
+    return _LEGACY_MANAGER_FALLBACKS.get(_club_key(club), "")
 
 
 def _open_assignment_db(runtime, guild_id: int):
@@ -195,7 +209,7 @@ async def _resolve_manager_name(runtime, bot, guild, user_id: int, club: str) ->
 
     # Some assigned users are not returned by the guild member cache/fetch path.
     # Discord can still resolve their global account by user id, which is enough
-    # to show a human-readable DT name instead of "Usuario 123...".
+    # to show a human-readable DT name instead of a numeric identifier.
     user = None
     get_user = getattr(bot, "get_user", None)
     if callable(get_user):
@@ -218,43 +232,62 @@ async def _resolve_manager_name(runtime, bot, guild, user_id: int, club: str) ->
     return _stored_original_name(runtime, int(guild.id), user_id, club)
 
 
+def _cached_manager_rows() -> list[dict]:
+    """Take a short snapshot of the Mobile cache; never keep it open across awaits."""
+    with mobile_write_api.write_db() as conn:
+        _ensure_table(conn)
+        rows = conn.execute(
+            "SELECT club,user_id,manager_name FROM mobile_manager_names"
+        ).fetchall()
+        return [
+            {
+                "club": str(row["club"] or "").strip(),
+                "user_id": int(row["user_id"]) if row["user_id"] is not None else None,
+                "manager_name": str(row["manager_name"] or "").strip(),
+            }
+            for row in rows
+        ]
+
+
 async def _refresh_manager_names(runtime, bot) -> None:
     guild = _target_guild(bot)
     if guild is None:
         return
 
-    # Read assignments from the same guild DB used by Discord interactions.
+    # Read both SQLite sources first and CLOSE them before any Discord await.
+    # Holding a write connection while fetch_member/fetch_user waits on the
+    # network was the source of intermittent "database is locked" in Historial.
     assignments = _assignment_rows(runtime, int(guild.id))
+    cached_rows = _cached_manager_rows()
+    cached_by_key = {}
+    for row in cached_rows:
+        key = _club_key(row["club"])
+        if key:
+            cached_by_key[key] = row
 
-    # Write the lightweight public manager cache into the Mobile/GES DB consumed
-    # by /api/v1/league. These paths can legitimately differ.
+    # Resolve every Discord label with no Mobile/GES write connection open.
+    resolved: list[tuple[str, int, str]] = []
+    for club, user_id in assignments:
+        if not club:
+            continue
+
+        manager_name = await _resolve_manager_name(runtime, bot, guild, user_id, club)
+        previous = cached_by_key.get(_club_key(club))
+        if not manager_name and previous and previous.get("user_id") == user_id:
+            manager_name = _usable_cached_name(previous.get("manager_name"), user_id)
+        if not manager_name:
+            manager_name = _legacy_manager_name(club)
+        if not manager_name:
+            manager_name = f"DT de {club}"
+
+        resolved.append((club, user_id, manager_name))
+
+    # Only now take the Mobile write lock. This transaction contains no await or
+    # network operation and therefore releases SQLite immediately after updates.
+    active_raw_clubs = {club.casefold() for club, _, _ in resolved if club}
     with mobile_write_api.write_db() as conn:
         _ensure_table(conn)
-        cached_rows = conn.execute(
-            "SELECT club,user_id,manager_name FROM mobile_manager_names"
-        ).fetchall()
-        cached_by_key = {}
-        for row in cached_rows:
-            key = _club_key(str(row["club"] or ""))
-            if key:
-                cached_by_key[key] = {
-                    "user_id": int(row["user_id"]) if row["user_id"] is not None else None,
-                    "manager_name": str(row["manager_name"] or "").strip(),
-                }
-
-        active_raw_clubs: set[str] = set()
-        for club, user_id in assignments:
-            if not club:
-                continue
-            active_raw_clubs.add(club.casefold())
-
-            manager_name = await _resolve_manager_name(runtime, bot, guild, user_id, club)
-            previous = cached_by_key.get(_club_key(club))
-            if not manager_name and previous and previous.get("user_id") == user_id:
-                manager_name = _usable_cached_name(previous.get("manager_name"), user_id)
-            if not manager_name:
-                manager_name = f"Usuario {user_id}"
-
+        for club, user_id, manager_name in resolved:
             conn.execute(
                 """INSERT INTO mobile_manager_names(club,user_id,manager_name,updated_at)
                    VALUES(?,?,?,CURRENT_TIMESTAMP)
@@ -268,13 +301,12 @@ async def _refresh_manager_names(runtime, bot) -> None:
         # Remove only genuinely unassigned raw club rows. Alias matching happens
         # at read time, so we never need duplicate cache rows for PSG/Marsella/etc.
         for row in cached_rows:
-            raw = str(row["club"] or "").strip()
+            raw = row["club"]
             if raw and raw.casefold() not in active_raw_clubs:
                 conn.execute(
                     "DELETE FROM mobile_manager_names WHERE club=? COLLATE NOCASE",
                     (raw,),
                 )
-
         conn.commit()
 
 
@@ -326,8 +358,8 @@ def apply_mobile_manager_names_patch(runtime, bot) -> None:
         try:
             await _refresh_manager_names(runtime, bot)
             print(
-                "AJPA Mobile: nombres de DT sincronizados desde la DB real del servidor, "
-                "con fallback global de Discord y aliases de GES"
+                "AJPA Mobile: nombres de DT sincronizados sin retener locks de SQLite "
+                "durante llamadas a Discord"
             )
         except Exception as exc:
             print(f"AJPA Mobile manager names error: {type(exc).__name__}: {exc}")
