@@ -82,3 +82,5 @@ console.log('Club profiles and player cards now use their current club theme; ba
 
 // Liga se tematiza al final para reutilizar exactamente los mismos helpers y assets aprobados.
 await import('./apply-league-team-card-colors.mjs');
+// Las zonas clasificatorias se agregan después de construir la tabla real.
+await import('./apply-league-qualification-zones.mjs');
