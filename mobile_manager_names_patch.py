@@ -1,8 +1,16 @@
-"""Expose the currently assigned Discord manager under each AJPA league team."""
+"""Expose the currently assigned Discord manager under each AJPA league team.
+
+The standings payload lives in the Mobile/GES database, while Discord club
+assignments are guild-isolated.  Do not assume both reads point at the same
+SQLite connection: resolve the real assignment DB through ``runtime.db_for_guild``
+and copy only the public manager label into the Mobile cache used by standings.
+"""
 
 from __future__ import annotations
 
 import os
+import re
+import unicodedata
 
 import mobile_parity_api_patch as parity
 import mobile_write_api
@@ -35,11 +43,60 @@ def _target_guild(bot):
     return guilds[0] if guilds else None
 
 
+def _plain_club(value: str) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    text = re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+    return re.sub(r"\s+", " ", text)
+
+
+# GES, roster JSONs and historical Discord assignments do not always use the
+# exact same club spelling.  Normalize only known AJPA aliases; unknown clubs
+# still match naturally through the accent/punctuation-insensitive key above.
+_CLUB_ALIASES = {
+    "monaco": "as monaco",
+    "as monaco": "as monaco",
+    "atletico madrid": "atletico de madrid",
+    "atletico de madrid": "atletico de madrid",
+    "lyon": "olympique de lyon",
+    "olympique lyon": "olympique de lyon",
+    "olympique de lyon": "olympique de lyon",
+    "marsella": "olympique de marsella",
+    "marseille": "olympique de marsella",
+    "olympique marsella": "olympique de marsella",
+    "olympique de marsella": "olympique de marsella",
+    "olympique marseille": "olympique de marsella",
+    "olympique de marseille": "olympique de marsella",
+    "psg": "paris saint germain",
+    "paris sg": "paris saint germain",
+    "paris saint germain": "paris saint germain",
+    "betis": "real betis",
+    "real betis": "real betis",
+    "sevilla": "sevilla fc",
+    "sevilla fc": "sevilla fc",
+    "villarreal": "villarreal cf",
+    "villarreal cf": "villarreal cf",
+    "villareal": "villarreal cf",
+    "villareal cf": "villarreal cf",
+    "zaragoza": "real zaragoza",
+    "real zaragoza": "real zaragoza",
+    "middle": "middlesbrough",
+    "middlesbrough": "middlesbrough",
+}
+
+
+def _club_key(value: str) -> str:
+    plain = _plain_club(value)
+    return _CLUB_ALIASES.get(plain, plain)
+
+
 def _clean_name(member, club: str) -> str:
+    # Prefer the server display name because that is the identity Staff manages
+    # in AJPA.  Fall back to global/user name if no nickname is available.
     for raw in (
+        getattr(member, "display_name", None),
         getattr(member, "global_name", None),
         getattr(member, "name", None),
-        getattr(member, "display_name", None),
     ):
         value = str(raw or "").strip()
         if not value:
@@ -52,43 +109,62 @@ def _clean_name(member, club: str) -> str:
     return ""
 
 
-async def _refresh_manager_names(bot) -> None:
-    guild = _target_guild(bot)
-    if guild is None:
-        return
-
-    with mobile_write_api.write_db() as conn:
-        _ensure_table(conn)
+def _assignment_rows(runtime, guild_id: int):
+    """Read club ownership from Discord's authoritative guild-isolated DB."""
+    if hasattr(runtime, "db_for_guild"):
+        conn = runtime.db_for_guild(int(guild_id))
+    else:
+        # Compatibility fallback for old/single-guild deployments.
+        conn = mobile_write_api.write_db()
+    try:
         if "clubs" not in parity._tables(conn):
-            conn.commit()
-            return
-
-        club_columns = set(mobile_write_api._columns(conn, "clubs")) if hasattr(mobile_write_api, "_columns") else set()
-        if club_columns and not {"name", "user_id"}.issubset(club_columns):
-            conn.commit()
-            return
-
+            return []
+        columns = (
+            set(mobile_write_api._columns(conn, "clubs"))
+            if hasattr(mobile_write_api, "_columns")
+            else set()
+        )
+        if columns and not {"name", "user_id"}.issubset(columns):
+            return []
         rows = conn.execute(
             """SELECT name,user_id FROM clubs
                WHERE user_id IS NOT NULL AND TRIM(COALESCE(name,''))<>''
                ORDER BY name COLLATE NOCASE"""
         ).fetchall()
-        assigned_clubs = {str(row["name"] or "").strip().casefold() for row in rows}
+        return [(str(row["name"] or "").strip(), int(row["user_id"])) for row in rows]
+    finally:
+        conn.close()
 
+
+async def _refresh_manager_names(runtime, bot) -> None:
+    guild = _target_guild(bot)
+    if guild is None:
+        return
+
+    # Read assignments from the same guild DB used by Discord interactions.
+    assignments = _assignment_rows(runtime, int(guild.id))
+
+    # Write the lightweight public manager cache into the Mobile/GES DB consumed
+    # by /api/v1/league.  These paths can legitimately differ.
+    with mobile_write_api.write_db() as conn:
+        _ensure_table(conn)
         cached_rows = conn.execute(
             "SELECT club,user_id,manager_name FROM mobile_manager_names"
         ).fetchall()
-        cached = {
-            str(row["club"] or "").strip().casefold(): {
-                "user_id": int(row["user_id"]) if row["user_id"] is not None else None,
-                "manager_name": str(row["manager_name"] or "").strip(),
-            }
-            for row in cached_rows
-        }
+        cached_by_key = {}
+        for row in cached_rows:
+            key = _club_key(str(row["club"] or ""))
+            if key:
+                cached_by_key[key] = {
+                    "user_id": int(row["user_id"]) if row["user_id"] is not None else None,
+                    "manager_name": str(row["manager_name"] or "").strip(),
+                }
 
-        for row in rows:
-            club = str(row["name"] or "").strip()
-            user_id = int(row["user_id"])
+        active_raw_clubs: set[str] = set()
+        for club, user_id in assignments:
+            if not club:
+                continue
+            active_raw_clubs.add(club.casefold())
             member = guild.get_member(user_id)
             if member is None:
                 try:
@@ -97,7 +173,7 @@ async def _refresh_manager_names(bot) -> None:
                     member = None
 
             manager_name = _clean_name(member, club) if member is not None else ""
-            previous = cached.get(club.casefold())
+            previous = cached_by_key.get(_club_key(club))
             if not manager_name and previous and previous.get("user_id") == user_id:
                 manager_name = str(previous.get("manager_name") or "").strip()
             if not manager_name:
@@ -113,10 +189,15 @@ async def _refresh_manager_names(bot) -> None:
                 (club, user_id, manager_name),
             )
 
+        # Remove only genuinely unassigned raw club rows.  Alias matching happens
+        # at read time, so we never need duplicate cache rows for PSG/Marsella/etc.
         for row in cached_rows:
-            key = str(row["club"] or "").strip().casefold()
-            if key not in assigned_clubs:
-                conn.execute("DELETE FROM mobile_manager_names WHERE club=? COLLATE NOCASE", (str(row["club"]),))
+            raw = str(row["club"] or "").strip()
+            if raw and raw.casefold() not in active_raw_clubs:
+                conn.execute(
+                    "DELETE FROM mobile_manager_names WHERE club=? COLLATE NOCASE",
+                    (raw,),
+                )
 
         conn.commit()
 
@@ -127,14 +208,16 @@ def _manager_map(conn) -> dict[str, dict]:
     rows = conn.execute(
         "SELECT club,user_id,manager_name FROM mobile_manager_names"
     ).fetchall()
-    return {
-        str(row["club"] or "").strip().casefold(): {
+    result: dict[str, dict] = {}
+    for row in rows:
+        key = _club_key(str(row["club"] or ""))
+        if not key:
+            continue
+        result[key] = {
             "manager_name": str(row["manager_name"] or "").strip() or None,
             "manager_user_id": str(row["user_id"]) if row["user_id"] is not None else None,
         }
-        for row in rows
-        if str(row["club"] or "").strip()
-    }
+    return result
 
 
 def apply_mobile_manager_names_patch(runtime, bot) -> None:
@@ -153,7 +236,7 @@ def apply_mobile_manager_names_patch(runtime, bot) -> None:
             standings = []
             for item in payload.get("standings") or []:
                 row = dict(item)
-                info = managers.get(str(row.get("team") or "").strip().casefold())
+                info = managers.get(_club_key(str(row.get("team") or "")))
                 row["manager_name"] = info.get("manager_name") if info else None
                 row["manager_user_id"] = info.get("manager_user_id") if info else None
                 standings.append(row)
@@ -165,8 +248,11 @@ def apply_mobile_manager_names_patch(runtime, bot) -> None:
 
     async def refresh_manager_names_on_ready():
         try:
-            await _refresh_manager_names(bot)
-            print("AJPA Mobile: nombres de DT sincronizados con las asignaciones de Discord")
+            await _refresh_manager_names(runtime, bot)
+            print(
+                "AJPA Mobile: nombres de DT sincronizados desde la DB real del servidor "
+                "y cruzados con aliases de GES"
+            )
         except Exception as exc:
             print(f"AJPA Mobile manager names error: {type(exc).__name__}: {exc}")
 
