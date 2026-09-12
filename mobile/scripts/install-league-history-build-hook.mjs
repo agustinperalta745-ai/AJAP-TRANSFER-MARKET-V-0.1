@@ -52,5 +52,12 @@ const cyclePass = new URL('./fix-cycle-management-mobile.mjs', import.meta.url);
 let cycleSource = fs.readFileSync(cyclePass, 'utf8');
 if (!cycleSource.includes(honoursHook)) {
   cycleSource = `${cycleSource.trimEnd()}\n${honoursHook}\n`;
-  fs.writeFileSync(cyclePass, cycleSource);
 }
+
+// Player PES6 stats go last in the UI pipeline so approved card colors, badges
+// and layout stay untouched. The patch only adds the stats button to PlayerCard.
+const playerStatsHook = "await import('./apply-player-pes6-stats.mjs');";
+if (!cycleSource.includes(playerStatsHook)) {
+  cycleSource = `${cycleSource.trimEnd()}\n${playerStatsHook}\n`;
+}
+fs.writeFileSync(cyclePass, cycleSource);
