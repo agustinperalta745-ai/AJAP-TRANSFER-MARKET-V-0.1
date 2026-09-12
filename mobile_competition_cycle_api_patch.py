@@ -106,7 +106,7 @@ def _cycle_state_payload_readonly(conn):
 
 
 def _filtered_league_payload(conn, base_payload):
-    """Replace only active standings/scorers; keep all-time history/cards intact."""
+    """Expose standings, scorers and result cards only for the active competition."""
     # IMPORTANT: this function is called with readonly_db(). Never call
     # cycle.ensure_schema(), cycle.active_competition_id() or cycle.state_payload()
     # here because all three may CREATE/ALTER/UPDATE the SQLite database.
@@ -119,12 +119,15 @@ def _filtered_league_payload(conn, base_payload):
 
     match_columns = mobile_read_api._columns(conn, "league_matches")
     can_scope_matches = "competition_id" in match_columns
+    active_match_ids = None
     if cid is not None and can_scope_matches:
+        active_match_ids = set()
         rows = conn.execute(
-            "SELECT home_team,away_team,home_goals,away_goals FROM league_matches WHERE competition_id=? ORDER BY id",
+            "SELECT id,home_team,away_team,home_goals,away_goals FROM league_matches WHERE competition_id=? ORDER BY id",
             (int(cid),),
         ).fetchall()
         for row in rows:
+            active_match_ids.add(int(row["id"]))
             hn, an = str(row["home_team"] or "").strip(), str(row["away_team"] or "").strip()
             for name in (hn, an):
                 if name and name not in table:
@@ -173,6 +176,25 @@ def _filtered_league_payload(conn, base_payload):
     payload = dict(base_payload)
     payload["standings"] = standings
     payload["scorers"] = scorers
+
+    # Result cards are the live Results screen, not the historical archive.
+    # Keep preseason/previous-season rows in SQLite, but never leak them into
+    # the currently active competition response.
+    if active_match_ids is not None:
+        def _active_cards(items):
+            filtered = []
+            for item in items or []:
+                try:
+                    match_id = int(item.get("id"))
+                except (AttributeError, TypeError, ValueError):
+                    continue
+                if match_id in active_match_ids:
+                    filtered.append(item)
+            return filtered
+
+        payload["result_cards"] = _active_cards(base_payload.get("result_cards"))
+        payload["matches"] = _active_cards(base_payload.get("matches"))
+
     payload["cycle"] = _cycle_state_payload_readonly(conn)
     return payload
 
