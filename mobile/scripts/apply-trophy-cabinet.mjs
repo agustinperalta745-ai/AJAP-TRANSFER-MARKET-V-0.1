@@ -50,13 +50,16 @@ if (!source.includes("| 'trophyCabinet'")) {
   source = source.replace(anchor, "  | 'trophyCabinet'\n  | 'profile';");
 }
 
-if (!source.includes('title="VITRINA DE CAMPEONES"')) {
-  const ligaLine = source.match(/^[ \t]*<MenuTile[^\n]*title="LIGA"[^\n]*\/>$/m)?.[0];
-  if (!ligaLine) throw new Error('Trophy cabinet: main Liga menu anchor not found.');
-  const indent = ligaLine.match(/^[ \t]*/)?.[0] ?? '      ';
+if (!source.includes('title="Vitrina de campeones"')) {
+  const ligaLine = source.match(/^[ \t]*<FeatureTile[^\n]*title="Liga"[^\n]*\/>$/m)?.[0]
+    ?? source.match(/^[ \t]*<MenuTile[^\n]*title="LIGA"[^\n]*\/>$/m)?.[0]
+    ?? source.match(/^[ \t]*<WideTile[^\n]*title="Liga"[^\n]*\/>$/m)?.[0];
+  if (!ligaLine) throw new Error('Trophy cabinet: main Liga feature anchor not found.');
+  const indent = ligaLine.match(/^[ \t]*/)?.[0] ?? '        ';
+  const component = ligaLine.includes('<FeatureTile') ? 'FeatureTile' : ligaLine.includes('<WideTile') ? 'WideTile' : 'MenuTile';
   source = source.replace(
     ligaLine,
-    `${ligaLine}\n${indent}<MenuTile emoji="🏛️" title="VITRINA DE CAMPEONES" subtitle="Trofeos oficiales y palmarés histórico" onPress={() => openScreen('trophyCabinet')} />`,
+    `${ligaLine}\n${indent}<${component} emoji="🏛️" title="Vitrina de campeones" subtitle="Trofeos oficiales y palmarés histórico" onPress={() => openScreen('trophyCabinet')} />`,
   );
 }
 
@@ -69,7 +72,7 @@ if (!source.includes("screen === 'trophyCabinet'")) {
 
 if (!source.includes(importLine)
   || !source.includes("| 'trophyCabinet'")
-  || !source.includes('title="VITRINA DE CAMPEONES"')
+  || !source.includes('title="Vitrina de campeones"')
   || !source.includes("screen === 'trophyCabinet'")) {
   throw new Error('Trophy cabinet: final main-menu validation failed.');
 }
