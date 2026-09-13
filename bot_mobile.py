@@ -50,6 +50,7 @@ import mobile_results_background_api_patch  # noqa: E402
 import mobile_player_stats_api_patch  # noqa: E402
 import mobile_cup_tournaments_api_patch  # noqa: E402
 import mobile_cup_result_safety_patch  # noqa: E402
+import mobile_cup_admin_reset_finalize_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
@@ -92,6 +93,7 @@ mobile_player_stats_api_patch.apply_mobile_player_stats_api_patch()
 # mutation remains reachable from Android over the proven GET transport.
 mobile_cup_tournaments_api_patch.apply_mobile_cup_tournaments_api_patch()
 mobile_cup_result_safety_patch.apply_mobile_cup_result_safety_patch()
+mobile_cup_admin_reset_finalize_patch.apply_mobile_cup_admin_reset_finalize_patch()
 # Transport stays last so its GET tunnel captures every authenticated mutation.
 mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
