@@ -147,6 +147,9 @@ jobs:
       - name: Fix latest honours cards
         run: node scripts/fix-latest-honours-cards.mjs
 
+      - name: Keep AJPA trophy cabinet in final UI
+        run: node scripts/apply-trophy-cabinet.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
