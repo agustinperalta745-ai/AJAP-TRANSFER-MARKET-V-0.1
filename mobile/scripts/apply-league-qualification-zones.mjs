@@ -1,4 +1,5 @@
-// OTA-safe qualification zones for the real Liga standings table.
+// OTA-safe qualification labels for the real Liga standings table.
+// Keeps the approved inline layout: team -> DT -> qualification.
 import fs from 'node:fs';
 
 const path = new URL('../src/BotParityAppV2.tsx', import.meta.url);
@@ -9,10 +10,12 @@ if (ui.includes(marker)) process.exit(0);
 if (!ui.includes('// league-real-table applied')) {
   throw new Error('AJPA Liga zones: aplicar primero league-real-table');
 }
+if (!ui.includes('s.leagueZoneInline')) {
+  throw new Error('AJPA Liga zones: falta la zona inline de la tabla');
+}
 
-// Read the same qualification suggestion used by the new cup manager. This keeps
-// the table correct from season 2 onward when the reigning Europa champion may
-// qualify for Champions from outside the Top 15.
+// Use the same qualification suggestion as the cup manager. This keeps the table
+// synchronized with the actual Champions/Europa rules instead of hard-coded names.
 if (!ui.includes('apiRequest,')) {
   const importAnchor = '  acceptOffer,\n';
   if (!ui.includes(importAnchor)) throw new Error('AJPA Liga zones: no encontré import API');
@@ -33,36 +36,27 @@ if (!ui.includes("apiRequest<any>('/api/v1/cups')")) {
   ui = ui.replace(loadAnchor, qualificationLoad);
 }
 
-const headerFrom = `<Text style={[s.leagueHeaderText, s.leagueColPoints]}>PTS</Text>`;
-const headerTo = `${headerFrom}\n                <Text style={[s.leagueHeaderText, s.leagueColZone]}>ZONA</Text>`;
-if (!ui.includes(headerFrom)) throw new Error('AJPA Liga zones: no encontré encabezado PTS');
-ui = ui.replace(headerFrom, headerTo);
+const zoneFrom = `                const zoneColor = index === 0 ? '#f2c94c' : index <= 10 ? '#66a7ff' : index <= 23 ? '#72d9c7' : '#718596';\n                const zoneLabel = index === 0 ? 'Campeón + Copa 1' : index <= 10 ? 'Copa 1' : index <= 23 ? 'Copa 2' : '';`;
+const zoneTo = `                const key = row.team.trim().toLocaleLowerCase('es');\n                const suggestedChampions = cupQualification?.champions ?? [];\n                const suggestedEuropa = cupQualification?.europa ?? [];\n                const inChampions = suggestedChampions.length\n                  ? suggestedChampions.some(team => team.trim().toLocaleLowerCase('es') === key)\n                  : index <= 15;\n                const inEuropa = suggestedEuropa.length\n                  ? suggestedEuropa.some(team => team.trim().toLocaleLowerCase('es') === key)\n                  : index >= 16 && index <= 23;\n                const zoneColor = inChampions\n                  ? (index === 0 ? '#f2c94c' : '#66a7ff')\n                  : inEuropa ? '#e2a45c' : '#718596';\n                const zoneLabel = inChampions\n                  ? (index === 0 ? 'Campeón + Champions League' : 'Champions League')\n                  : inEuropa ? 'Europa League' : '';`;
 
-const pointsFrom = `<Text style={[s.leaguePoints, s.leagueColPoints, { color: teamCardTheme(row.team).border }]}>{row.pts}</Text>`;
-const pointsTo = `${pointsFrom}\n                  {(() => {\n                    const key = row.team.trim().toLocaleLowerCase('es');\n                    const suggestedChampions = cupQualification?.champions ?? [];\n                    const suggestedEuropa = cupQualification?.europa ?? [];\n                    const inChampions = suggestedChampions.length\n                      ? suggestedChampions.some(team => team.trim().toLocaleLowerCase('es') === key)\n                      : index <= 15;\n                    const inEuropa = suggestedEuropa.length\n                      ? suggestedEuropa.some(team => team.trim().toLocaleLowerCase('es') === key)\n                      : index >= 16 && index <= 23;\n                    const label = inChampions\n                      ? (index === 0 ? 'CAMPEÓN + CHAMPIONS' : 'CHAMPIONS LEAGUE')\n                      : inEuropa ? 'EUROPA LEAGUE' : '—';\n                    const color = inChampions ? (index === 0 ? '#f2c94c' : '#66a7ff') : inEuropa ? '#e2a45c' : '#718596';\n                    return (\n                      <Text numberOfLines={1} style={[s.leagueZoneText, s.leagueColZone, { color }]}>\n                        {label}\n                      </Text>\n                    );\n                  })()}`;
-if (!ui.includes(pointsFrom)) throw new Error('AJPA Liga zones: no encontré celda de puntos');
-ui = ui.replace(pointsFrom, pointsTo);
-
-const widthFrom = `leagueTable: { width: 524 },`;
-const widthTo = `leagueTable: { width: 650 },`;
-if (!ui.includes(widthFrom)) throw new Error('AJPA Liga zones: no encontré ancho de tabla');
-ui = ui.replace(widthFrom, widthTo);
-
-const styleAnchor = `  leaguePoints: { fontSize: 12, fontWeight: '900', textAlign: 'center' },\n`;
-const zoneStyles = `  leagueZoneText: { fontSize: 8.2, fontWeight: '900', textAlign: 'center', paddingHorizontal: 4 },\n  leagueColZone: { width: 126 },\n`;
-if (!ui.includes(styleAnchor)) throw new Error('AJPA Liga zones: no encontré estilos de tabla');
-ui = ui.replace(styleAnchor, styleAnchor + zoneStyles);
+if (!ui.includes(zoneFrom)) {
+  throw new Error('AJPA Liga zones: no encontré las etiquetas inline Copa 1/Copa 2');
+}
+ui = ui.replace(zoneFrom, zoneTo);
 
 for (const required of [
-  '>ZONA</Text>',
-  "'CAMPEÓN + CHAMPIONS'",
-  "'CHAMPIONS LEAGUE'",
-  "'EUROPA LEAGUE'",
-  'leagueColZone: { width: 126 }',
+  "'Champions League'",
+  "'Europa League'",
+  "'Campeón + Champions League'",
+  's.leagueZoneInline',
+  's.leagueZoneDot',
   "apiRequest<any>('/api/v1/cups')",
 ]) {
   if (!ui.includes(required)) throw new Error(`AJPA Liga zones: falta ${required}`);
 }
+if (ui.includes("'Copa 1'") || ui.includes("'Copa 2'")) {
+  throw new Error('AJPA Liga zones: quedaron etiquetas genéricas de Copa 1/Copa 2');
+}
 
 fs.writeFileSync(path, ui + '\n' + marker + '\n');
-console.log('AJPA Liga: zonas sincronizadas con Champions League + Europa League y regla del campeón de Europa.');
+console.log('AJPA Liga: equipo -> DT -> Champions League/Europa League, sincronizado con la clasificación real.');
