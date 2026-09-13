@@ -162,6 +162,9 @@ jobs:
       - name: Add cup badges trophies and standalone menu card
         run: node scripts/apply-cup-visual-polish.mjs
 
+      - name: Use transparent Champions trophy in card thumbnail
+        run: node scripts/apply-champions-card-icon.mjs
+
       - name: Place Copa directly below Liga in main menu
         run: node scripts/fix-cup-main-menu-placement.mjs
 
