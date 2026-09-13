@@ -29,16 +29,28 @@ if (!europaIsJpeg) {
 
 fs.writeFileSync(europaFile, europaBytes);
 
-const championsChunks = fs.readdirSync(championsChunksDir)
-  .filter(name => name.endsWith('.txt'))
-  .sort()
-  .map(name => fs.readFileSync(path.join(championsChunksDir, name), 'utf8').trim());
+const championsChunkFiles = [
+  'x00.txt',
+  'x01.txt',
+  'x02.txt',
+  'x03.txt',
+  'x04.txt',
+  '01.txt',
+  '02.txt',
+  '03.txt',
+];
+const championsChunks = championsChunkFiles.map(name => {
+  const chunkPath = path.join(championsChunksDir, name);
+  if (!fs.existsSync(chunkPath)) throw new Error(`Trophy cabinet: missing Champions chunk ${name}.`);
+  return fs.readFileSync(chunkPath, 'utf8').trim();
+});
 
-if (championsChunks.length !== 4) {
-  throw new Error(`Trophy cabinet: expected 4 Champions banner chunks, found ${championsChunks.length}.`);
+const championsBase64 = championsChunks.join('');
+if (championsBase64.length !== 19436) {
+  throw new Error(`Trophy cabinet: Champions base64 length invalid (${championsBase64.length}).`);
 }
 
-const championsBannerBytes = Buffer.from(championsChunks.join(''), 'base64');
+const championsBannerBytes = Buffer.from(championsBase64, 'base64');
 const championsBannerIsJpeg = championsBannerBytes.length === 14576
   && championsBannerBytes[0] === 0xff
   && championsBannerBytes[1] === 0xd8
@@ -143,4 +155,4 @@ if (!cabinet.includes(bannerRequire)
 }
 
 fs.writeFileSync(cabinetFile, cabinet);
-console.log(`AJPA trophy cabinet: Champions banner rebuilt from chunks (${championsBannerBytes.length} bytes) + Europa trophy (${europaBytes.length} bytes).`);
+console.log(`AJPA trophy cabinet: verified Champions banner (${championsBannerBytes.length} bytes) + Europa trophy (${europaBytes.length} bytes).`);
