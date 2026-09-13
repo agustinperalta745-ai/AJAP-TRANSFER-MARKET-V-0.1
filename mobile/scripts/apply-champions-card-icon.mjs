@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 
 const sourceFile = 'assets/trophies/champions-ajpa-card-icon.png.b64.txt';
-const iconFile = 'assets/trophies/champions-ajpa-card-icon.png';
+const championsIconFile = 'assets/trophies/champions-ajpa-card-icon.png';
+const europaIconFile = 'assets/trophies/europa-ajpa-card-icon.png';
 const hubFile = 'src/CupHubScreen.tsx';
 
 if (!fs.existsSync(sourceFile)) {
@@ -9,43 +10,75 @@ if (!fs.existsSync(sourceFile)) {
 }
 
 const base64 = fs.readFileSync(sourceFile, 'utf8').replace(/\s+/g, '');
-const bytes = Buffer.from(base64, 'base64');
-const isPng = bytes.length === 1992
-  && bytes[0] === 0x89
-  && bytes[1] === 0x50
-  && bytes[2] === 0x4e
-  && bytes[3] === 0x47
-  && bytes[4] === 0x0d
-  && bytes[5] === 0x0a
-  && bytes[6] === 0x1a
-  && bytes[7] === 0x0a;
+const championsBytes = Buffer.from(base64, 'base64');
+const championsIsPng = championsBytes.length === 1992
+  && championsBytes[0] === 0x89
+  && championsBytes[1] === 0x50
+  && championsBytes[2] === 0x4e
+  && championsBytes[3] === 0x47
+  && championsBytes[4] === 0x0d
+  && championsBytes[5] === 0x0a
+  && championsBytes[6] === 0x1a
+  && championsBytes[7] === 0x0a;
 
-if (!isPng) {
-  throw new Error(`Champions card icon: invalid PNG (${bytes.length} bytes).`);
+if (!championsIsPng) {
+  throw new Error(`Champions card icon: invalid PNG (${championsBytes.length} bytes).`);
 }
 
-fs.writeFileSync(iconFile, bytes);
+fs.writeFileSync(championsIconFile, championsBytes);
+
+if (!fs.existsSync(europaIconFile)) {
+  throw new Error('Europa card icon: PNG source file not found.');
+}
+const europaBytes = fs.readFileSync(europaIconFile);
+const europaIsPng = europaBytes.length === 5397
+  && europaBytes[0] === 0x89
+  && europaBytes[1] === 0x50
+  && europaBytes[2] === 0x4e
+  && europaBytes[3] === 0x47
+  && europaBytes[4] === 0x0d
+  && europaBytes[5] === 0x0a
+  && europaBytes[6] === 0x1a
+  && europaBytes[7] === 0x0a;
+if (!europaIsPng) {
+  throw new Error(`Europa card icon: invalid PNG (${europaBytes.length} bytes).`);
+}
 
 let hub = fs.readFileSync(hubFile, 'utf8');
-const bannerAnchor = "const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');";
-const iconConst = "const CHAMPIONS_CARD_ICON = require('../assets/trophies/champions-ajpa-card-icon.png');";
+const championsBannerAnchor = "const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');";
+const championsIconConst = "const CHAMPIONS_CARD_ICON = require('../assets/trophies/champions-ajpa-card-icon.png');";
+const europaBannerAnchor = "const EUROPA_BANNER = require('../assets/trophies/europa-ajpa-banner.jpg');";
+const europaIconConst = "const EUROPA_CARD_ICON = require('../assets/trophies/europa-ajpa-card-icon.png');";
 
-if (!hub.includes(iconConst)) {
-  if (!hub.includes(bannerAnchor)) {
+if (!hub.includes(championsIconConst)) {
+  if (!hub.includes(championsBannerAnchor)) {
     throw new Error('Champions card icon: Champions banner anchor not found.');
   }
-  hub = hub.replace(bannerAnchor, `${bannerAnchor}\n${iconConst}`);
+  hub = hub.replace(championsBannerAnchor, `${championsBannerAnchor}\n${championsIconConst}`);
+}
+
+if (!hub.includes(europaIconConst)) {
+  if (!hub.includes(europaBannerAnchor)) {
+    throw new Error('Europa card icon: Europa banner anchor not found.');
+  }
+  hub = hub.replace(europaBannerAnchor, `${europaBannerAnchor}\n${europaIconConst}`);
 }
 
 if (hub.includes('trophy: CHAMPIONS_TROPHY,')) {
   hub = hub.replace('trophy: CHAMPIONS_TROPHY,', 'trophy: CHAMPIONS_CARD_ICON,');
 }
+if (hub.includes('trophy: EUROPA_TROPHY,')) {
+  hub = hub.replace('trophy: EUROPA_TROPHY,', 'trophy: EUROPA_CARD_ICON,');
+}
 
 if (!hub.includes('image: CHAMPIONS_BANNER,')
+  || !hub.includes('image: EUROPA_BANNER,')
   || !hub.includes('trophy: CHAMPIONS_CARD_ICON,')
-  || !hub.includes(iconConst)) {
-  throw new Error('Champions card icon: final CupHub validation failed.');
+  || !hub.includes('trophy: EUROPA_CARD_ICON,')
+  || !hub.includes(championsIconConst)
+  || !hub.includes(europaIconConst)) {
+  throw new Error('Cup card icons: final CupHub validation failed.');
 }
 
 fs.writeFileSync(hubFile, hub);
-console.log('AJPA Champions: PNG transparente usado solo en la miniatura/cuadrado de la tarjeta; banner intacto.');
+console.log('AJPA Copas: PNG transparentes usados solo en las miniaturas de Champions y Europa; banners intactos.');
