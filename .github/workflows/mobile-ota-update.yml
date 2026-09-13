@@ -162,6 +162,9 @@ jobs:
       - name: Add cup badges trophies and standalone menu card
         run: node scripts/apply-cup-visual-polish.mjs
 
+      - name: Place Copa directly below Liga in main menu
+        run: node scripts/fix-cup-main-menu-placement.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
