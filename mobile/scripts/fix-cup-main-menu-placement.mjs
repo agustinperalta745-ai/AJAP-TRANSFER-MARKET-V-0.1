@@ -46,3 +46,7 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
+
+// Keep this as the very last visual layer before TypeScript validation so
+// earlier feature scripts cannot overwrite the approved dashboard treatment.
+await import('./apply-mobile-card-nav-v3.mjs');
