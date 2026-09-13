@@ -51,3 +51,11 @@ console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila de
 // final rendering layer so nothing later can overwrite the faithful design.
 await import('./apply-mobile-card-nav-v3.mjs');
 await import('./apply-mockup-faithful-v1.mjs');
+
+// React Native ImageBackground does not expose pointerEvents in its TS props.
+// Removing it keeps the decorative art identical while allowing the final
+// application to pass strict TypeScript validation.
+ui = fs.readFileSync(uiFile, 'utf8');
+ui = ui.replace(/<ImageBackground pointerEvents="none" source=\{art\}/g, '<ImageBackground source={art}');
+fs.writeFileSync(uiFile, ui);
+console.log('AJPA faithful mockup: compatibilidad TypeScript de ImageBackground aplicada.');
