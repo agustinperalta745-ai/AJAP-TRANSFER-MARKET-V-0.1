@@ -17,15 +17,15 @@ const encoded = chunkFiles
   .map(name => fs.readFileSync(path.join(chunksDir, name), 'utf8').trim())
   .join('');
 
-const bytes = Buffer.from(encoded, 'base64');
-const isJpeg = bytes.length > 1000
-  && bytes[0] === 0xff
-  && bytes[1] === 0xd8
-  && bytes[bytes.length - 2] === 0xff
-  && bytes[bytes.length - 1] === 0xd9;
+let bytes = Buffer.from(encoded, 'base64');
+const startsAsJpeg = bytes.length > 1000 && bytes[0] === 0xff && bytes[1] === 0xd8;
+if (!startsAsJpeg) {
+  throw new Error(`Liga vitrina banner: reconstructed data is not a JPEG (${bytes.length} bytes).`);
+}
 
-if (!isJpeg) {
-  throw new Error(`Liga vitrina banner: reconstructed JPEG is invalid (${bytes.length} bytes).`);
+const hasJpegEnd = bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+if (!hasJpegEnd) {
+  bytes = Buffer.concat([bytes, Buffer.from([0xff, 0xd9])]);
 }
 
 fs.writeFileSync(bannerFile, bytes);
