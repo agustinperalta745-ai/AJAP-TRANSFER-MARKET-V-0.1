@@ -159,6 +159,9 @@ jobs:
       - name: Fix Copas hub initial content load
         run: node scripts/fix-cup-hub-initial-load.mjs
 
+      - name: Add cup badges trophies and standalone menu card
+        run: node scripts/apply-cup-visual-polish.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
