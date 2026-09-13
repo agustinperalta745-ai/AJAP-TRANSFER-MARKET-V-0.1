@@ -211,3 +211,7 @@ import radio_pasillo_preseason_final_announcement_patch  # noqa: F401,E402
 # Every time AJPA enters a new official season, Radio Pasillo announces it once
 # with the correct season number (Temporada 1, Temporada 2, etc.).
 import radio_pasillo_season_start_patch  # noqa: F401,E402
+
+# Official competition closures: once Staff finalizes a season, Champions or
+# Europa, Radio Pasillo publishes the definitive outcome exactly once.
+import radio_pasillo_final_events_patch  # noqa: F401,E402
