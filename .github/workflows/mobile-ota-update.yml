@@ -156,6 +156,9 @@ jobs:
       - name: Move Copas to main menu and add Staff lifecycle controls
         run: node scripts/apply-cup-main-menu-controls.mjs
 
+      - name: Fix Copas hub initial content load
+        run: node scripts/fix-cup-hub-initial-load.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
