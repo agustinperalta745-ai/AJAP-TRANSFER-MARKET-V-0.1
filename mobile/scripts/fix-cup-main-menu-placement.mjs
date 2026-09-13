@@ -3,9 +3,9 @@ import fs from 'node:fs';
 const uiFile = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiFile, 'utf8');
 
-// Remove any previous visual entry to Copas, regardless of where an earlier
-// script inserted it. The route itself (screen === 'cupHub') is preserved.
-ui = ui.replace(/^[ \t]*<[^\n>]+openScreen\('cupHub'\)[^\n]*\/>\n?/gm, '');
+// Remove any previous self-closing visual entry to Copas, regardless of where
+// an earlier script inserted it. Do not touch the cupHub route body itself.
+ui = ui.replace(/^[ \t]*<[A-Za-z][^\n]*openScreen\('cupHub'\)[^\n]*\/>\n?/gm, '');
 
 const homeStart = ui.indexOf('  const home = (');
 const homeEnd = ui.indexOf('  const clubMenu = (', homeStart);
