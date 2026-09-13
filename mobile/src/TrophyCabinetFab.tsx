@@ -1,8 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -216,8 +215,7 @@ function TrophyCard({
   );
 }
 
-export default function TrophyCabinetFab() {
-  const [visible, setVisible] = useState(false);
+export default function TrophyCabinetScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ArchivedCompetition[]>([]);
@@ -245,6 +243,10 @@ export default function TrophyCabinetFab() {
     }
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const records = useMemo(() => {
     const rows: WinnerRecord[] = [];
@@ -313,154 +315,99 @@ export default function TrophyCabinetFab() {
   const selectedRows = byCompetition[selected];
   const selectedMeta = META[selected];
 
-  const open = () => {
-    setVisible(true);
-    void load();
-  };
-
   return (
-    <>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Vitrina AJPA"
-        onPress={open}
-        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}
-      >
-        <Text style={styles.fabText}>🏛 VITRINA</Text>
-      </Pressable>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>HISTORIA AJPA</Text>
+        <Text style={styles.title}>Vitrina de campeones</Text>
+        <Text style={styles.subtitle}>Trofeos oficiales y campeones históricos de cada competencia.</Text>
+      </View>
 
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <View style={styles.backdrop}>
-          <View style={styles.panel}>
-            <View style={styles.header}>
-              <View style={styles.flex}>
-                <Text style={styles.eyebrow}>HISTORIA AJPA</Text>
-                <Text style={styles.title}>Vitrina de campeones</Text>
-                <Text style={styles.subtitle}>Los trofeos oficiales y todos los campeones que van quedando guardados por competencia.</Text>
-              </View>
-              <Pressable onPress={() => setVisible(false)} hitSlop={12}>
-                <Text style={styles.close}>✕</Text>
-              </Pressable>
-            </View>
+      <TrophyCard trophyKey="league" selected={selected === 'league'} champion={byCompetition.league[0] || null} onPress={() => setSelected('league')} />
+      <TrophyCard trophyKey="champions" selected={selected === 'champions'} champion={byCompetition.champions[0] || null} onPress={() => setSelected('champions')} />
+      <TrophyCard trophyKey="europa" selected={selected === 'europa'} champion={byCompetition.europa[0] || null} onPress={() => setSelected('europa')} />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-              <TrophyCard trophyKey="league" selected={selected === 'league'} champion={byCompetition.league[0] || null} onPress={() => setSelected('league')} />
-              <TrophyCard trophyKey="champions" selected={selected === 'champions'} champion={byCompetition.champions[0] || null} onPress={() => setSelected('champions')} />
-              <TrophyCard trophyKey="europa" selected={selected === 'europa'} champion={byCompetition.europa[0] || null} onPress={() => setSelected('europa')} />
-
-              <View style={[styles.historyPanel, { borderColor: `${selectedMeta.accent}55` }]}>
-                <View style={styles.historyHeader}>
-                  <View style={styles.flex}>
-                    <Text style={[styles.historyEyebrow, { color: selectedMeta.accent }]}>PALMARÉS OFICIAL</Text>
-                    <Text style={styles.historyTitle}>{selectedMeta.title}</Text>
-                  </View>
-                  <Text style={styles.titleCount}>{selectedRows.length} {selectedRows.length === 1 ? 'título' : 'títulos'}</Text>
-                </View>
-
-                {loading && !records.length ? (
-                  <View style={styles.loadingRow}>
-                    <ActivityIndicator />
-                    <Text style={styles.muted}>Cargando campeones…</Text>
-                  </View>
-                ) : selectedRows.length ? (
-                  selectedRows.map((row, index) => (
-                    <View key={`${row.key}-${row.season ?? 'latest'}-${row.champion}-${index}`} style={styles.winnerRow}>
-                      <View style={[styles.medal, { borderColor: `${selectedMeta.accent}88` }]}>
-                        <Text style={[styles.medalText, { color: selectedMeta.accent }]}>★</Text>
-                      </View>
-                      <View style={styles.flex}>
-                        <Text style={styles.winnerSeason}>{row.season ? `TEMPORADA ${row.season}` : 'REGISTRO OFICIAL'}</Text>
-                        <Text style={styles.winnerTeam}>{row.champion}</Text>
-                        {row.manager ? <Text style={styles.winnerManager}>DT: {row.manager}</Text> : <Text style={styles.winnerManagerMuted}>DT no registrado en este historial</Text>}
-                      </View>
-                      {index === 0 ? <Text style={[styles.latestTag, { color: selectedMeta.accent }]}>ÚLTIMO</Text> : null}
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyIcon}>🏆</Text>
-                    <Text style={styles.emptyTitle}>Todavía no hay campeón archivado</Text>
-                    <Text style={styles.muted}>Cuando esta competencia tenga un ganador oficial, va a quedar guardado acá.</Text>
-                  </View>
-                )}
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-              </View>
-
-              <Text style={styles.footerNote}>La vitrina se alimenta del historial oficial de temporadas y de las copas AJPA. No crea campeones manualmente.</Text>
-            </ScrollView>
+      <View style={[styles.historyPanel, { borderColor: `${selectedMeta.accent}55` }]}>
+        <View style={styles.historyHeader}>
+          <View style={styles.flex}>
+            <Text style={[styles.historyEyebrow, { color: selectedMeta.accent }]}>PALMARÉS OFICIAL</Text>
+            <Text style={styles.historyTitle}>{selectedMeta.title}</Text>
           </View>
+          <Text style={styles.titleCount}>{selectedRows.length} {selectedRows.length === 1 ? 'título' : 'títulos'}</Text>
         </View>
-      </Modal>
-    </>
+
+        {loading && !records.length ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator />
+            <Text style={styles.muted}>Cargando campeones…</Text>
+          </View>
+        ) : selectedRows.length ? (
+          selectedRows.map((row, index) => (
+            <View key={`${row.key}-${row.season ?? 'latest'}-${row.champion}-${index}`} style={styles.winnerRow}>
+              <View style={[styles.medal, { borderColor: `${selectedMeta.accent}88` }]}>
+                <Text style={[styles.medalText, { color: selectedMeta.accent }]}>★</Text>
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.winnerSeason}>{row.season ? `TEMPORADA ${row.season}` : 'REGISTRO OFICIAL'}</Text>
+                <Text style={styles.winnerTeam}>{row.champion}</Text>
+                {row.manager ? <Text style={styles.winnerManager}>DT: {row.manager}</Text> : <Text style={styles.winnerManagerMuted}>DT no registrado en este historial</Text>}
+              </View>
+              {index === 0 ? <Text style={[styles.latestTag, { color: selectedMeta.accent }]}>ÚLTIMO</Text> : null}
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>🏆</Text>
+            <Text style={styles.emptyTitle}>Todavía no hay campeón archivado</Text>
+            <Text style={styles.muted}>Cuando esta competencia tenga un ganador oficial, va a quedar guardado acá.</Text>
+          </View>
+        )}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </View>
+
+      <Text style={styles.footerNote}>La vitrina se alimenta del historial oficial de temporadas y de las copas AJPA.</Text>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  fab: {
-    position: 'absolute',
-    left: 14,
-    bottom: 182,
-    zIndex: 90,
-    elevation: 13,
-    borderWidth: 1,
-    borderColor: 'rgba(225,187,104,0.42)',
-    backgroundColor: 'rgba(13,17,23,0.97)',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  fabText: { color: '#f1d69a', fontWeight: '900', fontSize: 11, letterSpacing: 0.55 },
-  pressed: { opacity: 0.7 },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.84)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  panel: {
-    width: '100%',
-    maxWidth: 680,
-    height: '92%',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-    backgroundColor: '#050b11',
-    padding: 14,
-    overflow: 'hidden',
-  },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
-  flex: { flex: 1 },
+  content: { padding: 16, paddingBottom: 36, gap: 12 },
+  header: { marginBottom: 2 },
+  flex: { flex: 1, minWidth: 0 },
   eyebrow: { color: '#b49a65', fontSize: 9, fontWeight: '900', letterSpacing: 1.55 },
-  title: { color: '#fff', fontSize: 24, fontWeight: '900', marginTop: 2 },
-  subtitle: { color: '#94a4b2', fontSize: 11, lineHeight: 16, marginTop: 4 },
-  close: { color: '#dce3e8', fontSize: 22, paddingHorizontal: 4 },
-  content: { gap: 11, paddingBottom: 18 },
+  title: { color: '#fff', fontSize: 27, fontWeight: '900', marginTop: 2 },
+  subtitle: { color: '#94a4b2', fontSize: 11.5, lineHeight: 17, marginTop: 4 },
+  pressed: { opacity: 0.7 },
   trophyCard: {
-    height: 218,
+    minHeight: 194,
     flexDirection: 'row',
     alignItems: 'stretch',
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.11)',
     overflow: 'hidden',
-    backgroundColor: '#0c131a',
+    backgroundColor: 'rgba(12,19,26,0.95)',
   },
   trophyVisual: {
-    width: '44%',
-    height: 218,
+    width: '40%',
+    minHeight: 194,
     backgroundColor: '#05080c',
     alignItems: 'center',
     justifyContent: 'center',
     borderRightWidth: 1,
     borderRightColor: 'rgba(255,255,255,0.08)',
-    padding: 6,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
   },
-  trophyImage: { width: '100%', height: '100%' },
+  trophyImage: {
+    width: '82%',
+    height: '82%',
+    borderRadius: 10,
+  },
   trophyCopy: { flex: 1, padding: 14, justifyContent: 'center' },
   trophyEyebrow: { fontSize: 8, fontWeight: '900', letterSpacing: 1.25 },
-  trophyTitle: { color: '#fff', fontSize: 21, fontWeight: '900', marginTop: 2 },
+  trophyTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 2 },
   trophyDescription: { color: '#d0d8df', fontSize: 10, lineHeight: 14, marginTop: 3 },
   latestPill: {
     marginTop: 9,
@@ -480,7 +427,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     borderRadius: 18,
     borderWidth: 1,
-    backgroundColor: '#08121b',
+    backgroundColor: 'rgba(8,18,27,0.96)',
     padding: 13,
     gap: 8,
   },
