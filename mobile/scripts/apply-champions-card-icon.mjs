@@ -10,7 +10,7 @@ if (!fs.existsSync(sourceFile)) {
 
 const base64 = fs.readFileSync(sourceFile, 'utf8').replace(/\s+/g, '');
 const bytes = Buffer.from(base64, 'base64');
-const isPng = bytes.length === 19038
+const isPng = bytes.length === 1992
   && bytes[0] === 0x89
   && bytes[1] === 0x50
   && bytes[2] === 0x4e
