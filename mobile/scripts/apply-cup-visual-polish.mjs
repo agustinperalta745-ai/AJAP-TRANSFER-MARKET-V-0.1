@@ -113,8 +113,8 @@ fs.writeFileSync(hubFile, hub);
 // it an explicit standalone COPA card directly after the Liga card.
 const uiFile = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiFile, 'utf8');
-const ligaLine = ui.match(/^[ \t]*<[^>]+title="(?:LIGA|Liga)"[^>]*\/>$/m)?.[0];
-const cupLine = ui.match(/^[ \t]*<[^>]+openScreen\('cupHub'\)[^>]*\/>$/m)?.[0];
+const ligaLine = ui.match(/^[ \t]*.*title="(?:LIGA|Liga)".*$/m)?.[0];
+const cupLine = ui.match(/^[ \t]*.*title="COPAS AJPA".*$/m)?.[0];
 if (!ligaLine) throw new Error('Cup visuals: main-menu Liga card not found.');
 if (!cupLine) throw new Error('Cup visuals: existing cupHub card not found.');
 
