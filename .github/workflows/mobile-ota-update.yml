@@ -150,6 +150,9 @@ jobs:
       - name: Keep AJPA trophy cabinet in final UI
         run: node scripts/apply-trophy-cabinet.mjs
 
+      - name: Apply Liga AJPA vitrina banner
+        run: node scripts/apply-league-vitrina-banner.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
