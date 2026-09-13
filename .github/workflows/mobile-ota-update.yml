@@ -153,6 +153,9 @@ jobs:
       - name: Apply Liga AJPA vitrina banner
         run: node scripts/apply-league-vitrina-banner.mjs
 
+      - name: Move Copas to main menu and add Staff lifecycle controls
+        run: node scripts/apply-cup-main-menu-controls.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
