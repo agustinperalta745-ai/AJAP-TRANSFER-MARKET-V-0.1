@@ -63,19 +63,23 @@ if (!source.includes('title="Vitrina de campeones"')) {
   );
 }
 
-if (!source.includes("screen === 'trophyCabinet'")) {
+const trophyBodyLine = source.match(/^[ \t]*else if \(screen === 'trophyCabinet'\)[^\n]*$/m)?.[0];
+if (trophyBodyLine) {
+  const indent = trophyBodyLine.match(/^[ \t]*/)?.[0] ?? '  ';
+  source = source.replace(trophyBodyLine, `${indent}else if (screen === 'trophyCabinet') body = <TrophyCabinetScreen onClose={() => setScreen('home')} />;`);
+} else {
   const leagueBodyLine = source.match(/^[ \t]*else if \(screen === 'league'\)[^\n]*$/m)?.[0];
   if (!leagueBodyLine) throw new Error('Trophy cabinet: Liga body anchor not found.');
   const indent = leagueBodyLine.match(/^[ \t]*/)?.[0] ?? '  ';
-  source = source.replace(leagueBodyLine, `${leagueBodyLine}\n${indent}else if (screen === 'trophyCabinet') body = <TrophyCabinetScreen />;`);
+  source = source.replace(leagueBodyLine, `${leagueBodyLine}\n${indent}else if (screen === 'trophyCabinet') body = <TrophyCabinetScreen onClose={() => setScreen('home')} />;`);
 }
 
 if (!source.includes(importLine)
   || !source.includes("| 'trophyCabinet'")
   || !source.includes('title="Vitrina de campeones"')
-  || !source.includes("screen === 'trophyCabinet'")) {
+  || !source.includes("<TrophyCabinetScreen onClose={() => setScreen('home')} />")) {
   throw new Error('Trophy cabinet: final main-menu validation failed.');
 }
 
 fs.writeFileSync(file, source);
-console.log(`AJPA trophy cabinet moved into main menu; floating button removed; Europa trophy rebuilt (${europaBytes.length} bytes).`);
+console.log(`AJPA trophy cabinet: full-screen scrollable modal from main menu; floating overlays hidden; Europa trophy rebuilt (${europaBytes.length} bytes).`);
