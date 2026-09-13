@@ -6,6 +6,8 @@ const europaChunksDir = path.join(trophyDir, 'europa_chunks');
 const europaFile = path.join(trophyDir, 'europa-ajpa.jpg');
 const championsChunksDir = path.join(trophyDir, 'champions_banner_chunks');
 const championsBannerFile = path.join(trophyDir, 'champions-ajpa-banner.jpg');
+const europaBannerChunksDir = path.join(trophyDir, 'europa_banner_small_chunks');
+const europaBannerFile = path.join(trophyDir, 'europa-ajpa-banner.jpg');
 
 const europaChunks = fs.readdirSync(europaChunksDir)
   .filter(name => name.endsWith('.txt'))
@@ -62,6 +64,31 @@ if (!championsBannerIsJpeg) {
 }
 
 fs.writeFileSync(championsBannerFile, championsBannerBytes);
+
+const europaBannerChunkFiles = ['b00.txt', 'b01.txt', 'b02.txt'];
+const europaBannerChunks = europaBannerChunkFiles.map(name => {
+  const chunkPath = path.join(europaBannerChunksDir, name);
+  if (!fs.existsSync(chunkPath)) throw new Error(`Trophy cabinet: missing Europa banner chunk ${name}.`);
+  return fs.readFileSync(chunkPath, 'utf8').trim();
+});
+
+const europaBannerBase64 = europaBannerChunks.join('');
+if (europaBannerBase64.length !== 30392) {
+  throw new Error(`Trophy cabinet: Europa banner base64 length invalid (${europaBannerBase64.length}).`);
+}
+
+const europaBannerBytes = Buffer.from(europaBannerBase64, 'base64');
+const europaBannerIsJpeg = europaBannerBytes.length === 22794
+  && europaBannerBytes[0] === 0xff
+  && europaBannerBytes[1] === 0xd8
+  && europaBannerBytes[europaBannerBytes.length - 2] === 0xff
+  && europaBannerBytes[europaBannerBytes.length - 1] === 0xd9;
+
+if (!europaBannerIsJpeg) {
+  throw new Error(`Trophy cabinet: reconstructed Europa banner is invalid (${europaBannerBytes.length} bytes).`);
+}
+
+fs.writeFileSync(europaBannerFile, europaBannerBytes);
 
 const appFile = 'App.tsx';
 let app = fs.readFileSync(appFile, 'utf8');
@@ -121,38 +148,58 @@ fs.writeFileSync(file, source);
 
 const cabinetFile = 'src/TrophyCabinetFab.tsx';
 let cabinet = fs.readFileSync(cabinetFile, 'utf8');
-const bannerRequire = "const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');";
+const championsBannerRequire = "const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');";
+const europaBannerRequire = "const EUROPA_BANNER = require('../assets/trophies/europa-ajpa-banner.jpg');";
 
-if (!cabinet.includes(bannerRequire)) {
+if (!cabinet.includes(championsBannerRequire)) {
   const dataUriConst = /const CHAMPIONS_BANNER = \{ uri: "data:image\/jpeg;base64,[^"]+" \} as const;/;
   if (dataUriConst.test(cabinet)) {
-    cabinet = cabinet.replace(dataUriConst, bannerRequire);
+    cabinet = cabinet.replace(dataUriConst, championsBannerRequire);
   } else if (!cabinet.includes('const CHAMPIONS_BANNER =')) {
     const anchor = `} as const;\n\nconst META:`;
     if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: TROPHY map anchor not found.');
-    cabinet = cabinet.replace(anchor, `} as const;\n\n${bannerRequire}\n\nconst META:`);
+    cabinet = cabinet.replace(anchor, `} as const;\n\n${championsBannerRequire}\n${europaBannerRequire}\n\nconst META:`);
   }
 }
 
-if (!cabinet.includes('styles.championsBannerStage')) {
-  const oldStage = `      <View style={styles.trophyStage}>\n        <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n      </View>`;
-  const newStage = `      <View style={trophyKey === 'champions' ? styles.championsBannerStage : styles.trophyStage}>\n        {trophyKey === 'champions' ? (\n          <Image source={CHAMPIONS_BANNER} resizeMode="cover" fadeDuration={0} style={styles.championsBannerImage} />\n        ) : (\n          <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n        )}\n      </View>`;
-  if (!cabinet.includes(oldStage)) throw new Error('Trophy cabinet: trophy image stage anchor not found.');
-  cabinet = cabinet.replace(oldStage, newStage);
+if (!cabinet.includes(europaBannerRequire)) {
+  if (cabinet.includes(championsBannerRequire)) {
+    cabinet = cabinet.replace(championsBannerRequire, `${championsBannerRequire}\n${europaBannerRequire}`);
+  } else {
+    throw new Error('Trophy cabinet: could not place Europa banner require.');
+  }
 }
 
-if (!cabinet.includes('championsBannerStage: {')) {
-  const anchor = `  trophyStage: {`;
-  if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: trophyStage style anchor not found.');
-  const styles = `  championsBannerStage: {\n    width: '100%',\n    aspectRatio: 480 / 201,\n    backgroundColor: '#03070c',\n    borderBottomWidth: 1,\n    borderBottomColor: 'rgba(255,255,255,0.07)',\n    overflow: 'hidden',\n  },\n  championsBannerImage: { width: '100%', height: '100%' },\n`;
-  cabinet = cabinet.replace(anchor, `${styles}${anchor}`);
+const oldStage = `      <View style={styles.trophyStage}>\n        <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n      </View>`;
+const championsOnlyStage = `      <View style={trophyKey === 'champions' ? styles.championsBannerStage : styles.trophyStage}>\n        {trophyKey === 'champions' ? (\n          <Image source={CHAMPIONS_BANNER} resizeMode="cover" fadeDuration={0} style={styles.championsBannerImage} />\n        ) : (\n          <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n        )}\n      </View>`;
+const dualBannerStage = `      <View style={trophyKey === 'league' ? styles.trophyStage : styles.competitionBannerStage}>\n        {trophyKey === 'league' ? (\n          <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n        ) : (\n          <Image\n            source={trophyKey === 'champions' ? CHAMPIONS_BANNER : EUROPA_BANNER}\n            resizeMode="cover"\n            fadeDuration={0}\n            style={styles.competitionBannerImage}\n          />\n        )}\n      </View>`;
+
+if (cabinet.includes(oldStage)) {
+  cabinet = cabinet.replace(oldStage, dualBannerStage);
+} else if (cabinet.includes(championsOnlyStage)) {
+  cabinet = cabinet.replace(championsOnlyStage, dualBannerStage);
+} else if (!cabinet.includes('styles.competitionBannerStage')) {
+  throw new Error('Trophy cabinet: trophy image stage anchor not found.');
 }
 
-if (!cabinet.includes(bannerRequire)
-  || !cabinet.includes('styles.championsBannerStage')
-  || !cabinet.includes('championsBannerImage:')) {
-  throw new Error('Trophy cabinet: Champions banner validation failed.');
+if (!cabinet.includes('competitionBannerStage: {')) {
+  const championsStyles = /  championsBannerStage: \{[\s\S]*?  championsBannerImage: \{ width: '100%', height: '100%' \},\n/;
+  const replacement = `  competitionBannerStage: {\n    width: '100%',\n    aspectRatio: 3,\n    backgroundColor: '#03070c',\n    borderBottomWidth: 1,\n    borderBottomColor: 'rgba(255,255,255,0.07)',\n    overflow: 'hidden',\n  },\n  competitionBannerImage: { width: '100%', height: '100%' },\n`;
+  if (championsStyles.test(cabinet)) {
+    cabinet = cabinet.replace(championsStyles, replacement);
+  } else {
+    const anchor = `  trophyStage: {`;
+    if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: trophyStage style anchor not found.');
+    cabinet = cabinet.replace(anchor, `${replacement}${anchor}`);
+  }
+}
+
+if (!cabinet.includes(championsBannerRequire)
+  || !cabinet.includes(europaBannerRequire)
+  || !cabinet.includes('styles.competitionBannerStage')
+  || !cabinet.includes('competitionBannerImage:')) {
+  throw new Error('Trophy cabinet: competition banner validation failed.');
 }
 
 fs.writeFileSync(cabinetFile, cabinet);
-console.log(`AJPA trophy cabinet: verified Champions banner (${championsBannerBytes.length} bytes) + Europa trophy (${europaBytes.length} bytes).`);
+console.log(`AJPA trophy cabinet: Champions banner (${championsBannerBytes.length} bytes) + Europa banner (${europaBannerBytes.length} bytes) + Europa trophy (${europaBytes.length} bytes).`);
