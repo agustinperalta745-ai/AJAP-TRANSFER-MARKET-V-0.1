@@ -10,6 +10,7 @@ import {
 import MatchSearchShell from './src/MatchSearchShell';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
+import TrophyCabinetFab from './src/TrophyCabinetFab';
 import SeasonCountdownBanner from './src/SeasonCountdownBanner';
 import CupCenterFab from './src/CupCenterFab';
 
@@ -71,6 +72,7 @@ export default function App() {
         <MatchSearchShell />
         <CupCenterFab />
         <SeasonHistoryFab />
+        <TrophyCabinetFab />
         <CompetitionCycleAdminFab />
       </SafeAreaView>
     </SafeAreaProvider>
