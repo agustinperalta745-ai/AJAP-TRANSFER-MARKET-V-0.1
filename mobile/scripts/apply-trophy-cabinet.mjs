@@ -27,25 +27,50 @@ if (!isJpeg) {
 
 fs.writeFileSync(europaFile, europaBytes);
 
-const file = 'App.tsx';
+const appFile = 'App.tsx';
+let app = fs.readFileSync(appFile, 'utf8');
+app = app
+  .replace("import TrophyCabinetFab from './src/TrophyCabinetFab';\n", '')
+  .replace('        <TrophyCabinetFab />\n', '');
+fs.writeFileSync(appFile, app);
+
+const file = 'src/BotParityAppV2.tsx';
 let source = fs.readFileSync(file, 'utf8');
 
-const importLine = "import TrophyCabinetFab from './src/TrophyCabinetFab';";
+const importLine = "import TrophyCabinetScreen from './TrophyCabinetFab';";
 if (!source.includes(importLine)) {
-  const anchor = "import SeasonHistoryFab from './src/SeasonHistoryFab';";
-  if (!source.includes(anchor)) throw new Error('Trophy cabinet: SeasonHistoryFab import anchor not found.');
-  source = source.replace(anchor, `${anchor}\n${importLine}`);
+  const anchor = "import { clearStoredSession, loadStoredSession, saveStoredSession } from './session';";
+  if (!source.includes(anchor)) throw new Error('Trophy cabinet: session import anchor not found.');
+  source = source.replace(anchor, `${importLine}\n${anchor}`);
 }
 
-if (!source.includes('<TrophyCabinetFab />')) {
-  const anchor = '        <SeasonHistoryFab />';
-  if (!source.includes(anchor)) throw new Error('Trophy cabinet: SeasonHistoryFab mount anchor not found.');
-  source = source.replace(anchor, `${anchor}\n        <TrophyCabinetFab />`);
+if (!source.includes("| 'trophyCabinet'")) {
+  const anchor = "  | 'profile';";
+  if (!source.includes(anchor)) throw new Error('Trophy cabinet: Screen union anchor not found.');
+  source = source.replace(anchor, "  | 'trophyCabinet'\n  | 'profile';");
 }
 
-if (!source.includes(importLine) || !source.includes('<TrophyCabinetFab />')) {
-  throw new Error('Trophy cabinet: final App.tsx validation failed.');
+if (!source.includes('title="VITRINA DE CAMPEONES"')) {
+  const anchor = '      <MenuTile emoji="🏆" title="LIGA" subtitle="Tabla y goleadores" onPress={() => openScreen(\'league\')} />';
+  if (!source.includes(anchor)) throw new Error('Trophy cabinet: main Liga menu anchor not found.');
+  source = source.replace(
+    anchor,
+    `${anchor}\n      <MenuTile emoji="🏛️" title="VITRINA DE CAMPEONES" subtitle="Trofeos oficiales y palmarés histórico" onPress={() => openScreen('trophyCabinet')} />`,
+  );
+}
+
+if (!source.includes("screen === 'trophyCabinet'")) {
+  const anchor = "  else if (screen === 'league') body = placeholder('Liga', 'Tabla, goleadores y estado de la competencia.');";
+  if (!source.includes(anchor)) throw new Error('Trophy cabinet: Liga body anchor not found.');
+  source = source.replace(anchor, `${anchor}\n  else if (screen === 'trophyCabinet') body = <TrophyCabinetScreen />;`);
+}
+
+if (!source.includes(importLine)
+  || !source.includes("| 'trophyCabinet'")
+  || !source.includes('title="VITRINA DE CAMPEONES"')
+  || !source.includes("screen === 'trophyCabinet'")) {
+  throw new Error('Trophy cabinet: final main-menu validation failed.');
 }
 
 fs.writeFileSync(file, source);
-console.log(`AJPA trophy cabinet preserved; Europa trophy rebuilt (${europaBytes.length} bytes).`);
+console.log(`AJPA trophy cabinet moved into main menu; floating button removed; Europa trophy rebuilt (${europaBytes.length} bytes).`);
