@@ -82,4 +82,38 @@ if (!source.includes(importLine)
 }
 
 fs.writeFileSync(file, source);
-console.log(`AJPA trophy cabinet: full-screen scrollable modal from main menu; floating overlays hidden; Europa trophy rebuilt (${europaBytes.length} bytes).`);
+
+const cabinetFile = 'src/TrophyCabinetFab.tsx';
+let cabinet = fs.readFileSync(cabinetFile, 'utf8');
+
+if (!cabinet.includes("const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');")) {
+  const anchor = `} as const;\n\nconst META:`;
+  if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: TROPHY map anchor not found.');
+  cabinet = cabinet.replace(
+    anchor,
+    `} as const;\n\nconst CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');\n\nconst META:`,
+  );
+}
+
+if (!cabinet.includes('styles.championsBannerStage')) {
+  const oldStage = `      <View style={styles.trophyStage}>\n        <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n      </View>`;
+  const newStage = `      <View style={trophyKey === 'champions' ? styles.championsBannerStage : styles.trophyStage}>\n        {trophyKey === 'champions' ? (\n          <Image source={CHAMPIONS_BANNER} resizeMode="cover" style={styles.championsBannerImage} />\n        ) : (\n          <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyImage} />\n        )}\n      </View>`;
+  if (!cabinet.includes(oldStage)) throw new Error('Trophy cabinet: trophy image stage anchor not found.');
+  cabinet = cabinet.replace(oldStage, newStage);
+}
+
+if (!cabinet.includes('championsBannerStage: {')) {
+  const anchor = `  trophyStage: {`;
+  if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: trophyStage style anchor not found.');
+  const styles = `  championsBannerStage: {\n    width: '100%',\n    aspectRatio: 800 / 335,\n    backgroundColor: '#03070c',\n    borderBottomWidth: 1,\n    borderBottomColor: 'rgba(255,255,255,0.07)',\n    overflow: 'hidden',\n  },\n  championsBannerImage: { width: '100%', height: '100%' },\n`;
+  cabinet = cabinet.replace(anchor, `${styles}${anchor}`);
+}
+
+if (!cabinet.includes("const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');")
+  || !cabinet.includes('styles.championsBannerStage')
+  || !cabinet.includes('championsBannerImage:')) {
+  throw new Error('Trophy cabinet: Champions banner validation failed.');
+}
+
+fs.writeFileSync(cabinetFile, cabinet);
+console.log(`AJPA trophy cabinet: full-screen scrollable modal + approved Champions AJPA banner; Europa trophy rebuilt (${europaBytes.length} bytes).`);
