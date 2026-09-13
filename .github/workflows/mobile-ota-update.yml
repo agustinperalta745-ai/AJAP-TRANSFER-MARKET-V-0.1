@@ -126,8 +126,20 @@ jobs:
       - name: Apply team colors and soft card gradients
         run: node scripts/apply-team-card-gradients.mjs
 
-      - name: Apply club, player and Liga card colors
+      - name: Apply club and player card colors
         run: node scripts/apply-club-player-card-colors.mjs
+
+      - name: Build real Liga standings table
+        run: node scripts/apply-league-team-card-colors.mjs
+
+      - name: Sync Champions and Europa qualification labels
+        run: node scripts/apply-league-qualification-zones.mjs
+
+      - name: Add assigned DT names to Liga table
+        run: node scripts/apply-league-manager-names.mjs
+
+      - name: Keep PES6 player stats in the final UI
+        run: node scripts/apply-player-pes6-stats.mjs
 
       - name: Connect real competition cycle management
         run: node scripts/fix-cycle-management-mobile.mjs
