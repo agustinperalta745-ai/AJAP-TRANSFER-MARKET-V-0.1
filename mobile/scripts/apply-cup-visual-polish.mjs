@@ -59,7 +59,7 @@ if (!cup.includes('  competitionHeaderRow: {')) {
 if (!cup.includes('<ClubBadge club={match.home_team} size={30} />') || !cup.includes('<ClubBadge club={match.away_team} size={30} />')) {
   throw new Error('Cup visuals: team badges were not injected into bracket matches.');
 }
-if (!cup.includes('CHAMPIONS_TROPHY') || !cup.includes('EUROPA_TROPHY')) {
+if (!cup.includes('competitionHeaderRow') || !cup.includes('CHAMPIONS_TROPHY') || !cup.includes('EUROPA_TROPHY')) {
   throw new Error('Cup visuals: competition trophies were not injected.');
 }
 fs.writeFileSync(cupFile, cup);
@@ -109,21 +109,24 @@ if (!hub.includes('meta.trophy') || !hub.includes('trophy: CHAMPIONS_TROPHY') ||
 }
 fs.writeFileSync(hubFile, hub);
 
-// Main menu: COPA is a standalone card immediately below LIGA, never inside Liga.
+// Main menu: keep the cup route already inserted by the previous step, but make
+// it an explicit standalone COPA card directly after the Liga card.
 const uiFile = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiFile, 'utf8');
-ui = ui.replace(/^[ \t]*<MenuTile[^\n]*openScreen\('cupHub'\)[^\n]*\/>\n?/gm, '');
-
-const ligaLine = ui.match(/^[ \t]*<MenuTile[^\n]*title="(?:LIGA|Liga)"[^\n]*\/>$/m)?.[0];
+const ligaLine = ui.match(/^[ \t]*<[^>]+title="(?:LIGA|Liga)"[^>]*\/>$/m)?.[0];
+const cupLine = ui.match(/^[ \t]*<[^>]+openScreen\('cupHub'\)[^>]*\/>$/m)?.[0];
 if (!ligaLine) throw new Error('Cup visuals: main-menu Liga card not found.');
-const indent = ligaLine.match(/^[ \t]*/)?.[0] ?? '      ';
-const cupCard = `${indent}<MenuTile emoji="🏆" title="COPA" subtitle="Champions AJPA · Europa AJPA · brackets y resultados" onPress={() => openScreen('cupHub')} />`;
-ui = ui.replace(ligaLine, `${ligaLine}\n${cupCard}`);
+if (!cupLine) throw new Error('Cup visuals: existing cupHub card not found.');
+
+const renamedCupLine = cupLine
+  .replace(/title="[^"]*"/, 'title="COPA"')
+  .replace(/subtitle="[^"]*"/, 'subtitle="Champions AJPA · Europa AJPA · brackets y resultados"');
+ui = ui.replace(cupLine, renamedCupLine);
 
 const ligaPos = ui.indexOf(ligaLine);
-const cupPos = ui.indexOf(cupCard);
+const cupPos = ui.indexOf(renamedCupLine);
 if (ligaPos < 0 || cupPos < 0 || cupPos <= ligaPos) {
-  throw new Error('Cup visuals: COPA card was not placed below LIGA.');
+  throw new Error('Cup visuals: COPA card is not below LIGA.');
 }
 if ((ui.match(/openScreen\('cupHub'\)/g) || []).length !== 1) {
   throw new Error('Cup visuals: expected exactly one main-menu COPA card.');
