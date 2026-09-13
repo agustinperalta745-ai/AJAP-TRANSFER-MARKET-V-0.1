@@ -4,6 +4,7 @@ const sourceFile = 'assets/trophies/champions-ajpa-card-icon.png.b64.txt';
 const championsIconFile = 'assets/trophies/champions-ajpa-card-icon.png';
 const europaIconFile = 'assets/trophies/europa-ajpa-card-icon.png';
 const hubFile = 'src/CupHubScreen.tsx';
+const centerFile = 'src/CupCenterFab.tsx';
 
 if (!fs.existsSync(sourceFile)) {
   throw new Error('Champions card icon: base64 source file not found.');
@@ -81,4 +82,25 @@ if (!hub.includes('image: CHAMPIONS_BANNER,')
 }
 
 fs.writeFileSync(hubFile, hub);
-console.log('AJPA Copas: PNG transparentes usados solo en las miniaturas de Champions y Europa; banners intactos.');
+
+let center = fs.readFileSync(centerFile, 'utf8');
+const oldChampionsCenterIcon = "const CHAMPIONS_TROPHY = require('../assets/trophies/champions-ajpa.jpg');";
+const newChampionsCenterIcon = "const CHAMPIONS_TROPHY = require('../assets/trophies/champions-ajpa-card-icon.png');";
+const oldEuropaCenterIcon = "const EUROPA_TROPHY = require('../assets/trophies/europa-ajpa.jpg');";
+const newEuropaCenterIcon = "const EUROPA_TROPHY = require('../assets/trophies/europa-ajpa-card-icon.png');";
+
+if (center.includes(oldChampionsCenterIcon)) {
+  center = center.replace(oldChampionsCenterIcon, newChampionsCenterIcon);
+}
+if (center.includes(oldEuropaCenterIcon)) {
+  center = center.replace(oldEuropaCenterIcon, newEuropaCenterIcon);
+}
+
+if (!center.includes(newChampionsCenterIcon)
+  || !center.includes(newEuropaCenterIcon)
+  || !center.includes("competition === 'champions' ? CHAMPIONS_TROPHY : EUROPA_TROPHY")) {
+  throw new Error('Cup header icons: final CupCenter validation failed.');
+}
+
+fs.writeFileSync(centerFile, center);
+console.log('AJPA Copas: PNG transparentes usados en miniaturas y encabezados de Champions/Europa; banners intactos.');
