@@ -47,6 +47,7 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
 
-// Keep this as the very last visual layer before TypeScript validation so
-// earlier feature scripts cannot overwrite the approved dashboard treatment.
+// Keep the legacy visual shell first, then apply the approved mockup as the
+// final rendering layer so nothing later can overwrite the faithful design.
 await import('./apply-mobile-card-nav-v3.mjs');
+await import('./apply-mockup-faithful-v1.mjs');
