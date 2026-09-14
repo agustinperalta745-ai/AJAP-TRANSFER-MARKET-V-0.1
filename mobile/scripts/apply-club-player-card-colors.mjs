@@ -24,7 +24,6 @@ function icon(text, club) {
   return text.replaceAll('<IconSurfaceDepth />', glow(club));
 }
 
-// All player lists share these components; the current data controls the colors.
 for (const [start, end, club] of [
   ['function PlayerCard(', '\nfunction MarketCard(', 'player.club'],
   ['function MarketCard(', '\nfunction ', "item.is_free_agent ? '' : item.club"],
@@ -46,7 +45,6 @@ section('  const teamsScreen = (', '  const teamProfileScreen =', text => {
 });
 
 section('  const teamProfileScreen =', '  const treasuryScreen =', text => {
-  // Stop at the profile end: later scripts may insert other screens here.
   const end = text.indexOf('\n  const ', 5);
   const tail = end < 0 ? '' : text.slice(end);
   let profile = end < 0 ? text : text.slice(0, end);
@@ -69,8 +67,6 @@ for (const club of ['club.club', 'selectedClubProfile.club', 'player.club']) {
   if (!ui.includes(backdrop(club))) throw new Error(`Missing themed backdrop: ${club}`);
 }
 
-// La composición aprobada vuelve a escribir la pantalla Perfil durante el build.
-// Restauramos acá la ayuda nueva para que sea lo último que vea el bundle final.
 const oldProfileHelp = '<Text style={s.muted}>Ejecutá /app_codigo en Discord y escribí el código privado de 8 caracteres.</Text>';
 const newProfileHelp = '<Text style={s.muted}>¿Cómo conseguirlo? En Discord, abrí el menú principal y tocá “📱 Vincular con la app”. El bot te dará un código privado de 8 caracteres; copialo y pegalo acá. También podés usar /app_codigo.</Text>';
 if (ui.includes(oldProfileHelp)) ui = ui.replace(oldProfileHelp, newProfileHelp);
@@ -80,9 +76,7 @@ if (!ui.includes('<Text style={s.profileButtonText}>MI PERFIL</Text>')) throw ne
 fs.writeFileSync(path, ui + '\n' + marker + '\n');
 console.log('Club profiles and player cards now use their current club theme; badge assets unchanged.');
 
-// Liga se tematiza al final para reutilizar exactamente los mismos helpers y assets aprobados.
 await import('./apply-league-team-card-colors.mjs');
-// Las zonas clasificatorias se agregan después de construir la tabla real.
 await import('./apply-league-qualification-zones.mjs');
-// El DT va entre el nombre del equipo y la clasificación ya terminada.
 await import('./apply-league-manager-names.mjs');
+await import('./apply-admin-team-dt-status.mjs');
