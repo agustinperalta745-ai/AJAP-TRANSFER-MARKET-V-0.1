@@ -55,6 +55,13 @@ if (!colorSource.includes(broadcasterHook)) {
   colorSource = `${colorSource.trimEnd()}\n${broadcasterHook}\n`;
 }
 
+// Final HD artwork pass: keeps the real UI interactive while adding the same
+// dark stadium/broadcast look to Home, Centro de mando and season countdown.
+const broadcasterHdHook = "await import('./apply-broadcaster-hd-backgrounds.mjs');";
+if (!colorSource.includes(broadcasterHdHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${broadcasterHdHook}\n`;
+}
+
 // CupHubScreen opens CupCenterFab with controlled props; keep that public entry
 // point compatible before TypeScript validates the final mobile bundle.
 const cupHubFixHook = "await import('./fix-cup-center-hub-props.mjs');";
