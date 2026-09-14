@@ -47,6 +47,9 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
 
-// La capa visual final se aplica como código de interfaz únicamente.
-// No reemplaza el shell, no toca Admin y no usa recortes ni mockups generados.
+// Capa visual existente, sin tocar Admin ni lógica.
 await import('./apply-final-visual-polish.mjs');
+
+// Última pasada: geometría exacta de la referencia aprobada 864x1536.
+// Esta capa solo ajusta proporciones, tipografía y posición de elementos existentes.
+await import('./apply-reference-864-exact.mjs');
