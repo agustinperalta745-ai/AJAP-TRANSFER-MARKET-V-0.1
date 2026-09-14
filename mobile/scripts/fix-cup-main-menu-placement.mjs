@@ -51,3 +51,4 @@ console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila de
 // vector artwork. No mockup screenshots or bitmap crops are used anymore.
 await import('./apply-mobile-card-nav-v3.mjs');
 await import('./apply-generated-vector-visuals-v3.mjs');
+await import('./repair-generated-visual-components.mjs');
