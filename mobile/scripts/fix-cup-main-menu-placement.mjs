@@ -47,16 +47,6 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
 
-// Build the visual shell in layers, ending with the proportions measured from
-// the exact approved mockup. The countdown is adjusted independently because it
-// lives above the main application shell.
-await import('./apply-mobile-card-nav-v3.mjs');
-await import('./apply-mockup-faithful-v1.mjs');
-await import('./apply-mockup-faithful-v2.mjs');
-await import('./apply-season-countdown-faithful.mjs');
-
-// React Native ImageBackground does not expose pointerEvents in its TS props.
-ui = fs.readFileSync(uiFile, 'utf8');
-ui = ui.replace(/<ImageBackground pointerEvents="none" source=\{art\}/g, '<ImageBackground source={art}');
-fs.writeFileSync(uiFile, ui);
-console.log('AJPA faithful mockup: compatibilidad TypeScript de ImageBackground aplicada.');
+// La capa visual final se aplica como código de interfaz únicamente.
+// No reemplaza el shell, no toca Admin y no usa recortes ni mockups generados.
+await import('./apply-final-visual-polish.mjs');
