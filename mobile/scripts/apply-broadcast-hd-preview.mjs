@@ -110,7 +110,7 @@ const heroClubCard = String.raw`function HeroClubCard({
     </Pressable>
   );
 }`;
-replaceFunction('function HeroClubCard({', 'function RadioPasilloStrip(', heroClubCard, 'HeroClubCard');
+replaceFunction('function HeroClubCard({', 'function WideTile({', heroClubCard, 'HeroClubCard');
 
 const wideTile = String.raw`function WideTile({
   emoji,
@@ -152,7 +152,7 @@ const wideTile = String.raw`function WideTile({
     </Pressable>
   );
 }`;
-replaceFunction('function WideTile({', 'function Title({', wideTile, 'WideTile');
+replaceFunction('function WideTile({', 'function RadioPasilloStrip(', wideTile, 'WideTile');
 
 replaceStyle('screenBackgroundImage', `opacity: 0.06`);
 replaceStyle('screenShade', `flex: 1, backgroundColor: 'rgba(1,6,11,0.77)'`);
