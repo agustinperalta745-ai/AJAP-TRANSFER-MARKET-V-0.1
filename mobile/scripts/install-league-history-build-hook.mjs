@@ -54,6 +54,13 @@ const broadcasterHook = "await import('./apply-broadcaster-home-redesign.mjs');"
 if (!colorSource.includes(broadcasterHook)) {
   colorSource = `${colorSource.trimEnd()}\n${broadcasterHook}\n`;
 }
+
+// CupHubScreen opens CupCenterFab with controlled props; keep that public entry
+// point compatible before TypeScript validates the final mobile bundle.
+const cupHubFixHook = "await import('./fix-cup-center-hub-props.mjs');";
+if (!colorSource.includes(cupHubFixHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${cupHubFixHook}\n`;
+}
 fs.writeFileSync(colorPass, colorSource);
 
 const cyclePass = new URL('./fix-cycle-management-mobile.mjs', import.meta.url);
