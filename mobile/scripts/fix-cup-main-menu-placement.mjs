@@ -3,8 +3,6 @@ import fs from 'node:fs';
 const uiFile = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiFile, 'utf8');
 
-// Remove any previous self-closing visual entry to Copas, regardless of where
-// an earlier script inserted it. Do not touch the cupHub route body itself.
 ui = ui.replace(/^[ \t]*<[A-Za-z][^\n]*openScreen\('cupHub'\)[^\n]*\/>\n?/gm, '');
 
 const homeStart = ui.indexOf('  const home = (');
@@ -14,9 +12,6 @@ if (homeStart < 0 || homeEnd < 0) {
 }
 
 let home = ui.slice(homeStart, homeEnd);
-
-// Vitrina is the left card of the second row. Putting Copa immediately after it
-// makes Copa the right card of that row: visually, directly below Liga.
 const vitrinaLine = home.match(/^[ \t]*<FeatureTile[^\n]*title="Vitrina de campeones"[^\n]*\/>$/m)?.[0];
 const ligaLine = home.match(/^[ \t]*<FeatureTile[^\n]*title="Liga"[^\n]*\/>$/m)?.[0];
 const anchor = vitrinaLine ?? ligaLine;
@@ -46,3 +41,6 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
+
+// Último parche de UI del flujo OTA: conserva la consulta Staff de equipos con/sin DT.
+await import('./apply-admin-team-dt-status.mjs');
