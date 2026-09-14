@@ -14,9 +14,6 @@ if (homeStart < 0 || homeEnd < 0) {
 }
 
 let home = ui.slice(homeStart, homeEnd);
-
-// Vitrina is the left card of the second row. Putting Copa immediately after it
-// makes Copa the right card of that row: visually, directly below Liga.
 const vitrinaLine = home.match(/^[ \t]*<FeatureTile[^\n]*title="Vitrina de campeones"[^\n]*\/>$/m)?.[0];
 const ligaLine = home.match(/^[ \t]*<FeatureTile[^\n]*title="Liga"[^\n]*\/>$/m)?.[0];
 const anchor = vitrinaLine ?? ligaLine;
@@ -46,17 +43,3 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
-
-// Build the visual shell in layers, ending with the proportions measured from
-// the exact approved mockup. The countdown is adjusted independently because it
-// lives above the main application shell.
-await import('./apply-mobile-card-nav-v3.mjs');
-await import('./apply-mockup-faithful-v1.mjs');
-await import('./apply-mockup-faithful-v2.mjs');
-await import('./apply-season-countdown-faithful.mjs');
-
-// React Native ImageBackground does not expose pointerEvents in its TS props.
-ui = fs.readFileSync(uiFile, 'utf8');
-ui = ui.replace(/<ImageBackground pointerEvents="none" source=\{art\}/g, '<ImageBackground source={art}');
-fs.writeFileSync(uiFile, ui);
-console.log('AJPA faithful mockup: compatibilidad TypeScript de ImageBackground aplicada.');
