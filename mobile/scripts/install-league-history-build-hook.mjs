@@ -46,6 +46,14 @@ const honoursHook = "await import('./apply-latest-honours-home.mjs');";
 if (!colorSource.includes(honoursHook)) {
   colorSource = `${colorSource.trimEnd()}\n${honoursHook}\n`;
 }
+
+// Broadcaster owns the final visual composition of Inicio. It runs after the
+// honours data hook so it can reuse the real latestHonours state/API while
+// replacing only the presentation layer.
+const broadcasterHook = "await import('./apply-broadcaster-home-redesign.mjs');";
+if (!colorSource.includes(broadcasterHook)) {
+  colorSource = `${colorSource.trimEnd()}\n${broadcasterHook}\n`;
+}
 fs.writeFileSync(colorPass, colorSource);
 
 const cyclePass = new URL('./fix-cycle-management-mobile.mjs', import.meta.url);
