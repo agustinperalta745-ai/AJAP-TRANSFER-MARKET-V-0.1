@@ -110,7 +110,7 @@ const heroClubCard = String.raw`function HeroClubCard({
     </Pressable>
   );
 }`;
-replaceFunction('function HeroClubCard({', 'function WideTile({', heroClubCard, 'HeroClubCard');
+replaceFunction('function HeroClubCard({', 'function RadioPasilloStrip(', heroClubCard, 'HeroClubCard');
 
 const wideTile = String.raw`function WideTile({
   emoji,
