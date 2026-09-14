@@ -47,14 +47,14 @@ if (vitrinaLine && finalHome.indexOf(cupCard) <= finalHome.indexOf(vitrinaLine))
 fs.writeFileSync(uiFile, ui);
 console.log('AJPA Copas: tarjeta Copa movida al menú principal, segunda fila derecha, debajo de Liga.');
 
-// Capa visual existente, sin tocar Admin ni lógica.
+// Capa visual responsive ya validada: conserva textos, iconos, títulos y navegación
+// sobre las imágenes, sin imponer geometría fija de una captura concreta.
 await import('./apply-final-visual-polish.mjs');
 
-// Preparar componentes que no existen en todas las baselines estables.
+// Mantener Radio Pasillo y la cuenta regresiva fotográfica sobre la base estable.
 await import('./prepare-reference-exact-compat.mjs');
 
-// Conectar únicamente en Inicio el arte ya aprobado que corresponde a esa referencia.
-await import('./apply-reference-assets-exact.mjs');
-
-// Última pasada: geometría exacta de la referencia aprobada 864x1536.
-await import('./apply-reference-864-exact.mjs');
+// IMPORTANTE: no volver a aplicar apply-reference-assets-exact ni
+// apply-reference-864-exact aquí. Esas capas convertían las tarjetas principales
+// en imágenes sin rótulos y forzaban aspect ratios de 864x1536 que generaban
+// huecos y recortes en dispositivos reales.
