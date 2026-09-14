@@ -12,16 +12,19 @@ fs.writeFileSync(appFile, app);
 const cupFile = 'src/CupCenterFab.tsx';
 let cup = fs.readFileSync(cupFile, 'utf8');
 
-if (!cup.includes('type CupCenterProps =')) {
+if (!cup.includes('type CupCenterProps =') && !cup.includes('type CupCenterFabProps =')) {
   const anchor = "const compName = (key: CompetitionKey) => key === 'champions' ? 'Champions League' : 'Europa League';\n";
   if (!cup.includes(anchor)) throw new Error('Cup menu: compName anchor not found.');
   cup = cup.replace(anchor, `${anchor}\ntype CupCenterProps = {\n  hideTrigger?: boolean;\n  initialVisible?: boolean;\n  initialCompetition?: CompetitionKey;\n  onDismiss?: () => void;\n};\n`);
 }
 
-cup = cup.replace(
-  'export default function CupCenterFab() {',
-  "export default function CupCenterFab({ hideTrigger = false, initialVisible = false, initialCompetition = 'champions', onDismiss }: CupCenterProps = {}) {",
-);
+if (cup.includes('export default function CupCenterFab() {')) {
+  const propsType = cup.includes('type CupCenterFabProps =') ? 'CupCenterFabProps' : 'CupCenterProps';
+  cup = cup.replace(
+    'export default function CupCenterFab() {',
+    `export default function CupCenterFab({ hideTrigger = false, initialVisible = false, initialCompetition = 'champions', onDismiss }: ${propsType} = {}) {`,
+  );
+}
 cup = cup.replace('const [visible, setVisible] = useState(false);', 'const [visible, setVisible] = useState(initialVisible);');
 cup = cup.replace("const [competition, setCompetition] = useState<CompetitionKey>('champions');", 'const [competition, setCompetition] = useState<CompetitionKey>(initialCompetition);');
 
@@ -33,7 +36,9 @@ if (!cup.includes('champions_finished_at?: string | null;')) {
 }
 
 // Replace modal dismiss calls before adding the close helper, avoiding recursion.
-cup = cup.replaceAll('setVisible(false)', 'close()');
+if (!cup.includes('const close = () => {')) {
+  cup = cup.replaceAll('setVisible(false)', 'close()');
+}
 
 if (!cup.includes('const close = () => {')) {
   const openBlock = `  const open = () => {\n    setVisible(true);\n    void load();\n  };`;
@@ -42,7 +47,6 @@ if (!cup.includes('const close = () => {')) {
     openBlock,
     `${openBlock}\n\n  const close = () => {\n    setVisible(false);\n    onDismiss?.();\n  };`,
   );
-  // The replaceAll above also touched the helper we just want to contain a real state update.
   cup = cup.replace('  const close = () => {\n    close();\n    onDismiss?.();\n  };', '  const close = () => {\n    setVisible(false);\n    onDismiss?.();\n  };');
 }
 
@@ -63,7 +67,8 @@ if (!cup.includes('const competitionFinishedAt =')) {
 }
 
 const oldTrigger = `      <Pressable\n        accessibilityRole="button"\n        accessibilityLabel="Champions y Europa League"\n        onPress={open}\n        style={({ pressed }) => [styles.fab, pressed && styles.pressed]}\n      >\n        <Text style={styles.fabText}>🏆 COPAS</Text>\n      </Pressable>`;
-if (cup.includes(oldTrigger)) {
+// A previous compatibility patch can already wrap the trigger. Never wrap it twice.
+if (cup.includes(oldTrigger) && !cup.includes('{!hideTrigger ? (')) {
   cup = cup.replace(oldTrigger, `{!hideTrigger ? (\n${oldTrigger}\n      ) : null}`);
 }
 
