@@ -198,4 +198,16 @@ if (!ui.includes('  featureVisual: {')) {
 replaceStyle('heroClubCard', `height: 174, minHeight: 174, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(73,165,225,0.72)', backgroundColor: '#06121d', padding: 0, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 11 }, elevation: 9`);
 
 fs.writeFileSync(uiPath, ui);
-console.log('AJPA HD preview: visuales raster Full HD aplicados sin recortes ni módulos nativos nuevos.');
+
+// Make the preview truly side-by-side safe: different Android package and no OTA.
+const appJsonPath = 'app.json';
+const appJson = JSON.parse(fs.readFileSync(appJsonPath, 'utf8'));
+appJson.expo.name = 'AJPA Broadcast Preview';
+appJson.expo.slug = 'ajpa-broadcast-preview';
+appJson.expo.android = appJson.expo.android || {};
+appJson.expo.android.package = 'com.ajpa.transfermarket.preview';
+appJson.expo.android.versionCode = Math.max(Number(appJson.expo.android.versionCode || 1), 4);
+appJson.expo.updates = { enabled: false };
+fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 2) + '\n');
+
+console.log('AJPA HD preview: visuales raster Full HD + paquete aislado + OTA desactivado.');
