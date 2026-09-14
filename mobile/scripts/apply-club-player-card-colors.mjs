@@ -86,3 +86,5 @@ await import('./apply-league-team-card-colors.mjs');
 await import('./apply-league-qualification-zones.mjs');
 // El DT va entre el nombre del equipo y la clasificación ya terminada.
 await import('./apply-league-manager-names.mjs');
+// El rediseño Broadcaster se aplica al final para que ningún parche visual anterior lo pise.
+await import('./apply-broadcaster-home-redesign.mjs');
