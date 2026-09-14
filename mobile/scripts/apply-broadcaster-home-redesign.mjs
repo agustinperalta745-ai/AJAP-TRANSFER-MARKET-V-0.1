@@ -94,21 +94,21 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
         <View style={s.bcHonourCard}>
           <Text style={s.bcHonourLabel}>🏆 CAMPEÓN</Text>
           <Text numberOfLines={1} style={s.bcHonourPrimary}>{latestHonours?.season_champion?.team ?? 'Sin campeón'}</Text>
-          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.season_champion ? `DT · ${latestHonours.season_champion.manager.username}` : 'Todavía no definido'}</Text>
+          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.season_champion ? 'DT · ' + latestHonours.season_champion.manager.username : 'Todavía no definido'}</Text>
           <Text numberOfLines={1} style={s.bcHonourMeta}>{latestHonours?.season_champion?.competition ?? 'Temporada AJPA'}</Text>
         </View>
 
         <View style={s.bcHonourCard}>
           <Text style={s.bcHonourLabel}>⚽ GOLEADOR</Text>
           <Text numberOfLines={1} style={s.bcHonourPrimary}>{latestHonours?.top_scorer?.player ?? 'Sin goleador'}</Text>
-          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.top_scorer ? `${latestHonours.top_scorer.goals} goles · ${latestHonours.top_scorer.team}` : 'Todavía no definido'}</Text>
-          <Text numberOfLines={1} style={s.bcHonourMeta}>{latestHonours?.top_scorer ? `DT · ${latestHonours.top_scorer.manager.username}` : 'Temporada AJPA'}</Text>
+          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.top_scorer ? String(latestHonours.top_scorer.goals) + ' goles · ' + latestHonours.top_scorer.team : 'Todavía no definido'}</Text>
+          <Text numberOfLines={1} style={s.bcHonourMeta}>{latestHonours?.top_scorer ? 'DT · ' + latestHonours.top_scorer.manager.username : 'Temporada AJPA'}</Text>
         </View>
 
         <View style={s.bcHonourCard}>
           <Text style={s.bcHonourLabel}>🏆 COPA</Text>
           <Text numberOfLines={2} style={s.bcHonourPrimary}>{latestHonours?.cup_champion?.team ?? 'Sin campeón todavía'}</Text>
-          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.cup_champion ? `DT · ${latestHonours.cup_champion.manager.username}` : 'Aún no se jugó copa'}</Text>
+          <Text numberOfLines={1} style={s.bcHonourSecondary}>{latestHonours?.cup_champion ? 'DT · ' + latestHonours.cup_champion.manager.username : 'Aún no se jugó copa'}</Text>
           <Text numberOfLines={1} style={s.bcHonourMeta}>{latestHonours?.cup_champion?.competition ?? 'Copa AJPA'}</Text>
         </View>
       </View>
@@ -121,7 +121,7 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
       <View style={s.bcQuickRow}>
         <Pressable onPress={() => requireClub('publish')} style={({ pressed }) => [s.bcQuickCard, pressed && s.bcPressed]}>
           <Text style={s.bcQuickIcon}>↥</Text>
-          <Text style={s.bcQuickTitle}>Publicar{`\n`}jugador</Text>
+          <Text style={s.bcQuickTitle}>{'Publicar\njugador'}</Text>
           <Text style={s.bcQuickArrow}>›</Text>
         </Pressable>
         <Pressable onPress={() => openScreen('offers')} style={({ pressed }) => [s.bcQuickCard, pressed && s.bcPressed]}>
@@ -131,7 +131,7 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
         </Pressable>
         <Pressable onPress={() => openScreen('transferibles')} style={({ pressed }) => [s.bcQuickCard, pressed && s.bcPressed]}>
           <Text style={s.bcQuickIcon}>◎</Text>
-          <Text style={s.bcQuickTitle}>Agentes{`\n`}libres</Text>
+          <Text style={s.bcQuickTitle}>{'Agentes\nlibres'}</Text>
           <Text style={s.bcQuickArrow}>›</Text>
         </Pressable>
       </View>
@@ -147,7 +147,7 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
           <Text style={s.bcFeatureIcon}>⇆</Text>
           <View style={s.bcFeatureCopy}>
             <Text style={s.bcFeatureKicker}>MERCADO</Text>
-            <Text style={s.bcFeatureTitle}>Mercado{`\n`}de pases</Text>
+            <Text style={s.bcFeatureTitle}>{'Mercado\nde pases'}</Text>
           </View>
           <Text style={s.bcFeatureArrow}>›</Text>
         </Pressable>
@@ -165,7 +165,7 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
           <Text style={s.bcFeatureIcon}>♜</Text>
           <View style={s.bcFeatureCopy}>
             <Text style={s.bcFeatureKicker}>COMUNIDAD</Text>
-            <Text style={s.bcFeatureTitle}>Equipos{`\n`}AJPA</Text>
+            <Text style={s.bcFeatureTitle}>{'Equipos\nAJPA'}</Text>
           </View>
           <Text style={s.bcFeatureArrow}>›</Text>
         </Pressable>
@@ -174,7 +174,7 @@ const home = String.raw`  // AJPA BROADCASTER HOME V1
           <Text style={s.bcFeatureIcon}>♛</Text>
           <View style={s.bcFeatureCopy}>
             <Text style={s.bcFeatureKicker}>PALMARÉS</Text>
-            <Text style={s.bcFeatureTitle}>Vitrina de{`\n`}campeones</Text>
+            <Text style={s.bcFeatureTitle}>{'Vitrina de\ncampeones'}</Text>
           </View>
           <Text style={s.bcFeatureArrow}>›</Text>
         </Pressable>
