@@ -47,20 +47,9 @@ if (!colorSource.includes(honoursHook)) {
   colorSource = `${colorSource.trimEnd()}\n${honoursHook}\n`;
 }
 
-// Broadcaster owns the final visual composition of Inicio. It runs after the
-// honours data hook so it can reuse the real latestHonours state/API while
-// replacing only the presentation layer.
-const broadcasterHook = "await import('./apply-broadcaster-home-redesign.mjs');";
-if (!colorSource.includes(broadcasterHook)) {
-  colorSource = `${colorSource.trimEnd()}\n${broadcasterHook}\n`;
-}
-
-// Final HD artwork pass: keeps the real UI interactive while adding the same
-// dark stadium/broadcast look to Home, Centro de mando and season countdown.
-const broadcasterHdHook = "await import('./apply-broadcaster-hd-backgrounds.mjs');";
-if (!colorSource.includes(broadcasterHdHook)) {
-  colorSource = `${colorSource.trimEnd()}\n${broadcasterHdHook}\n`;
-}
+// IMPORTANT: Broadcaster visual experiments are intentionally NOT attached to
+// the production AJPA build pipeline. They stay paused/separate so the real app
+// keeps its approved Home while functional Staff changes can ship safely.
 
 // CupHubScreen opens CupCenterFab with controlled props; keep that public entry
 // point compatible before TypeScript validates the final mobile bundle.
