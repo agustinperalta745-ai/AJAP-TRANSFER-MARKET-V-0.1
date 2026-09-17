@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest, fetchLatestHonours } from './api';
+import { ClubBadge } from './teamBadges';
 
 type TrophyKey = 'league' | 'champions' | 'europa';
 
@@ -52,12 +53,26 @@ type CupsPayload = {
   edition?: CupEdition | null;
 };
 
+type LeagueChampionHistoryEntry = {
+  competition_id: number;
+  competition: string;
+  kind: string;
+  team: string;
+  season_number?: number | null;
+  label?: string | null;
+  status?: string | null;
+  manager?: { user_id?: string | null; username?: string | null; global_name?: string | null } | null;
+};
+
+type LeagueChampionsPayload = { champions?: LeagueChampionHistoryEntry[] };
+
 type WinnerRecord = {
   key: TrophyKey;
   season: number | null;
+  label: string | null;
   champion: string;
   manager: string | null;
-  source: 'archive' | 'current' | 'latest';
+  source: 'archive' | 'officialLeague' | 'current' | 'latest';
 };
 
 const TROPHY = {
@@ -96,6 +111,12 @@ function normalized(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+}
+
+function isFinishedStatus(value: unknown): boolean {
+  const status = normalized(value);
+  if (!status) return true; // old archived rows did not always expose a status.
+  return ['finished', 'finalizada', 'finalizado', 'completed', 'closed', 'cerrada', 'cerrado'].includes(status);
 }
 
 function classifyCompetition(row: ArchivedCompetition): TrophyKey | null {
@@ -154,7 +175,8 @@ function mergeRecords(rows: WinnerRecord[]): WinnerRecord[] {
     );
     if (exact) {
       if (!exact.manager && row.manager) exact.manager = row.manager;
-      if (row.source === 'current') exact.source = 'current';
+      if (!exact.label && row.label) exact.label = row.label;
+      if (row.source === 'officialLeague' || row.source === 'current') exact.source = row.source;
       continue;
     }
 
@@ -213,7 +235,11 @@ function TrophyCard({
           <View style={styles.latestCopy}>
             <Text style={styles.latestLabel}>ÚLTIMO CAMPEÓN</Text>
             <Text style={styles.latestTeam} numberOfLines={1}>{champion?.champion || 'Aún sin campeón'}</Text>
-            {champion?.season ? <Text style={styles.latestSeason}>Temporada {champion.season}</Text> : null}
+            {champion?.label ? (
+              <Text style={styles.latestSeason}>{champion.label}</Text>
+            ) : champion?.season ? (
+              <Text style={styles.latestSeason}>Temporada {champion.season}</Text>
+            ) : null}
           </View>
           <Text style={[styles.viewHistory, { color: meta.accent }]}>VER PALMARÉS ›</Text>
         </View>
@@ -226,6 +252,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ArchivedCompetition[]>([]);
+  const [leagueChampions, setLeagueChampions] = useState<LeagueChampionHistoryEntry[]>([]);
   const [cups, setCups] = useState<CupsPayload | null>(null);
   const [honours, setHonours] = useState<Awaited<ReturnType<typeof fetchLatestHonours>> | null>(null);
   const [selected, setSelected] = useState<TrophyKey>('league');
@@ -233,8 +260,9 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    const [historyResult, cupsResult, honoursResult] = await Promise.allSettled([
+    const [historyResult, leagueChampionsResult, cupsResult, honoursResult] = await Promise.allSettled([
       apiRequest<HistoryPayload>('/api/v1/league/seasons'),
+      apiRequest<LeagueChampionsPayload>('/api/v1/league/champions-history'),
       apiRequest<CupsPayload>('/api/v1/cups'),
       fetchLatestHonours(),
     ]);
@@ -242,10 +270,13 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
     if (historyResult.status === 'fulfilled') {
       setHistory(Array.isArray(historyResult.value.competitions) ? historyResult.value.competitions : []);
     }
+    if (leagueChampionsResult.status === 'fulfilled') {
+      setLeagueChampions(Array.isArray(leagueChampionsResult.value.champions) ? leagueChampionsResult.value.champions : []);
+    }
     if (cupsResult.status === 'fulfilled') setCups(cupsResult.value);
     if (honoursResult.status === 'fulfilled') setHonours(honoursResult.value);
 
-    if (historyResult.status === 'rejected' && cupsResult.status === 'rejected' && honoursResult.status === 'rejected') {
+    if (historyResult.status === 'rejected' && leagueChampionsResult.status === 'rejected' && cupsResult.status === 'rejected' && honoursResult.status === 'rejected') {
       setError('No se pudo cargar el palmarés en este momento.');
     }
     setLoading(false);
@@ -259,6 +290,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
     const rows: WinnerRecord[] = [];
 
     for (const competition of history) {
+      if (!isFinishedStatus(competition.status)) continue;
       const key = classifyCompetition(competition);
       if (!key) continue;
       const winner = archiveWinner(competition);
@@ -266,9 +298,25 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
       rows.push({
         key,
         season: typeof competition.season_number === 'number' ? competition.season_number : null,
+        label: clean(competition.label) || null,
         champion: winner.champion,
         manager: winner.manager,
         source: 'archive',
+      });
+    }
+
+    // League/Pretemporada has a dedicated FINISHED-only backend feed. It resolves
+    // the DT that owned the club at the exact competition close time, so historical
+    // titles never depend on today's assignment.
+    for (const item of leagueChampions) {
+      if (!item?.team || !isFinishedStatus(item.status)) continue;
+      rows.push({
+        key: 'league',
+        season: typeof item.season_number === 'number' ? item.season_number : null,
+        label: clean(item.label) || clean(item.competition) || null,
+        champion: item.team,
+        manager: managerName(item.manager),
+        source: 'officialLeague',
       });
     }
 
@@ -278,11 +326,12 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
       : (typeof cups?.rules?.season_number === 'number' ? cups.rules.season_number : null);
     const championsChampion = clean(edition?.champions_champion);
     const europaChampion = clean(edition?.europa_champion);
-    if (championsChampion) {
-      rows.push({ key: 'champions', season: cupSeason, champion: championsChampion, manager: null, source: 'current' });
+    const cupEditionFinished = isFinishedStatus(edition?.status);
+    if (championsChampion && cupEditionFinished) {
+      rows.push({ key: 'champions', season: cupSeason, label: cupSeason ? `Temporada ${cupSeason}` : null, champion: championsChampion, manager: null, source: 'current' });
     }
-    if (europaChampion) {
-      rows.push({ key: 'europa', season: cupSeason, champion: europaChampion, manager: null, source: 'current' });
+    if (europaChampion && cupEditionFinished) {
+      rows.push({ key: 'europa', season: cupSeason, label: cupSeason ? `Temporada ${cupSeason}` : null, champion: europaChampion, manager: null, source: 'current' });
     }
 
     const leagueLatest = honours?.season_champion;
@@ -290,6 +339,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
       rows.push({
         key: 'league',
         season: null,
+        label: clean(leagueLatest.competition) || null,
         champion: leagueLatest.team,
         manager: managerName(leagueLatest.manager),
         source: 'latest',
@@ -303,6 +353,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
         rows.push({
           key,
           season: null,
+          label: clean(cupLatest.competition) || null,
           champion: cupLatest.team,
           manager: managerName(cupLatest.manager),
           source: 'latest',
@@ -311,7 +362,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
     }
 
     return mergeRecords(rows);
-  }, [cups, history, honours]);
+  }, [cups, history, honours, leagueChampions]);
 
   const byCompetition = useMemo(() => ({
     league: records.filter(row => row.key === 'league'),
@@ -372,10 +423,10 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
               selectedRows.map((row, index) => (
                 <View key={`${row.key}-${row.season ?? 'latest'}-${row.champion}-${index}`} style={styles.winnerRow}>
                   <View style={[styles.medal, { borderColor: `${selectedMeta.accent}88` }]}>
-                    <Text style={[styles.medalText, { color: selectedMeta.accent }]}>★</Text>
+                    <ClubBadge club={row.champion} size={34} />
                   </View>
                   <View style={styles.flex}>
-                    <Text style={styles.winnerSeason}>{row.season ? `TEMPORADA ${row.season}` : 'REGISTRO OFICIAL'}</Text>
+                    <Text style={styles.winnerSeason}>{row.label ? row.label.toUpperCase() : row.season ? `TEMPORADA ${row.season}` : 'REGISTRO OFICIAL'}</Text>
                     <Text style={styles.winnerTeam}>{row.champion}</Text>
                     {row.manager ? <Text style={styles.winnerManager}>DT: {row.manager}</Text> : <Text style={styles.winnerManagerMuted}>DT no registrado</Text>}
                   </View>
@@ -504,7 +555,6 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   medal: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)' },
-  medalText: { fontSize: 17, fontWeight: '900' },
   winnerSeason: { color: '#788d9f', fontSize: 7, fontWeight: '900', letterSpacing: 0.8 },
   winnerTeam: { color: '#fff', fontSize: 14, fontWeight: '900', marginTop: 1 },
   winnerManager: { color: '#b4c0c9', fontSize: 9, marginTop: 2, fontWeight: '700' },
