@@ -122,6 +122,7 @@ const ALIASES: Record<string, string> = {
   'paris saint germain': 'psg',
   'paris saint germain psg': 'psg',
   'paris saint germain fc': 'psg',
+  'betis': 'real_betis',
   'real betis': 'real_betis',
   'real betis balompie': 'real_betis',
   'sevilla': 'sevilla',
