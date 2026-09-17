@@ -141,6 +141,9 @@ jobs:
       - name: Keep PES6 player stats in the final UI
         run: node scripts/apply-player-pes6-stats.mjs
 
+      - name: Add contextual market actions to player search
+        run: node scripts/apply-search-player-market-actions.mjs
+
       - name: Connect real competition cycle management
         run: node scripts/fix-cycle-management-mobile.mjs
 
