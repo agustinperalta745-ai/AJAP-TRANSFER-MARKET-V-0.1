@@ -9,11 +9,17 @@ reliable score/team read.
 This patch finds the dense horizontal content band, crops only when the source
 clearly looks letterboxed, then runs the same RapidOCR engine on the normalized
 PES image. Ordinary screenshots are left untouched.
+
+Memory note: RapidOCR/ONNX is intentionally released after each complete evidence
+batch so Railway does not keep the OCR model resident in RAM while the bot is
+idle. Set AJAP_OCR_KEEP_WARM=1 to restore the old keep-warm behaviour.
 """
 
 from __future__ import annotations
 
+import gc
 import io
+import os
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageOps
@@ -22,6 +28,10 @@ import league_local_ocr_patch as local
 
 
 _BASE_OCR_ONE = local._ocr_one
+_BASE_ALL_ITEMS = local._all_items
+_KEEP_OCR_WARM = str(os.getenv("AJAP_OCR_KEEP_WARM") or "0").strip().casefold() in {
+    "1", "true", "yes", "si", "sí", "on"
+}
 
 
 def _merge_regions(indices, max_gap: int):
@@ -138,6 +148,27 @@ def _ocr_one_phone_safe(data: bytes):
         return _BASE_OCR_ONE(data)
 
 
-local._ocr_one = _ocr_one_phone_safe
+def _release_ocr_engine():
+    """Drop the heavy ONNX OCR session once a screenshot batch is finished."""
+    if _KEEP_OCR_WARM:
+        return
+    try:
+        with local._ENGINE_LOCK:
+            local._ENGINE = None
+        gc.collect()
+    except Exception as exc:
+        # Memory cleanup must never interfere with result processing.
+        print(f"WARNING AJAP liberando OCR: {type(exc).__name__}: {exc}")
 
-print("AJAP Liga: normalización de capturas verticales/letterbox activa")
+
+def _all_items_memory_safe(images):
+    try:
+        return _BASE_ALL_ITEMS(images)
+    finally:
+        _release_ocr_engine()
+
+
+local._ocr_one = _ocr_one_phone_safe
+local._all_items = _all_items_memory_safe
+
+print("AJAP Liga: normalización de capturas verticales/letterbox activa + OCR libera RAM en reposo")
