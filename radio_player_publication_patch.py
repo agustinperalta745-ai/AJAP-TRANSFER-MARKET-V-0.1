@@ -1,6 +1,6 @@
 """Radio Pasillo rumors for every new player market publication.
 
-Discord and AJPA Mobile both end in the same persisted outbox.  The publication
+Discord and AJPA Mobile both end in the same persisted outbox. The publication
 id is UNIQUE in that outbox, so a listing can generate at most one queued Radio
 Pasillo event even when several compatibility layers observe the same creation.
 """
@@ -16,6 +16,7 @@ from discord.ext import tasks
 import guild_isolation_patch as guild_isolation
 import mobile_write_api as mobile_write
 import publication_announce_patch as publication_announcements
+import team_badge_selector_patch as team_badges
 
 
 APP = None
@@ -184,15 +185,16 @@ def _publication_snapshot(conn: sqlite3.Connection, publication_id: int) -> dict
     }
 
 
-def _radio_message(publication: dict) -> str:
+def _radio_message(publication: dict, club_emoji) -> str:
     rating = publication.get("rating")
     rating_text = str(rating) if rating is not None else "Sin definir"
+    club_label = f"{club_emoji} **{publication['club']}**"
     return (
         "📻 **RADIO PASILLO**\n\n"
         "👀 **Se mueve el mercado...**\n\n"
         "Un nuevo nombre empezó a circular fuerte por los pasillos: "
         f"**{publication['player']}**.\n\n"
-        f"Desde **{publication['club']}** habrían decidido escuchar propuestas y el futbolista "
+        f"Desde {club_label} habrían decidido escuchar propuestas y el futbolista "
         "**ya está disponible en el mercado**. 📞💰\n\n"
         f"⭐ **Media:** {rating_text}\n"
         f"⚽ **Posición:** {publication['position']}\n"
@@ -232,6 +234,21 @@ def _resolve_dt_role(guild):
         if (getattr(role, "name", "") or "").strip().casefold() == "dt":
             return role
     return None
+
+
+def _resolve_club_emoji(guild, club: str):
+    """Reuse AJPA's canonical Staff-uploaded club emoji mapping for this guild."""
+    try:
+        emoji = team_badges._find_badge_emoji(guild, str(club))
+    except Exception as exc:
+        print(
+            "WARNING AJPA Radio Pasillo emoji club | "
+            f"guild={getattr(guild, 'id', None)} club={club!r} {type(exc).__name__}: {exc}"
+        )
+        return None
+    if emoji is None or not getattr(emoji, "available", True):
+        return None
+    return emoji
 
 
 async def _process_guild(guild) -> int:
@@ -277,9 +294,23 @@ async def _process_guild(guild) -> int:
                 _mark_skipped(conn, event_id, "Publicación inexistente")
             continue
 
+        club_emoji = _resolve_club_emoji(guild, snapshot["club"])
+        if club_emoji is None:
+            with closing(_conn_for_guild(guild.id)) as conn:
+                _retry(
+                    conn,
+                    event_id,
+                    f"Emoji del club no encontrado: {snapshot['club']}",
+                )
+            print(
+                "WARNING AJPA Radio Pasillo publicación: emoji de club no encontrado | "
+                f"guild={guild.id} publication={publication_id} club={snapshot['club']}"
+            )
+            continue
+
         try:
             await channel.send(
-                content=f"{dt_role.mention}\n\n{_radio_message(snapshot)}",
+                content=f"{dt_role.mention}\n\n{_radio_message(snapshot, club_emoji)}",
                 allowed_mentions=discord.AllowedMentions(
                     everyone=False,
                     users=False,
@@ -297,7 +328,8 @@ async def _process_guild(guild) -> int:
         published += 1
         print(
             "AJPA Radio Pasillo jugador publicado | "
-            f"guild={guild.id} publication={publication_id} role={dt_role.id} source={event.get('source')}"
+            f"guild={guild.id} publication={publication_id} role={dt_role.id} "
+            f"club_emoji={getattr(club_emoji, 'name', '?')} source={event.get('source')}"
         )
 
     return published
@@ -405,7 +437,7 @@ def apply_radio_player_publication_patch(runtime, bot) -> None:
     bot.add_listener(_on_ready_publication_radio, "on_ready")
     runtime._ajpa_radio_player_publication_patch = True
     print(
-        "AJPA Radio Pasillo: publicaciones de jugadores conectadas desde App + Discord con dedupe + ping DT"
+        "AJPA Radio Pasillo: publicaciones conectadas App + Discord con dedupe + ping DT + emoji de club"
     )
 
 
