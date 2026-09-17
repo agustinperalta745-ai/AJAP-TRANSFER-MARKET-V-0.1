@@ -49,7 +49,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             created_by INTEGER,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             started_at DATETIME,
-            finished_at DATETIME
+            finished_at DATETIME,
+            champions_started_at DATETIME,
+            europa_started_at DATETIME
         );
         CREATE TABLE IF NOT EXISTS cup_seed_slots (
             edition_id INTEGER NOT NULL,
@@ -85,6 +87,18 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             ON cup_matches(edition_id, competition, round_order, match_index);
         """
     )
+    edition_cols = {str(row["name"]) for row in conn.execute("PRAGMA table_info(cup_tournament_editions)").fetchall()}
+    if "champions_started_at" not in edition_cols:
+        conn.execute("ALTER TABLE cup_tournament_editions ADD COLUMN champions_started_at DATETIME")
+    if "europa_started_at" not in edition_cols:
+        conn.execute("ALTER TABLE cup_tournament_editions ADD COLUMN europa_started_at DATETIME")
+    # Legacy ACTIVE/FINISHED editions were started as one combined bracket.
+    conn.execute(
+        """UPDATE cup_tournament_editions
+           SET champions_started_at=COALESCE(champions_started_at,started_at,created_at),
+               europa_started_at=COALESCE(europa_started_at,started_at,created_at)
+           WHERE status IN ('ACTIVE','FINISHED')"""
+    )
 
 
 def _staff_session(headers, conn: sqlite3.Connection) -> dict:
@@ -92,6 +106,25 @@ def _staff_session(headers, conn: sqlite3.Connection) -> dict:
     if not session.get("is_staff"):
         raise mobile_write_api.ApiFailure("Esta herramienta es exclusiva para Staff.", HTTPStatus.FORBIDDEN)
     return session
+
+
+def _started_field(comp: str) -> str:
+    if comp == CHAMPIONS:
+        return "champions_started_at"
+    if comp == EUROPA:
+        return "europa_started_at"
+    raise mobile_write_api.ApiFailure("Competencia inválida.")
+
+
+def _competition_started(edition, comp: str) -> bool:
+    if not edition:
+        return False
+    field = _started_field(comp)
+    keys = set(edition.keys())
+    if field in keys:
+        return bool(edition[field])
+    # Compatibility with rows created before independent cup start existed.
+    return str(edition["status"] or "") in {ACTIVE, FINISHED} and bool(edition["started_at"])
 
 
 def _current_season_number(conn: sqlite3.Connection) -> int:
@@ -304,6 +337,8 @@ def public_payload(conn: sqlite3.Connection) -> dict:
             "europa_champion": str(latest["europa_champion"] or "") or None,
             "started_at": str(latest["started_at"] or "") or None,
             "finished_at": str(latest["finished_at"] or "") or None,
+            "champions_started_at": str(latest["champions_started_at"] or "") or None,
+            "europa_started_at": str(latest["europa_started_at"] or "") or None,
             "seed_slots": _seed_rows(conn, int(latest["id"])),
             "rounds": _rounds_payload(conn, int(latest["id"])),
         }
@@ -343,32 +378,65 @@ def create_edition(conn: sqlite3.Connection, session: dict, payload: dict) -> di
     return {"ok": True, "edition_id": int(cur.lastrowid), "season_number": season_number}
 
 
-def seed_from_table(conn: sqlite3.Connection, session: dict, edition_id: int) -> dict:
+def seed_from_table(
+    conn: sqlite3.Connection,
+    session: dict,
+    edition_id: int,
+    payload: dict | None = None,
+) -> dict:
     edition = _edition(conn, edition_id)
     if not edition:
         raise mobile_write_api.ApiFailure("La edición no existe.", HTTPStatus.NOT_FOUND)
-    if str(edition["status"]) != DRAFT:
-        raise mobile_write_api.ApiFailure("Los clasificados solo se pueden cambiar antes de iniciar las copas.", HTTPStatus.CONFLICT)
+
+    requested = str((payload or {}).get("competition") or "").strip().lower()
+    competitions = (requested,) if requested in COMPETITIONS else (CHAMPIONS, EUROPA)
+    if requested and requested not in COMPETITIONS:
+        raise mobile_write_api.ApiFailure("Competencia inválida.")
+
+    for comp in competitions:
+        if _competition_started(edition, comp):
+            raise mobile_write_api.ApiFailure(
+                f"{'Champions League' if comp == CHAMPIONS else 'Europa League'} ya fue iniciada; sus cupos quedaron congelados.",
+                HTTPStatus.CONFLICT,
+            )
+
     suggestion = qualification_suggestion(conn, int(edition["season_number"]))
-    conn.execute("DELETE FROM cup_seed_slots WHERE edition_id=?", (int(edition_id),))
-    for comp in (CHAMPIONS, EUROPA):
+    for comp in competitions:
+        conn.execute(
+            "DELETE FROM cup_seed_slots WHERE edition_id=? AND competition=?",
+            (int(edition_id), comp),
+        )
         for index, team in enumerate(suggestion[comp]):
             conn.execute(
                 "INSERT INTO cup_seed_slots(edition_id,competition,slot_index,team,source) VALUES(?,?,?,?,?)",
-                (int(edition_id), comp, index, team, "TABLA" if comp == EUROPA or int(edition["season_number"]) == 1 else "REGLA_CLASIFICACION"),
+                (
+                    int(edition_id),
+                    comp,
+                    index,
+                    team,
+                    "TABLA" if comp == EUROPA or int(edition["season_number"]) == 1 else "REGLA_CLASIFICACION",
+                ),
             )
-    return {"ok": True, "edition_id": int(edition_id), "suggestion": suggestion}
+    return {
+        "ok": True,
+        "edition_id": int(edition_id),
+        "competition": requested or None,
+        "suggestion": suggestion,
+    }
 
 
 def set_seed_slot(conn: sqlite3.Connection, session: dict, edition_id: int, payload: dict) -> dict:
     edition = _edition(conn, edition_id)
     if not edition:
         raise mobile_write_api.ApiFailure("La edición no existe.", HTTPStatus.NOT_FOUND)
-    if str(edition["status"]) != DRAFT:
-        raise mobile_write_api.ApiFailure("El cuadro ya empezó; no se pueden cambiar los preclasificados.", HTTPStatus.CONFLICT)
     comp = str(payload.get("competition") or "").strip().lower()
     if comp not in COMPETITIONS:
         raise mobile_write_api.ApiFailure("Competencia inválida.")
+    if _competition_started(edition, comp):
+        raise mobile_write_api.ApiFailure(
+            f"{'Champions League' if comp == CHAMPIONS else 'Europa League'} ya fue iniciada; sus cupos quedaron congelados.",
+            HTTPStatus.CONFLICT,
+        )
     slot_raw = payload.get("slot_index")
     if not str(slot_raw if slot_raw is not None else "").isdigit():
         raise mobile_write_api.ApiFailure("Posición de clasificación inválida.")
@@ -406,36 +474,153 @@ def _insert_match(conn, edition_id: int, comp: str, round_key: str, order: int, 
     )
 
 
-def start_edition(conn: sqlite3.Connection, session: dict, edition_id: int) -> dict:
+def _ensure_blank_bracket(conn: sqlite3.Connection, edition_id: int, comp: str) -> None:
+    """Create missing match shells without deleting teams/results already propagated."""
+    for key, order, count in ROUNDS:
+        for index in range(count):
+            row = conn.execute(
+                """SELECT id FROM cup_matches
+                   WHERE edition_id=? AND competition=? AND round_key=? AND match_index=? LIMIT 1""",
+                (int(edition_id), comp, key, index),
+            ).fetchone()
+            if not row:
+                source_away = (
+                    f"Perdedor Champions • Partido {index + 1}"
+                    if comp == EUROPA and key == "R16"
+                    else None
+                )
+                _insert_match(
+                    conn,
+                    edition_id,
+                    comp,
+                    key,
+                    order,
+                    index,
+                    None,
+                    None,
+                    "Preclasificado Europa" if comp == EUROPA and key == "R16" else None,
+                    source_away,
+                )
+
+
+def _validate_seed_uniqueness(seeds: dict[str, list[dict]]) -> None:
+    all_seeded = [
+        str(row["team"])
+        for comp in (CHAMPIONS, EUROPA)
+        for row in seeds[comp]
+        if row.get("team")
+    ]
+    folded = [team.casefold() for team in all_seeded]
+    if len(set(folded)) != len(folded):
+        raise mobile_write_api.ApiFailure(
+            "Un equipo está repetido entre Champions y Europa League.",
+            HTTPStatus.CONFLICT,
+        )
+
+
+def start_edition(
+    conn: sqlite3.Connection,
+    session: dict,
+    edition_id: int,
+    payload: dict | None = None,
+) -> dict:
     edition = _edition(conn, edition_id)
     if not edition:
         raise mobile_write_api.ApiFailure("La edición no existe.", HTTPStatus.NOT_FOUND)
-    if str(edition["status"]) != DRAFT:
-        raise mobile_write_api.ApiFailure("Las copas ya fueron iniciadas.", HTTPStatus.CONFLICT)
-    seeds = _seed_rows(conn, edition_id)
-    champions = [row["team"] for row in seeds[CHAMPIONS]]
-    europa = [row["team"] for row in seeds[EUROPA]]
-    if any(not team for team in champions) or len(champions) != 16:
-        raise mobile_write_api.ApiFailure("Completá los 16 clasificados de Champions League antes de iniciar.")
-    if any(not team for team in europa) or len(europa) != 8:
-        raise mobile_write_api.ApiFailure("Completá los 8 preclasificados de Europa League antes de iniciar.")
-    all_seeded = [str(team) for team in champions + europa]
-    if len({team.casefold() for team in all_seeded}) != len(all_seeded):
-        raise mobile_write_api.ApiFailure("Un equipo está repetido entre Champions y Europa League.", HTTPStatus.CONFLICT)
 
-    conn.execute("DELETE FROM cup_matches WHERE edition_id=?", (int(edition_id),))
-    for index in range(8):
-        _insert_match(conn, edition_id, CHAMPIONS, "R16", 0, index, champions[index * 2], champions[index * 2 + 1], "Preclasificado Champions", "Preclasificado Champions")
-        _insert_match(conn, edition_id, EUROPA, "R16", 0, index, europa[index], None, "Preclasificado Europa", f"Perdedor Champions • Partido {index + 1}")
-    for comp in (CHAMPIONS, EUROPA):
+    requested = str((payload or {}).get("competition") or "").strip().lower()
+    # Old clients that do not send competition keep the previous combined start.
+    competitions = (requested,) if requested in COMPETITIONS else (CHAMPIONS, EUROPA)
+    if requested and requested not in COMPETITIONS:
+        raise mobile_write_api.ApiFailure("Competencia inválida.")
+
+    seeds = _seed_rows(conn, edition_id)
+    _validate_seed_uniqueness(seeds)
+
+    for comp in competitions:
+        if _competition_started(edition, comp):
+            raise mobile_write_api.ApiFailure(
+                f"{'Champions League' if comp == CHAMPIONS else 'Europa League'} ya fue iniciada.",
+                HTTPStatus.CONFLICT,
+            )
+        teams = [row["team"] for row in seeds[comp]]
+        expected = 16 if comp == CHAMPIONS else 8
+        if len(teams) != expected or any(not team for team in teams):
+            raise mobile_write_api.ApiFailure(
+                f"Completá los {expected} clasificados de {'Champions League' if comp == CHAMPIONS else 'Europa League'} antes de iniciar."
+            )
+
+    # Champions can start before Europa. Create Europa shells immediately so each
+    # Champions R16 loser can be propagated even while Europa remains editable.
+    if CHAMPIONS in competitions:
+        conn.execute(
+            "DELETE FROM cup_matches WHERE edition_id=? AND competition=?",
+            (int(edition_id), CHAMPIONS),
+        )
+        champions = [row["team"] for row in seeds[CHAMPIONS]]
+        for index in range(8):
+            _insert_match(
+                conn,
+                edition_id,
+                CHAMPIONS,
+                "R16",
+                0,
+                index,
+                champions[index * 2],
+                champions[index * 2 + 1],
+                "Preclasificado Champions",
+                "Preclasificado Champions",
+            )
         for key, order, count in ROUNDS[1:]:
             for index in range(count):
-                _insert_match(conn, edition_id, comp, key, order, index, None, None)
-    conn.execute(
-        "UPDATE cup_tournament_editions SET status='ACTIVE',started_at=CURRENT_TIMESTAMP,finished_at=NULL,champions_champion=NULL,europa_champion=NULL WHERE id=?",
-        (int(edition_id),),
-    )
-    return {"ok": True, "edition_id": int(edition_id), "status": ACTIVE}
+                _insert_match(conn, edition_id, CHAMPIONS, key, order, index, None, None)
+        _ensure_blank_bracket(conn, edition_id, EUROPA)
+        conn.execute(
+            """UPDATE cup_tournament_editions
+               SET champions_started_at=CURRENT_TIMESTAMP,
+                   started_at=COALESCE(started_at,CURRENT_TIMESTAMP),
+                   status='ACTIVE',finished_at=NULL,champions_champion=NULL
+               WHERE id=?""",
+            (int(edition_id),),
+        )
+
+    if EUROPA in competitions:
+        europa = [row["team"] for row in seeds[EUROPA]]
+        _ensure_blank_bracket(conn, edition_id, EUROPA)
+        for index, team in enumerate(europa):
+            row = conn.execute(
+                """SELECT * FROM cup_matches
+                   WHERE edition_id=? AND competition=? AND round_key='R16' AND match_index=? LIMIT 1""",
+                (int(edition_id), EUROPA, index),
+            ).fetchone()
+            if not row:
+                continue
+            away = str(row["away_team"] or "") or None
+            status = "READY" if team and away else "PENDING"
+            conn.execute(
+                """UPDATE cup_matches
+                   SET home_team=?,source_home='Preclasificado Europa',status=?,updated_at=CURRENT_TIMESTAMP
+                   WHERE id=?""",
+                (team, status, int(row["id"])),
+            )
+        conn.execute(
+            """UPDATE cup_tournament_editions
+               SET europa_started_at=CURRENT_TIMESTAMP,
+                   started_at=COALESCE(started_at,CURRENT_TIMESTAMP),
+                   status='ACTIVE',finished_at=NULL,europa_champion=NULL
+               WHERE id=?""",
+            (int(edition_id),),
+        )
+
+    refreshed = _edition(conn, edition_id)
+    return {
+        "ok": True,
+        "edition_id": int(edition_id),
+        "status": str(refreshed["status"] if refreshed else ACTIVE),
+        "competition": requested or None,
+        "champions_started": bool(refreshed and _competition_started(refreshed, CHAMPIONS)),
+        "europa_started": bool(refreshed and _competition_started(refreshed, EUROPA)),
+    }
 
 
 def _next_match(conn, row: sqlite3.Row):
@@ -520,6 +705,11 @@ def save_result(conn: sqlite3.Connection, session: dict, match_id: int, payload:
     edition = _edition(conn, int(row["edition_id"]))
     if not edition or str(edition["status"]) not in {ACTIVE, FINISHED}:
         raise mobile_write_api.ApiFailure("La copa todavía no está activa.", HTTPStatus.CONFLICT)
+    if not _competition_started(edition, str(row["competition"])):
+        raise mobile_write_api.ApiFailure(
+            f"{'Champions League' if str(row['competition']) == CHAMPIONS else 'Europa League'} todavía no fue iniciada.",
+            HTTPStatus.CONFLICT,
+        )
     if not row["home_team"] or not row["away_team"]:
         raise mobile_write_api.ApiFailure("Este cruce todavía está esperando un rival.", HTTPStatus.CONFLICT)
 
@@ -628,11 +818,11 @@ def apply_mobile_cup_tournaments_api_patch() -> None:
                     edition_id = int(edition_match.group(1))
                     action = edition_match.group(2)
                     if action == "seed-from-table":
-                        result = seed_from_table(conn, session, edition_id)
+                        result = seed_from_table(conn, session, edition_id, payload)
                     elif action == "slots":
                         result = set_seed_slot(conn, session, edition_id, payload)
                     else:
-                        result = start_edition(conn, session, edition_id)
+                        result = start_edition(conn, session, edition_id, payload)
                 conn.commit()
                 self._json(result)
         except mobile_write_api.ApiFailure as exc:
