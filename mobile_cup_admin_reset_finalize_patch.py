@@ -85,6 +85,7 @@ def reset_edition(conn: sqlite3.Connection, edition_id: int) -> dict:
     conn.execute(
         """UPDATE cup_tournament_editions
            SET status='DRAFT', started_at=NULL, finished_at=NULL,
+               champions_started_at=NULL, europa_started_at=NULL,
                champions_champion=NULL, europa_champion=NULL,
                champions_finished_at=NULL, europa_finished_at=NULL
            WHERE id=?""",
