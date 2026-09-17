@@ -323,6 +323,63 @@ def latest_honours_payload(conn: sqlite3.Connection) -> dict:
     }
 
 
+def finished_league_champions_payload(conn: sqlite3.Connection) -> dict:
+    """Return every FINISHED league/preseason champion with DT as-of close time."""
+    if "competition_editions" not in _tables(conn):
+        return {"champions": []}
+
+    cols = _columns(conn, "competition_editions")
+    if not {"id", "kind", "status"}.issubset(cols):
+        return {"champions": []}
+
+    if {"label", "season_number", "ended_at", "final_snapshot_json"}.issubset(cols):
+        rows = conn.execute(
+            """
+            SELECT id, kind, season_number, label, started_at, ended_at, final_snapshot_json
+            FROM competition_editions
+            WHERE LOWER(status)='finished'
+              AND LOWER(kind) IN ('season','preseason')
+            ORDER BY COALESCE(ended_at, started_at) DESC, id DESC
+            """
+        ).fetchall()
+    elif {"name", "sequence", "closed_at", "standings_snapshot", "scorers_snapshot"}.issubset(cols):
+        rows = conn.execute(
+            """
+            SELECT id, kind, sequence, name, closed_at, standings_snapshot, scorers_snapshot
+            FROM competition_editions
+            WHERE LOWER(status)='finished'
+              AND LOWER(kind) IN ('season','preseason')
+            ORDER BY closed_at DESC, id DESC
+            """
+        ).fetchall()
+    else:
+        return {"champions": []}
+
+    champions = []
+    for edition in rows:
+        payload = _champion_payload(conn, edition)
+        if not payload:
+            continue
+        keys = set(edition.keys())
+        payload["season_number"] = (
+            int(edition["season_number"])
+            if "season_number" in keys and edition["season_number"] is not None
+            else int(edition["sequence"])
+            if "sequence" in keys and edition["sequence"] is not None
+            else None
+        )
+        payload["label"] = (
+            str(edition["label"] or "")
+            if "label" in keys
+            else str(edition["name"] or "")
+            if "name" in keys
+            else str(payload.get("competition") or "")
+        )
+        payload["status"] = "finished"
+        champions.append(payload)
+    return {"champions": champions}
+
+
 def apply_mobile_latest_honours_api_patch() -> None:
     handler = mobile_read_api.MobileReadHandler
     if getattr(handler, "_ajpa_mobile_latest_honours_patch", False):
@@ -332,18 +389,21 @@ def apply_mobile_latest_honours_api_patch() -> None:
 
     def get(self):
         path = urlparse(self.path).path.rstrip("/") or "/"
-        if path != "/api/v1/league/latest-honours":
+        if path not in {"/api/v1/league/latest-honours", "/api/v1/league/champions-history"}:
             return original_get(self)
         try:
             with mobile_write_api.write_db() as conn:
-                self._json(latest_honours_payload(conn))
+                if path == "/api/v1/league/champions-history":
+                    self._json(finished_league_champions_payload(conn))
+                else:
+                    self._json(latest_honours_payload(conn))
         except Exception as exc:
-            print(f"AJPA latest honours GET error: {type(exc).__name__}: {exc}")
+            print(f"AJPA honours GET error: {type(exc).__name__}: {exc}")
             self._json(
-                {"error": "internal_error", "message": "No se pudieron cargar los últimos campeones."},
+                {"error": "internal_error", "message": "No se pudieron cargar los campeones."},
                 HTTPStatus.INTERNAL_SERVER_ERROR,
             )
 
     handler.do_GET = get
     handler._ajpa_mobile_latest_honours_patch = True
-    print("AJPA Mobile: últimos campeón/goleador/campeón de copa activos")
+    print("AJPA Mobile: últimos logros + historial de campeones finalizados con DT histórico activos")
