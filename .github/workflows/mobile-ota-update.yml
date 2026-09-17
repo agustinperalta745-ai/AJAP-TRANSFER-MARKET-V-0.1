@@ -159,6 +159,9 @@ jobs:
       - name: Fix Copas hub initial content load
         run: node scripts/fix-cup-hub-initial-load.mjs
 
+      - name: Separate Champions and Europa loading menus
+        run: node scripts/apply-cup-independent-preclassification.mjs
+
       - name: Add cup badges trophies and standalone menu card
         run: node scripts/apply-cup-visual-polish.mjs
 
