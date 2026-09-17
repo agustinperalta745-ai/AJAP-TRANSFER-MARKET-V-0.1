@@ -108,6 +108,9 @@ import treasury_menu_patch  # noqa: F401,E402
 import staff_treasury_patch  # noqa: F401,E402
 import loan_purchase_staff_notification_patch  # noqa: F401,E402
 import publication_submit_guild_schema_patch  # noqa: F401,E402
+# Every new player publication, whether created in Discord or AJPA Mobile, queues
+# one deduplicated rumor for the canonical Radio Pasillo channel.
+import radio_player_publication_patch  # noqa: F401,E402
 import loan_publication_cap_guard_patch  # noqa: F401,E402
 import discord_modal_guild_context_compat_patch  # noqa: F401,E402
 import resignation_consistency_patch  # noqa: F401,E402
@@ -187,6 +190,6 @@ import league_disable_capture_ingest_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-17T-ges-no-capture-reader-v1"
+AJAP_RESTART_MARKER = "2026-09-17T-radio-player-publications-v1"
 
 import run_bot  # noqa: F401,E402
