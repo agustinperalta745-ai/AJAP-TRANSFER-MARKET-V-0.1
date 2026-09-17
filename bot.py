@@ -74,18 +74,14 @@ guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_l
 
 import manager_menu_patch  # noqa: F401,E402
 import league_channel_panel_patch  # noqa: F401,E402
-import league_result_confirmation_patch  # noqa: F401,E402
+# Legacy screenshot/OCR result ingestion is intentionally not loaded anymore.
+# Official results are maintained in GES and synchronized by Staff.
 import league_validation_admin_review_patch  # noqa: F401,E402
-import league_result_evidence_patch  # noqa: F401,E402
 # Historical Zaragoza/Bolton corrections are score/date bounded. Future team
 # identity is resolved through linked PES usernames, not a permanent Middlesbrough rewrite.
 import league_zaragoza_bolton_history_fix_patch  # noqa: F401,E402
-import league_capture_rehab_patch  # noqa: F401,E402
 import league_market_channel_exemption_patch  # noqa: F401,E402
 import guild_report_channel_bridge_patch  # noqa: F401,E402
-import league_api_error_diagnostic_patch  # noqa: F401,E402
-import league_text_result_patch  # noqa: F401,E402
-import league_result_feedback_patch  # noqa: F401,E402
 import manager_selector_patch  # noqa: F401,E402
 import my_club_menu_patch  # noqa: F401,E402
 import staff_dashboard_patch  # noqa: F401,E402
@@ -128,47 +124,10 @@ import market_access_role_patch  # noqa: F401,E402
 # active manager must have that link before entering the rest of /mercado.
 import pes_username_link_patch  # noqa: F401,E402
 import pes_market_entry_gate_patch  # noqa: F401,E402
-# Final result-reader enrichment: recover clearly visible PES6 scorers without
-# attributing blank-name goal rows to the player above them.
-import league_scorer_continuation_rows_patch  # noqa: F401,E402
-# OpenAI can transiently refuse a vision request (429/5xx/timeout). Retry both
-# the main result read and the dedicated scorer-detail pass before giving up.
-import league_openai_retry_patch  # noqa: F401,E402
-# A clear score must stay automatic even if player names are uncertain. The
-# result-only rescue validates teams/score separately and scorer OCR is optional.
-import league_result_autonomy_patch  # noqa: F401,E402
-# Free local OCR is the first reader: Railway/ONNX handles screenshots locally.
-import league_local_ocr_patch  # noqa: F401,E402
-# Normalize full-phone screenshots before OCR so the PES frame is large enough
-# and username/team/score coordinates are measured against the game image.
-import league_phone_screenshot_crop_patch  # noqa: F401,E402
-# PES6 result screens prove FINAL state with a coherent second-period (2do) row.
-# Activate this before the strict result guards so OCR.Space cannot downgrade a
-# structurally complete final screen to unknown only because it misses a label.
-import league_pes6_second_period_final_patch  # noqa: F401,E402
-# Official teams + numeric PES score are sufficient to accept a structurally
-# valid result, while scorer OCR remains independent.
-import league_result_acceptance_guard_patch  # noqa: F401,E402
-# Combine photo geometry, team text, uploader club and linked PES username.
-import league_multisignal_result_patch  # noqa: F401,E402
-# Final runtime reliability: local/multisignal first, automatic OpenAI rescue on
-# failure/weak reads, and concrete exception diagnostics instead of generic errors.
-import league_runtime_result_rescue_patch  # noqa: F401,E402
-# Re-run unresolved historical review cards once per restart through the newest
-# reader so already-posted captures/results/goleadores are recovered automatically.
-import league_pending_review_reprocess_patch  # noqa: F401,E402
 
-# Load the complete active AJPA team catalog and every stock-PES alias before the
-# final local reader freezes its strict team-matching rules.
+# Keep the complete active AJPA team catalog available to standings/GES helpers.
 import league_team_catalog_patch  # noqa: F401,E402
-import league_pes_unlicensed_aliases_patch  # noqa: F401,E402
-# Staff's PES6 names are authoritative and are fuzzy-matched before real club
-# names, so small OCR mistakes like "North East Lond0n" still resolve correctly.
-import league_pes6_alias_resolver_patch  # noqa: F401,E402
 
-# Safety bridge: pending recovery gets runtime rescue, and the Staff rehab test
-# can never delete an already official result/goleador record.
-import league_result_final_safety_patch  # noqa: F401,E402
 # One-time authoritative 03/09 audit: rebuild the current Pretemporada to the 38
 # verified matches, named scorers + 3 own goals, refresh Discord standings, and
 # wipe/repopulate the configured GES result channel cleanly.
@@ -182,10 +141,6 @@ import league_manual_scorer_button_timeout_fix_patch  # noqa: F401,E402
 # Manual scorer editing is a Liga workflow, not a transfer-market interaction.
 # Apply the exemption after the active market gate and scorer button wrappers.
 import league_manual_scorer_market_gate_fix_patch  # noqa: F401,E402
-# Future PES scorer screens: detect name+minute tables even when OCR misses the
-# literal 'Goleador' header, validate players by roster, and repair the verified
-# Middlesbrough 1-6 Zaragoza scorer list that was already loaded without authors.
-import league_scorer_screen_reliability_patch  # noqa: F401,E402
 
 # Final Radio Pasillo layer: compare the official Top 5 before/after each NEW
 # league result. Only real overtakes within positions 1-5 create a post, with
@@ -201,13 +156,8 @@ import league_top5_persistence_bridge_patch  # noqa: F401,E402
 # snapshot to Radio Pasillo without modifying any league data.
 import league_top5_snapshot_test_patch  # noqa: F401,E402
 
-# OCR.Space is the final automatic result reader. It reuses AJPA's hardened PES6
-# team/score/scorer parser, but OCR itself is handled by the external free API.
-# Any incomplete FINAL evidence is preserved and routed to Staff.
-import league_ocrspace_result_bridge_patch  # noqa: F401,E402
-
-# Permanent Staff controls are installed last so every final result-reader path
-# receives durable match-management controls.
+# Permanent Staff controls stay available for corrections/history, but no image
+# reader is allowed to create official results anymore.
 import league_persistent_result_admin_controls_patch  # noqa: F401,E402
 # Replace separate score/scorer forms with one simple persistent wizard:
 # marcador -> equipo -> jugador de plantilla -> goles -> siguiente goleador.
@@ -231,8 +181,12 @@ import radio_pasillo_feature_ads_patch  # noqa: F401,E402
 # successful start, once per guild, then resume the normal two-hour cadence.
 import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
+# Final safety layer: after every existing league/admin wrapper initializes, force
+# Discord result-message ingestion off. GES is the single official source.
+import league_disable_capture_ingest_patch  # noqa: F401,E402
+
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-11T-final-stretch-t1-v1"
+AJAP_RESTART_MARKER = "2026-09-17T-ges-no-capture-reader-v1"
 
 import run_bot  # noqa: F401,E402
