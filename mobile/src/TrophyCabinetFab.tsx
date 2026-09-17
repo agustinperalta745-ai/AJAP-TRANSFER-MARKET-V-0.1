@@ -293,6 +293,9 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
       if (!isFinishedStatus(competition.status)) continue;
       const key = classifyCompetition(competition);
       if (!key) continue;
+      // Liga/Pretemporada comes only from the FINISHED-only backend feed below.
+      // This prevents an active table leader from ever entering the trophy cabinet.
+      if (key === 'league') continue;
       const winner = archiveWinner(competition);
       if (!winner) continue;
       rows.push({
