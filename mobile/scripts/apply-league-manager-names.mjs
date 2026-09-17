@@ -55,7 +55,7 @@ if (!ui.includes(standingsMapAnchor)) {
 if (!ui.includes('const assignedManagerName = clubProfiles.find')) {
   ui = ui.replace(
     standingsMapAnchor,
-    `${standingsMapAnchor}\n                const assignedManagerName = clubProfiles.find(\n                  (club) => club.club.trim().toLocaleLowerCase('es') === row.team.trim().toLocaleLowerCase('es'),\n                )?.manager?.name || row.manager_name || '';`,
+    `${standingsMapAnchor}\n                const rowManagerKey = row.team.trim().toLocaleLowerCase('es');\n                const assignedManagerName = clubProfiles.find((club) => {\n                  const clubManagerKey = club.club.trim().toLocaleLowerCase('es');\n                  if (clubManagerKey === rowManagerKey) return true;\n                  const betisAliases = ['betis', 'real betis'];\n                  return betisAliases.includes(clubManagerKey) && betisAliases.includes(rowManagerKey);\n                })?.manager?.name || row.manager_name || '';`,
   );
 }
 
