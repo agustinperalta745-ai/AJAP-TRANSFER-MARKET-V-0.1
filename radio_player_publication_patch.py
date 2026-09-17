@@ -202,6 +202,38 @@ def _radio_message(publication: dict) -> str:
     )
 
 
+def _resolve_dt_role(guild):
+    """Use the same DT-role preference as AJPA: configured role first, exact DT fallback."""
+    if guild is None:
+        return None
+
+    role_id = None
+    try:
+        with closing(_conn_for_guild(guild.id)) as conn:
+            conn.row_factory = sqlite3.Row
+            if _table_exists(conn, "dt_role_config"):
+                row = conn.execute(
+                    "SELECT role_id FROM dt_role_config WHERE id=1 LIMIT 1"
+                ).fetchone()
+                if row and row["role_id"]:
+                    role_id = int(row["role_id"])
+    except Exception as exc:
+        print(
+            "WARNING AJPA Radio Pasillo rol DT configurado | "
+            f"guild={getattr(guild, 'id', None)} {type(exc).__name__}: {exc}"
+        )
+
+    if role_id:
+        configured = guild.get_role(role_id)
+        if configured is not None:
+            return configured
+
+    for role in getattr(guild, "roles", []):
+        if (getattr(role, "name", "") or "").strip().casefold() == "dt":
+            return role
+    return None
+
+
 async def _process_guild(guild) -> int:
     if guild is None:
         return 0
@@ -222,6 +254,17 @@ async def _process_guild(guild) -> int:
                 _retry(conn, int(event["id"]), "Canal Radio Pasillo no encontrado")
         return 0
 
+    dt_role = _resolve_dt_role(guild)
+    if dt_role is None:
+        with closing(_conn_for_guild(guild.id)) as conn:
+            for event in events:
+                _retry(conn, int(event["id"]), "Rol DT no encontrado/configurado")
+        print(
+            "WARNING AJPA Radio Pasillo publicación: rol DT no encontrado | "
+            f"guild={guild.id}"
+        )
+        return 0
+
     published = 0
     for event in events:
         event_id = int(event["id"])
@@ -236,8 +279,13 @@ async def _process_guild(guild) -> int:
 
         try:
             await channel.send(
-                content=_radio_message(snapshot),
-                allowed_mentions=discord.AllowedMentions.none(),
+                content=f"{dt_role.mention}\n\n{_radio_message(snapshot)}",
+                allowed_mentions=discord.AllowedMentions(
+                    everyone=False,
+                    users=False,
+                    roles=[dt_role],
+                    replied_user=False,
+                ),
             )
         except (discord.Forbidden, discord.HTTPException) as exc:
             with closing(_conn_for_guild(guild.id)) as conn:
@@ -249,7 +297,7 @@ async def _process_guild(guild) -> int:
         published += 1
         print(
             "AJPA Radio Pasillo jugador publicado | "
-            f"guild={guild.id} publication={publication_id} source={event.get('source')}"
+            f"guild={guild.id} publication={publication_id} role={dt_role.id} source={event.get('source')}"
         )
 
     return published
@@ -357,7 +405,7 @@ def apply_radio_player_publication_patch(runtime, bot) -> None:
     bot.add_listener(_on_ready_publication_radio, "on_ready")
     runtime._ajpa_radio_player_publication_patch = True
     print(
-        "AJPA Radio Pasillo: publicaciones de jugadores conectadas desde App + Discord con dedupe por publicación"
+        "AJPA Radio Pasillo: publicaciones de jugadores conectadas desde App + Discord con dedupe + ping DT"
     )
 
 
