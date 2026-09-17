@@ -217,6 +217,12 @@ jobs:
       - name: Apply club and player card colors
         run: node scripts/apply-club-player-card-colors.mjs
 
+      - name: Keep PES6 player stats in player cards
+        run: node scripts/apply-player-pes6-stats.mjs
+
+      - name: Add contextual market actions to player search
+        run: node scripts/apply-search-player-market-actions.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
