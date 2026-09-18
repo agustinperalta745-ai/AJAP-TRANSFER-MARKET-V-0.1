@@ -14,6 +14,7 @@ the lobby/room/password through an ephemeral Discord response.
 from __future__ import annotations
 
 import asyncio
+import os
 import sqlite3
 from contextlib import closing
 
@@ -696,6 +697,14 @@ def apply_match_search_discord_bridge(runtime, bot) -> None:
     global APP, BOT
     APP, BOT = runtime, bot
     if getattr(runtime, "_ajpa_match_search_discord_bridge", False):
+        return
+
+    enabled = str(os.getenv("AJPA_MATCH_SEARCH_ENABLED") or "0").strip().casefold() in {
+        "1", "true", "yes", "si", "sí", "on"
+    }
+    if not enabled:
+        runtime._ajpa_match_search_discord_bridge = True
+        print("AJPA Buscar Partido: desactivado en perfil Railway Free")
         return
 
     _install_channel_command(bot)
