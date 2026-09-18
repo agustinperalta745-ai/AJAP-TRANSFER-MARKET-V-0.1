@@ -356,6 +356,7 @@ async def _badge_payloads(guild, rows) -> dict[str, bytes]:
 
 
 def _badge_image(team: str, payloads: dict[str, bytes]):
+    _ensure_pillow()
     if badgefix is not None:
         func = getattr(badgefix, "_badge_image", None)
         if callable(func):
