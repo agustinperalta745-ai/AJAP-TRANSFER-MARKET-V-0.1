@@ -52,6 +52,8 @@ _COMPETITION_NAMES = {
     "europa": "Europa League",
 }
 
+_POSTER_VERSION = 2
+
 
 def _table_exists(conn, table: str) -> bool:
     return bool(
@@ -86,6 +88,7 @@ def _ensure_schema(conn) -> None:
             status TEXT NOT NULL DEFAULT 'pending',
             channel_id INTEGER,
             discord_message_id INTEGER,
+            poster_version INTEGER NOT NULL DEFAULT 1,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             posted_at DATETIME
         )
@@ -97,10 +100,18 @@ def _ensure_schema(conn) -> None:
         ("manager_user_id", "INTEGER"),
         ("manager_name", "TEXT"),
         ("closed_at", "DATETIME"),
+        ("poster_version", "INTEGER NOT NULL DEFAULT 1"),
     ):
         if name not in cols:
             conn.execute(f"ALTER TABLE {_SEASON_EVENTS} ADD COLUMN {name} {definition}")
+
     cup_admin._ensure_schema(conn)
+    cup_cols = _columns(conn, _CUP_EVENTS)
+    if "poster_version" not in cup_cols:
+        conn.execute(
+            f"ALTER TABLE {_CUP_EVENTS} "
+            "ADD COLUMN poster_version INTEGER NOT NULL DEFAULT 1"
+        )
     conn.commit()
 
 
@@ -318,163 +329,307 @@ def build_champion_poster(
     manager_name,
     season_number,
 ):
-    """Return the official Radio Pasillo champion poster as an in-memory PNG."""
+    """Render the fixed AJPA champion-poster composition approved with Fulham.
+
+    The visual hierarchy intentionally mirrors that reference:
+    giant club crest behind the cup, trophy in the foreground, black pedestal,
+    stadium/crowd atmosphere, smoke/confetti, huge club name, champion subtitle,
+    and the final Club - DT line. Only the dynamic competition data changes.
+    """
     key = str(competition_type or "").strip().lower()
     if key not in _TROPHY_FILES:
         raise ValueError(f"Competencia de campeón inválida: {competition_type!r}")
 
-    # Pillow stays outside module startup and is loaded only for this one render.
-    from PIL import Image, ImageDraw, ImageFilter, ImageOps
+    # Railway Free: Pillow remains completely lazy and is imported for this
+    # one render only. No OpenCV/OCR/AI dependency is introduced.
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
-    trophy_path = os.path.join(os.path.dirname(__file__), _TROPHY_FILES[key])
+    root = os.path.dirname(__file__)
+    trophy_path = os.path.join(root, _TROPHY_FILES[key])
     if not os.path.isfile(trophy_path):
         raise FileNotFoundError(
             f"Falta el asset oficial de copa para {key}: {_TROPHY_FILES[key]}"
         )
 
-    width, height = 1200, 1500
+    badge = _load_badge(str(team_name))
+    if badge is None:
+        raise FileNotFoundError(
+            f"No se encontró el escudo AJPA existente para {team_name!r}"
+        )
 
-    gradient = Image.linear_gradient("L").resize((width, height))
-    image = ImageOps.colorize(
-        gradient,
-        black=(7, 11, 20),
-        white=(18, 35, 40),
-    ).convert("RGBA")
+    width, height = 1122, 1402
+    image = Image.new("RGBA", (width, height), (8, 8, 10, 255))
     draw = ImageDraw.Draw(image, "RGBA")
 
-    # Stadium bowl, pitch and floodlights.
-    draw.ellipse((-260, 190, width + 260, 1130), fill=(19, 30, 48, 225))
-    draw.ellipse((-130, 340, width + 130, 1160), fill=(8, 13, 23, 245))
+    # Full-bleed dark stadium, matching the approved Fulham poster rather than
+    # the previous generic card layout.
+    for y in range(height):
+        ratio = y / max(1, height - 1)
+        shade = int(20 - 11 * ratio)
+        draw.line((0, y, width, y), fill=(shade, shade, shade + 2, 255))
+
+    # Side stands / banners.
     draw.polygon(
-        [(110, 1070), (1090, 1070), (1200, 1490), (0, 1490)],
-        fill=(18, 57, 47, 210),
+        [(0, 80), (245, 145), (300, 905), (0, 1060)],
+        fill=(12, 12, 14, 245),
     )
-    for line_y in (1120, 1210, 1300):
-        draw.line((115, line_y, 1085, line_y), fill=(160, 205, 190, 48), width=3)
+    draw.polygon(
+        [(width, 80), (width - 245, 145), (width - 300, 905), (width, 1060)],
+        fill=(12, 12, 14, 245),
+    )
+    draw.line((244, 145, 300, 905), fill=(105, 108, 116, 55), width=3)
+    draw.line((width - 244, 145, width - 300, 905), fill=(105, 108, 116, 55), width=3)
 
-    for x in (90, 1110):
-        draw.rectangle((x - 12, 190, x + 12, 540), fill=(82, 91, 111, 180))
-        for row in range(5):
-            for col in range(3):
-                cx = x - 36 + col * 36
-                cy = 170 + row * 25
+    # Crowd texture.
+    for i in range(260):
+        x = (i * 137 + 31) % width
+        y = 510 + ((i * 73 + 19) % 430)
+        if 275 < x < width - 275 and y < 720:
+            continue
+        level = 38 + (i % 5) * 9
+        radius = 1 + (i % 3)
+        draw.ellipse(
+            (x - radius, y - radius, x + radius, y + radius),
+            fill=(level, level, level + 2, 105),
+        )
+
+    # Stadium floodlights at the lower sides.
+    for left in (True, False):
+        base_x = 56 if left else width - 56
+        direction = 1 if left else -1
+        for row in range(4):
+            for col in range(5):
+                cx = base_x + direction * col * 24
+                cy = 545 + row * 21
                 draw.ellipse(
-                    (cx - 9, cy - 9, cx + 9, cy + 9),
-                    fill=(255, 246, 201, 235),
+                    (cx - 6, cy - 6, cx + 6, cy + 6),
+                    fill=(255, 249, 225, 235),
                 )
+        draw.line(
+            (base_x, 625, base_x + direction * 95, 845),
+            fill=(78, 79, 84, 170),
+            width=7,
+        )
 
-    # Stadium haze and smoke.
+    # Huge real club badge behind the trophy.
+    badge = badge.convert("RGBA")
+    badge.thumbnail((735, 735), Image.Resampling.LANCZOS)
+    alpha = badge.getchannel("A").point(lambda value: int(value * 0.55))
+    badge.putalpha(alpha)
+    bx = (width - badge.width) // 2
+    by = 55
+    image.alpha_composite(badge, (bx, by))
+
+    # Dark vignette keeps the crest integrated into the stadium.
+    vignette = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    vignette_draw = ImageDraw.Draw(vignette, "RGBA")
+    for inset, opacity in ((0, 75), (35, 48), (75, 24)):
+        vignette_draw.rounded_rectangle(
+            (inset, inset, width - inset, height - inset),
+            radius=80,
+            outline=(0, 0, 0, opacity),
+            width=45,
+        )
+    image = Image.alpha_composite(image, vignette)
+    draw = ImageDraw.Draw(image, "RGBA")
+
+    # Smoke, concentrated around the trophy base just like the reference.
     smoke = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     smoke_draw = ImageDraw.Draw(smoke, "RGBA")
-    for i in range(12):
-        cx = 70 + (i * 103) % 1120
-        cy = 560 + (i * 71) % 500
-        rw = 160 + (i * 29) % 170
-        rh = 80 + (i * 19) % 120
+    for i in range(18):
+        cx = 95 + ((i * 127) % 930)
+        cy = 590 + ((i * 57) % 285)
+        rw = 95 + ((i * 31) % 115)
+        rh = 45 + ((i * 23) % 75)
         smoke_draw.ellipse(
             (cx - rw, cy - rh, cx + rw, cy + rh),
-            fill=(215, 222, 235, 24 + (i % 4) * 8),
+            fill=(222, 222, 226, 20 + (i % 4) * 8),
         )
-    smoke = smoke.filter(ImageFilter.GaussianBlur(34))
+    smoke = smoke.filter(ImageFilter.GaussianBlur(30))
     image = Image.alpha_composite(image, smoke)
     draw = ImageDraw.Draw(image, "RGBA")
 
-    # Real AJPA club badge enlarged behind the trophy.
-    badge = _load_badge(str(team_name))
-    if badge is not None:
-        badge.thumbnail((680, 680), Image.Resampling.LANCZOS)
-        alpha = badge.getchannel("A").point(lambda a: int(a * 0.27))
-        badge.putalpha(alpha)
-        image.alpha_composite(
-            badge,
-            ((width - badge.width) // 2, 410),
-        )
-
-    # Competition-specific AJPA trophy asset, never a generic fallback.
+    # Competition-specific trophy. The source JPGs have their own dark
+    # backgrounds, so derive a light subject mask from the image border and
+    # soften/expand it. This removes the rectangular "photo card" effect.
     with Image.open(trophy_path) as source:
-        trophy = source.convert("RGB")
-    trophy = ImageOps.contain(
-        trophy,
-        (540, 560),
-        method=Image.Resampling.LANCZOS,
-    )
-    frame = Image.new("RGBA", (590, 610), (0, 0, 0, 0))
-    frame_draw = ImageDraw.Draw(frame, "RGBA")
-    frame_draw.rounded_rectangle(
-        (8, 8, 582, 602),
-        radius=38,
-        fill=(5, 8, 14, 208),
-        outline=(228, 234, 245, 52),
-        width=2,
-    )
-    frame.alpha_composite(
-        trophy.convert("RGBA"),
-        ((frame.width - trophy.width) // 2, (frame.height - trophy.height) // 2),
-    )
-    image.alpha_composite(frame, ((width - frame.width) // 2, 470))
+        trophy_rgb = source.convert("RGB")
 
-    # Pedestal and deterministic confetti.
+    corners = [
+        trophy_rgb.getpixel((2, 2)),
+        trophy_rgb.getpixel((trophy_rgb.width - 3, 2)),
+        trophy_rgb.getpixel((2, trophy_rgb.height - 3)),
+        trophy_rgb.getpixel((trophy_rgb.width - 3, trophy_rgb.height - 3)),
+    ]
+    bg = tuple(sum(pixel[channel] for pixel in corners) // len(corners) for channel in range(3))
+    flat = Image.new("RGB", trophy_rgb.size, bg)
+    distance = ImageOps.grayscale(ImageChops.difference(trophy_rgb, flat))
+    subject_alpha = distance.point(
+        lambda value: 0 if value < 18 else 255 if value > 68 else int((value - 18) * 255 / 50)
+    )
+    subject_alpha = subject_alpha.filter(ImageFilter.MaxFilter(9))
+    subject_alpha = subject_alpha.filter(ImageFilter.GaussianBlur(1.4))
+
+    trophy = trophy_rgb.convert("RGBA")
+    trophy.putalpha(subject_alpha)
+    bbox = subject_alpha.getbbox()
+    if bbox:
+        trophy = trophy.crop(bbox)
+
+    trophy.thumbnail((505, 555), Image.Resampling.LANCZOS)
+
+    # Trophy shadow gives it the same foreground depth as the approved image.
+    shadow = Image.new("RGBA", trophy.size, (0, 0, 0, 0))
+    shadow.putalpha(
+        trophy.getchannel("A")
+        .filter(ImageFilter.GaussianBlur(14))
+        .point(lambda value: int(value * 0.62))
+    )
+    tx = (width - trophy.width) // 2
+    ty = 315
+    image.alpha_composite(shadow, (tx + 10, ty + 22))
+    image.alpha_composite(trophy, (tx, ty))
+
+    # Black marble pedestal below the trophy.
     draw = ImageDraw.Draw(image, "RGBA")
+    pedestal_top = [(365, 765), (757, 765), (810, 866), (312, 866)]
     draw.polygon(
-        [(360, 1060), (840, 1060), (920, 1210), (280, 1210)],
-        fill=(19, 22, 31, 245),
-        outline=(221, 227, 238, 95),
+        pedestal_top,
+        fill=(14, 14, 16, 250),
+        outline=(177, 178, 182, 145),
     )
     draw.rounded_rectangle(
-        (240, 1200, 960, 1325),
-        radius=24,
-        fill=(11, 14, 21, 250),
-        outline=(231, 236, 245, 85),
+        (246, 850, 876, 1010),
+        radius=16,
+        fill=(8, 8, 10, 252),
+        outline=(124, 126, 132, 135),
         width=2,
     )
+    # deterministic marble veins
+    for i in range(17):
+        x1 = 255 + ((i * 83) % 590)
+        y1 = 865 + ((i * 29) % 120)
+        x2 = min(870, x1 + 55 + (i % 5) * 22)
+        y2 = min(1004, y1 + 10 + (i % 4) * 9)
+        draw.line((x1, y1, x2, y2), fill=(155, 158, 166, 32), width=2)
 
-    accents = [
-        (241, 197, 70, 220),
-        (228, 235, 248, 210),
-        (69, 123, 181, 210),
-    ]
-    for i in range(54):
-        x = 25 + (i * 197) % 1140
-        y = 350 + (i * 113) % 870
-        w = 5 + (i % 4) * 2
-        h = 12 + (i % 5) * 3
-        draw.rounded_rectangle(
-            (x, y, x + w, y + h),
-            radius=2,
-            fill=accents[i % len(accents)],
-        )
-
-    club = str(team_name or "").strip().upper()
-    subtitle = _SUBTITLES[key]
-    manager = str(manager_name or "DT no registrado").strip() or "DT no registrado"
-    season = f"TEMPORADA {int(season_number)}"
-
-    club_font = _fit_font(draw, club, 1040, 76, 42, True)
-    subtitle_font = _fit_font(draw, subtitle, 1030, 42, 30, True)
-    season_font = radio._font(25, bold=True)
-    bottom = f"{str(team_name).strip()} - {manager}"
-    line_font = _fit_font(draw, bottom, 1040, 34, 24, True)
-
-    _center_text(draw, width, 85, club, club_font, (248, 249, 252, 255))
-    _center_text(draw, width, 178, subtitle, subtitle_font, (239, 202, 91, 255))
-    _center_text(draw, width, 242, season, season_font, (181, 190, 210, 255))
-    _center_text(draw, width, 1240, bottom, line_font, (245, 247, 251, 255))
-    footer_font = radio._font(20, bold=True)
+    # Competition plate on the trophy pedestal.
+    plate_label = {
+        "league": "LIGA AJPA",
+        "champions": "CHAMPIONS LEAGUE",
+        "europa": "EUROPA LEAGUE",
+    }[key]
+    plate_w, plate_h = 310, 70
+    plate_x = (width - plate_w) // 2
+    plate_y = 805
+    draw.rounded_rectangle(
+        (plate_x, plate_y, plate_x + plate_w, plate_y + plate_h),
+        radius=8,
+        fill=(226, 226, 220, 235),
+        outline=(245, 245, 240, 210),
+        width=2,
+    )
+    plate_font = _fit_font(draw, plate_label, plate_w - 28, 24, 17, True)
     _center_text(
         draw,
         width,
-        1410,
-        "AJPA • R A D I O - P A S I L L O",
-        footer_font,
-        (151, 162, 183, 255),
+        plate_y + 14,
+        plate_label,
+        plate_font,
+        (24, 24, 26, 255),
     )
+    season_plate = f"TEMPORADA {int(season_number)}"
+    season_font = _fit_font(draw, season_plate, plate_w - 28, 18, 14, False)
+    _center_text(
+        draw,
+        width,
+        plate_y + 43,
+        season_plate,
+        season_font,
+        (54, 54, 58, 255),
+    )
+
+    # Reference-style typography: club name is the dominant lower headline.
+    club = str(team_name or "").strip().upper()
+    subtitle = _SUBTITLES[key]
+    manager = str(manager_name or "DT no registrado").strip() or "DT no registrado"
+    bottom = f"{str(team_name).strip()} - {manager}"
+
+    club_font = _fit_font(draw, club, 1010, 92, 47, True)
+    subtitle_font = _fit_font(draw, subtitle, 1000, 45, 29, True)
+    bottom_font = _fit_font(draw, bottom, 900, 35, 23, False)
+
+    # Tiny shadow under text, then bright silver/white face.
+    def headline(y, text, font, fill):
+        box = draw.textbbox((0, 0), text, font=font)
+        tw = box[2] - box[0]
+        x = (width - tw) / 2
+        draw.text((x + 3, y + 4), text, font=font, fill=(0, 0, 0, 205))
+        draw.text((x, y), text, font=font, fill=fill)
+
+    headline(1010, club, club_font, (245, 245, 245, 255))
+    headline(1110, subtitle, subtitle_font, (238, 238, 240, 255))
+
+    # Red separator from the approved Fulham composition.
+    draw.rectangle((250, 1172, 872, 1176), fill=(150, 13, 24, 210))
+    draw.rectangle((474, 1170, 648, 1179), fill=(220, 20, 36, 240))
+
+    _center_text(draw, width, 1202, bottom, bottom_font, (218, 218, 221, 255))
+
+    footer_font = _fit_font(
+        draw,
+        "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
+        690,
+        20,
+        15,
+        False,
+    )
+    _center_text(
+        draw,
+        width,
+        1302,
+        "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
+        footer_font,
+        (153, 153, 158, 235),
+    )
+    draw.rectangle((535, 1350, 587, 1354), fill=(218, 17, 33, 240))
+
+    # Confetti is drawn last so it sits in the foreground like the reference.
+    confetti = (
+        (224, 23, 37, 225),
+        (240, 240, 240, 220),
+        (151, 154, 162, 195),
+    )
+    for i in range(70):
+        x = 18 + ((i * 191) % 1080)
+        y = 70 + ((i * 109) % 1050)
+        if 430 < x < 690 and 315 < y < 805:
+            continue
+        w = 4 + (i % 4) * 2
+        h = 9 + (i % 5) * 3
+        draw.rounded_rectangle(
+            (x, y, x + w, y + h),
+            radius=2,
+            fill=confetti[i % len(confetti)],
+        )
 
     output = io.BytesIO()
     image.convert("RGB").save(output, format="PNG", optimize=True)
     output.seek(0)
 
-    # Release every large Pillow object before returning the compact buffer.
-    for obj in (badge, trophy, frame, smoke, image, gradient):
+    # Release every large image object immediately after rendering.
+    for obj in (
+        badge,
+        vignette,
+        smoke,
+        trophy_rgb,
+        flat,
+        distance,
+        subject_alpha,
+        trophy,
+        shadow,
+        image,
+    ):
         if obj is not None:
             try:
                 obj.close()
@@ -512,9 +667,15 @@ def _mark_season_posted(
         conn.execute(
             f"""UPDATE {_SEASON_EVENTS}
                 SET status='posted',guild_id=?,channel_id=?,discord_message_id=?,
-                    posted_at=COALESCE(posted_at,CURRENT_TIMESTAMP)
+                    poster_version=?,posted_at=COALESCE(posted_at,CURRENT_TIMESTAMP)
                 WHERE competition_id=?""",
-            (int(guild_id), int(channel_id), int(message_id), int(competition_id)),
+            (
+                int(guild_id),
+                int(channel_id),
+                int(message_id),
+                _POSTER_VERSION,
+                int(competition_id),
+            ),
         )
         conn.commit()
     finally:
@@ -535,12 +696,13 @@ def _mark_cup_posted(
         conn.execute(
             f"""UPDATE {_CUP_EVENTS}
                 SET status='posted',guild_id=?,channel_id=?,discord_message_id=?,
-                    posted_at=COALESCE(posted_at,CURRENT_TIMESTAMP)
+                    poster_version=?,posted_at=COALESCE(posted_at,CURRENT_TIMESTAMP)
                 WHERE edition_id=? AND competition=?""",
             (
                 int(guild_id),
                 int(channel_id),
                 int(message_id),
+                _POSTER_VERSION,
                 int(edition_id),
                 str(competition),
             ),
@@ -815,12 +977,183 @@ async def _publish_cups(runtime, bot, guild, channel) -> None:
             )
 
 
+async def _replace_existing_poster(
+    message,
+    filename: str,
+    content: str,
+    competition: str,
+    team: str,
+    manager_name: str,
+    season_number: int,
+) -> bool:
+    payload = None
+    try:
+        payload = build_champion_poster(
+            competition,
+            team,
+            manager_name,
+            season_number,
+        )
+        replacement = discord.File(payload, filename=filename)
+        await message.edit(
+            content=content,
+            attachments=[replacement],
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        return True
+    except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+        print(
+            f"AJPA champion Radio: no se pudo corregir message={getattr(message, 'id', None)}: {exc}"
+        )
+        return False
+    except Exception as exc:
+        print(
+            f"AJPA champion Radio: render de corrección falló: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return False
+    finally:
+        if payload is not None:
+            try:
+                payload.close()
+            except Exception:
+                pass
+        gc.collect()
+
+
+async def _upgrade_posted_posters(runtime, bot, guild) -> None:
+    """Replace v1 champion attachments in place; never create a duplicate."""
+    conn = league.db(runtime, int(guild.id))
+    try:
+        _ensure_schema(conn)
+        season_jobs = [
+            dict(row)
+            for row in conn.execute(
+                f"""SELECT * FROM {_SEASON_EVENTS}
+                    WHERE guild_id=? AND status='posted'
+                      AND COALESCE(poster_version,1)<?
+                      AND channel_id IS NOT NULL
+                      AND discord_message_id IS NOT NULL
+                    ORDER BY competition_id""",
+                (int(guild.id), _POSTER_VERSION),
+            ).fetchall()
+        ]
+        cup_jobs = [
+            dict(row)
+            for row in conn.execute(
+                f"""SELECT * FROM {_CUP_EVENTS}
+                    WHERE guild_id=? AND status='posted'
+                      AND COALESCE(poster_version,1)<?
+                      AND channel_id IS NOT NULL
+                      AND discord_message_id IS NOT NULL
+                    ORDER BY edition_id,competition""",
+                (int(guild.id), _POSTER_VERSION),
+            ).fetchall()
+        ]
+    finally:
+        conn.close()
+
+    for job in season_jobs:
+        conn = league.db(runtime, int(guild.id))
+        try:
+            valid = _validate_season_job(conn, job)
+        finally:
+            conn.close()
+        if valid is None:
+            continue
+
+        champion, manager_name, season_number = valid
+        channel = guild.get_channel(int(job["channel_id"]))
+        if channel is None:
+            continue
+        try:
+            message = await channel.fetch_message(int(job["discord_message_id"]))
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            continue
+
+        competition_id = int(job["competition_id"])
+        filename = (
+            f"ajpa-champion-league-s{season_number}-competition-{competition_id}.png"
+        )
+        content = (
+            f"🏆 **{discord.utils.escape_markdown(champion)}** "
+            "es el nuevo campeón de **Liga AJPA**."
+        )
+        if await _replace_existing_poster(
+            message,
+            filename,
+            content,
+            "league",
+            champion,
+            manager_name,
+            season_number,
+        ):
+            conn = league.db(runtime, int(guild.id))
+            try:
+                conn.execute(
+                    f"UPDATE {_SEASON_EVENTS} SET poster_version=? WHERE competition_id=?",
+                    (_POSTER_VERSION, competition_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    for job in cup_jobs:
+        conn = league.db(runtime, int(guild.id))
+        try:
+            valid = _validate_cup_job(conn, job)
+        finally:
+            conn.close()
+        if valid is None:
+            continue
+
+        champion, manager_name, season_number = valid
+        channel = guild.get_channel(int(job["channel_id"]))
+        if channel is None:
+            continue
+        try:
+            message = await channel.fetch_message(int(job["discord_message_id"]))
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            continue
+
+        competition = str(job["competition"])
+        edition_id = int(job["edition_id"])
+        filename = (
+            f"ajpa-champion-{competition}-s{season_number}-edition-{edition_id}.png"
+        )
+        content = (
+            f"🏆 **{discord.utils.escape_markdown(champion)}** "
+            f"es el nuevo campeón de **{_COMPETITION_NAMES[competition]}**."
+        )
+        if await _replace_existing_poster(
+            message,
+            filename,
+            content,
+            competition,
+            champion,
+            manager_name,
+            season_number,
+        ):
+            conn = league.db(runtime, int(guild.id))
+            try:
+                conn.execute(
+                    f"""UPDATE {_CUP_EVENTS}
+                        SET poster_version=?
+                        WHERE edition_id=? AND competition=?""",
+                    (_POSTER_VERSION, edition_id, competition),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+
 async def _publish_pending(runtime, bot, guild) -> None:
     channel = await radio._resolve_radio_channel(runtime, bot, guild)
     if channel is None:
         return
     await _publish_seasons(runtime, bot, guild, channel)
     await _publish_cups(runtime, bot, guild, channel)
+    await _upgrade_posted_posters(runtime, bot, guild)
 
 
 async def _publish_after_delay(guild, delay: float) -> None:
@@ -886,5 +1219,5 @@ def apply_radio_pasillo_final_events_patch(runtime, bot) -> None:
     runtime._ajpa_champion_radio_final_events_ready = True
     print(
         "AJPA Radio Pasillo: campeones Liga + Champions + Europa activos "
-        "(cierre oficial, poster local, DT histórico, sin polling)"
+        "(plantilla Fulham aprobada, cierre oficial, DT histórico, sin polling)"
     )
