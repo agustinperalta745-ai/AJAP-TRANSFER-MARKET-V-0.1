@@ -262,7 +262,9 @@ try:
                 from publish_ovr_patch import apply_publish_ovr_patch
                 from league_known_feyenoord_fulham_scorer_fix_patch import _install as install_feyenoord_fulham_scorers
                 from league_known_ajax_feyenoord_score_repairs_patch import _install as install_ajax_feyenoord_repairs
-                import league_period_sum_score_guard_patch  # noqa: F401
+                # GES is the only official result source in production.
+                # Do not import the old local OCR/NumPy chain at startup: it was
+                # disabled later anyway and only consumed Railway RAM.
                 import radio_pasillo_feature_ads_patch as radio_pasillo_ads
                 from radio_pasillo_force_rumor_preview_patch import register_force_rumor_preview
 
