@@ -52,7 +52,7 @@ _COMPETITION_NAMES = {
     "europa": "Europa League",
 }
 
-_POSTER_VERSION = 3
+_POSTER_VERSION = 4
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -367,26 +367,181 @@ def _center_text(draw, canvas_width: int, y: int, text: str, font, fill) -> None
     draw.text(((canvas_width - width) / 2, y), text, font=font, fill=fill)
 
 
+def _reference_cache_path() -> str:
+    """Persistent local copy of the already-published Fulham champion poster."""
+    configured = str(os.getenv("AJPA_CHAMPION_REFERENCE_PATH") or "").strip()
+    if configured:
+        return configured
+    if os.path.isdir("/data"):
+        return "/data/ajpa_champion_reference.png"
+    return os.path.join(os.path.dirname(__file__), ".ajpa_champion_reference.png")
+
+
+def _reference_is_usable(path: str) -> bool:
+    if not path or not os.path.isfile(path):
+        return False
+    try:
+        if os.path.getsize(path) < 25_000:
+            return False
+        from PIL import Image
+        with Image.open(path) as source:
+            width, height = source.size
+            return width >= 700 and height >= 850 and height > width
+    except Exception:
+        return False
+
+
+async def _ensure_reference_template(channel) -> str | None:
+    """Recover the exact Fulham preseason champion image already posted.
+
+    The first successful lookup is persisted on the Railway volume. Future
+    posters are then true composites over those exact pixels instead of a
+    regenerated imitation of the poster.
+    """
+    path = _reference_cache_path()
+    if _reference_is_usable(path):
+        return path
+
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    best = None
+    best_score = -1
+
+    try:
+        async for message in channel.history(limit=1200, oldest_first=False):
+            content = str(getattr(message, "content", "") or "")
+            haystack = content.casefold()
+            created = getattr(message, "created_at", None)
+
+            for attachment in list(getattr(message, "attachments", []) or []):
+                filename = str(getattr(attachment, "filename", "") or "")
+                lower_name = filename.casefold()
+                content_type = str(getattr(attachment, "content_type", "") or "").casefold()
+                if not (
+                    content_type.startswith("image/")
+                    or lower_name.endswith((".png", ".jpg", ".jpeg", ".webp"))
+                ):
+                    continue
+
+                width = int(getattr(attachment, "width", 0) or 0)
+                height = int(getattr(attachment, "height", 0) or 0)
+                score = 0
+
+                combined = f"{haystack} {lower_name}"
+                if "fulham" in combined:
+                    score += 7
+                if "pretemporada" in combined or "pre-temporada" in combined:
+                    score += 6
+                if "campeón" in combined or "campeon" in combined or "champion" in combined:
+                    score += 3
+                if height > width and width >= 700 and height >= 850:
+                    ratio = width / max(1, height)
+                    if 0.74 <= ratio <= 0.86:
+                        score += 3
+                if created is not None:
+                    try:
+                        if (
+                            int(created.year) == 2026
+                            and int(created.month) == 9
+                            and 9 <= int(created.day) <= 12
+                        ):
+                            score += 3
+                    except Exception:
+                        pass
+
+                if score > best_score:
+                    best_score = score
+                    best = attachment
+
+        if best is None or best_score < 6:
+            print(
+                "AJPA champion Radio: no se encontró con suficiente certeza "
+                "el póster Fulham de pretemporada en Radio Pasillo."
+            )
+            return None
+
+        payload = await best.read(use_cached=True)
+        if not payload:
+            return None
+
+        tmp = path + ".tmp"
+        with open(tmp, "wb") as handle:
+            handle.write(payload)
+        os.replace(tmp, path)
+
+        if not _reference_is_usable(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            return None
+
+        print(
+            "AJPA champion Radio: plantilla maestra recuperada desde la "
+            f"publicación original de Radio Pasillo -> {path}"
+        )
+        return path
+    except (discord.Forbidden, discord.HTTPException) as exc:
+        print(f"AJPA champion Radio: no se pudo recuperar plantilla original: {exc}")
+        return None
+    except Exception as exc:
+        print(
+            "AJPA champion Radio: error recuperando plantilla original: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return None
+
+
+def _feather_box_mask(size, box, feather=42):
+    from PIL import Image, ImageDraw, ImageFilter
+
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle(box, radius=max(18, feather), fill=255)
+    return mask.filter(ImageFilter.GaussianBlur(feather))
+
+
+def _cover_variable_area(image, box, blur_radius=28, darken=0.44, feather=36):
+    """Hide only the old variable layer while preserving the real poster texture."""
+    from PIL import Image, ImageEnhance, ImageFilter
+
+    x0, y0, x1, y1 = [int(v) for v in box]
+    crop = image.crop((x0, y0, x1, y1)).filter(ImageFilter.GaussianBlur(blur_radius))
+    crop = ImageEnhance.Brightness(crop).enhance(float(darken))
+    softened = image.copy()
+    softened.alpha_composite(crop, (x0, y0))
+    mask = _feather_box_mask(image.size, box, feather)
+    result = Image.composite(softened, image, mask)
+    try:
+        crop.close()
+        softened.close()
+        mask.close()
+    except Exception:
+        pass
+    return result
+
+
 def build_champion_poster(
     competition_type,
     team_name,
     manager_name,
     season_number,
+    template_path=None,
 ):
-    """Render the fixed AJPA champion-poster composition approved with Fulham.
+    """Composite the winner over the exact published Fulham poster.
 
-    The visual hierarchy intentionally mirrors that reference:
-    giant club crest behind the cup, trophy in the foreground, black pedestal,
-    stadium/crowd atmosphere, smoke/confetti, huge club name, champion subtitle,
-    and the final Club - DT line. Only the dynamic competition data changes.
+    No stadium, background, crowd, confetti or poster frame is redrawn here.
+    The original publication is the master image. We touch only the variable
+    crest/trophy/text zones and paste the real AJPA badge + official trophy.
     """
     key = str(competition_type or "").strip().lower()
     if key not in _TROPHY_FILES:
         raise ValueError(f"Competencia de campeón inválida: {competition_type!r}")
+    if not template_path or not _reference_is_usable(str(template_path)):
+        raise FileNotFoundError(
+            "No está disponible la publicación original de Fulham para usarla como plantilla."
+        )
 
-    # Railway Free: Pillow remains completely lazy and is imported for this
-    # one render only. No OpenCV/OCR/AI dependency is introduced.
-    from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
+    from PIL import Image, ImageDraw, ImageFilter
 
     root = os.path.dirname(__file__)
     trophy_path = os.path.join(root, _TROPHY_FILES[key])
@@ -401,301 +556,145 @@ def build_champion_poster(
             f"No se encontró el escudo AJPA existente para {team_name!r}"
         )
 
+    with Image.open(str(template_path)) as source:
+        image = source.convert("RGBA")
+
+    # Keep the exact poster aspect ratio and pixels, only normalizing output size.
     width, height = 1122, 1402
-    image = Image.new("RGBA", (width, height), (8, 8, 10, 255))
-    draw = ImageDraw.Draw(image, "RGBA")
+    if image.size != (width, height):
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
 
-    # Full-bleed dark stadium, matching the approved Fulham poster rather than
-    # the previous generic card layout.
-    for y in range(height):
-        ratio = y / max(1, height - 1)
-        shade = int(20 - 11 * ratio)
-        draw.line((0, y, width, y), fill=(shade, shade, shade + 2, 255))
-
-    # Side stands / banners.
-    draw.polygon(
-        [(0, 80), (245, 145), (300, 905), (0, 1060)],
-        fill=(12, 12, 14, 245),
+    # Old Fulham crest + preseason trophy occupy the central variable zone.
+    # Blur/darken those exact pixels instead of inventing a new background.
+    covered = _cover_variable_area(
+        image,
+        (205, 28, 918, 925),
+        blur_radius=33,
+        darken=0.40,
+        feather=48,
     )
-    draw.polygon(
-        [(width, 80), (width - 245, 145), (width - 300, 905), (width, 1060)],
-        fill=(12, 12, 14, 245),
+    image.close()
+    image = covered
+
+    # Old FULHAM / subtitle / DT copy is another variable layer.
+    covered = _cover_variable_area(
+        image,
+        (70, 930, 1052, 1268),
+        blur_radius=24,
+        darken=0.28,
+        feather=34,
     )
-    draw.line((244, 145, 300, 905), fill=(105, 108, 116, 55), width=3)
-    draw.line((width - 244, 145, width - 300, 905), fill=(105, 108, 116, 55), width=3)
+    image.close()
+    image = covered
 
-    # Side banners echo the approved Fulham composition without baking club-
-    # specific English copy into the template.
-    side_font = _poster_font(29, bold=True)
-    side_small = _poster_font(18, bold=False)
-    left_banner = ["AJPA", "PASIÓN", "FÚTBOL"]
-    right_banner = ["CAMPEÓN", _COMPETITION_NAMES[key].upper()]
-    for idx, text_value in enumerate(left_banner):
-        draw.text((42, 175 + idx * 42), text_value, font=side_font, fill=(185, 185, 190, 180))
-    for idx, text_value in enumerate(right_banner):
-        box = draw.textbbox((0, 0), text_value, font=side_small if idx else side_font)
-        tw = box[2] - box[0]
-        draw.text(
-            (width - 42 - tw, 190 + idx * 44),
-            text_value,
-            font=side_small if idx else side_font,
-            fill=(185, 185, 190, 180),
-        )
-
-    # Crowd texture.
-    for i in range(260):
-        x = (i * 137 + 31) % width
-        y = 510 + ((i * 73 + 19) % 430)
-        if 275 < x < width - 275 and y < 720:
-            continue
-        level = 38 + (i % 5) * 9
-        radius = 1 + (i % 3)
-        draw.ellipse(
-            (x - radius, y - radius, x + radius, y + radius),
-            fill=(level, level, level + 2, 105),
-        )
-
-    # Stadium floodlights at the lower sides.
-    for left in (True, False):
-        base_x = 56 if left else width - 56
-        direction = 1 if left else -1
-        for row in range(4):
-            for col in range(5):
-                cx = base_x + direction * col * 24
-                cy = 545 + row * 21
-                draw.ellipse(
-                    (cx - 6, cy - 6, cx + 6, cy + 6),
-                    fill=(255, 249, 225, 235),
-                )
-        draw.line(
-            (base_x, 625, base_x + direction * 95, 845),
-            fill=(78, 79, 84, 170),
-            width=7,
-        )
-
-    # Huge real club badge behind the trophy.
+    # Winner crest: the actual existing AJPA team asset, enlarged behind the cup.
     badge = badge.convert("RGBA")
-    # Existing AJPA badges are often only 64/128/256 px. thumbnail() never
-    # upscales, which is why Marsella appeared as a tiny icon. Force the crest
-    # to the dominant Fulham-reference size while preserving aspect ratio.
-    badge_target = 760
-    badge_scale = badge_target / max(1, max(badge.width, badge.height))
+    bbox = badge.getchannel("A").getbbox()
+    if bbox:
+        badge = badge.crop(bbox)
+    badge_target = 710
+    scale = badge_target / max(1, max(badge.width, badge.height))
     badge = badge.resize(
         (
-            max(1, int(round(badge.width * badge_scale))),
-            max(1, int(round(badge.height * badge_scale))),
+            max(1, int(round(badge.width * scale))),
+            max(1, int(round(badge.height * scale))),
         ),
         Image.Resampling.LANCZOS,
     )
-    alpha = badge.getchannel("A").point(lambda value: int(value * 0.68))
+    alpha = badge.getchannel("A").point(lambda value: int(value * 0.72))
     badge.putalpha(alpha)
-    bx = (width - badge.width) // 2
-    by = 42
-    image.alpha_composite(badge, (bx, by))
+    image.alpha_composite(badge, ((width - badge.width) // 2, 42))
 
-    # Dark vignette keeps the crest integrated into the stadium.
-    vignette = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    vignette_draw = ImageDraw.Draw(vignette, "RGBA")
-    for inset, opacity in ((0, 75), (35, 48), (75, 24)):
-        vignette_draw.rounded_rectangle(
-            (inset, inset, width - inset, height - inset),
-            radius=80,
-            outline=(0, 0, 0, opacity),
-            width=45,
-        )
-    image = Image.alpha_composite(image, vignette)
-    draw = ImageDraw.Draw(image, "RGBA")
-
-    # Smoke, concentrated around the trophy base just like the reference.
-    smoke = Image.new("RGBA", (width, height), (0, 0, 0, 0))
-    smoke_draw = ImageDraw.Draw(smoke, "RGBA")
-    for i in range(18):
-        cx = 95 + ((i * 127) % 930)
-        cy = 590 + ((i * 57) % 285)
-        rw = 95 + ((i * 31) % 115)
-        rh = 45 + ((i * 23) % 75)
-        smoke_draw.ellipse(
-            (cx - rw, cy - rh, cx + rw, cy + rh),
-            fill=(222, 222, 226, 20 + (i % 4) * 8),
-        )
-    smoke = smoke.filter(ImageFilter.GaussianBlur(30))
-    image = Image.alpha_composite(image, smoke)
-    draw = ImageDraw.Draw(image, "RGBA")
-
-    # Competition-specific trophy. The source JPGs have their own dark
-    # backgrounds, so derive a light subject mask from the image border and
-    # soften/expand it. This removes the rectangular "photo card" effect.
+    # Official trophy source. These are the exact AJPA trophy images already
+    # stored in the repo; their background is removed at runtime, no AI redraw.
     with Image.open(trophy_path) as source:
         trophy_rgb = source.convert("RGB")
 
+    # Robust black/dark-background removal. The original trophy itself remains
+    # untouched; only background pixels become transparent.
     corners = [
         trophy_rgb.getpixel((2, 2)),
         trophy_rgb.getpixel((trophy_rgb.width - 3, 2)),
         trophy_rgb.getpixel((2, trophy_rgb.height - 3)),
         trophy_rgb.getpixel((trophy_rgb.width - 3, trophy_rgb.height - 3)),
     ]
-    bg = tuple(sum(pixel[channel] for pixel in corners) // len(corners) for channel in range(3))
+    bg = tuple(
+        sum(pixel[channel] for pixel in corners) // len(corners)
+        for channel in range(3)
+    )
+    from PIL import ImageChops, ImageOps
     flat = Image.new("RGB", trophy_rgb.size, bg)
     distance = ImageOps.grayscale(ImageChops.difference(trophy_rgb, flat))
     subject_alpha = distance.point(
-        lambda value: 0 if value < 18 else 255 if value > 68 else int((value - 18) * 255 / 50)
+        lambda value: 0 if value < 15
+        else 255 if value > 54
+        else int((value - 15) * 255 / 39)
     )
-    subject_alpha = subject_alpha.filter(ImageFilter.MaxFilter(9))
-    subject_alpha = subject_alpha.filter(ImageFilter.GaussianBlur(1.4))
+    subject_alpha = subject_alpha.filter(ImageFilter.MaxFilter(7))
+    subject_alpha = subject_alpha.filter(ImageFilter.GaussianBlur(1.1))
 
     trophy = trophy_rgb.convert("RGBA")
     trophy.putalpha(subject_alpha)
-    bbox = subject_alpha.getbbox()
-    if bbox:
-        trophy = trophy.crop(bbox)
+    crop_box = subject_alpha.getbbox()
+    if crop_box:
+        trophy = trophy.crop(crop_box)
 
-    trophy.thumbnail((505, 555), Image.Resampling.LANCZOS)
+    trophy_limits = {
+        "league": (500, 600),
+        "champions": (515, 610),
+        "europa": (445, 610),
+    }[key]
+    trophy.thumbnail(trophy_limits, Image.Resampling.LANCZOS)
 
-    # Trophy shadow gives it the same foreground depth as the approved image.
     shadow = Image.new("RGBA", trophy.size, (0, 0, 0, 0))
     shadow.putalpha(
         trophy.getchannel("A")
-        .filter(ImageFilter.GaussianBlur(14))
-        .point(lambda value: int(value * 0.62))
+        .filter(ImageFilter.GaussianBlur(13))
+        .point(lambda value: int(value * 0.58))
     )
     tx = (width - trophy.width) // 2
-    ty = 315
-    image.alpha_composite(shadow, (tx + 10, ty + 22))
+    ty = {
+        "league": 325,
+        "champions": 315,
+        "europa": 305,
+    }[key]
+    image.alpha_composite(shadow, (tx + 8, ty + 17))
     image.alpha_composite(trophy, (tx, ty))
 
-    # Black marble pedestal below the trophy.
     draw = ImageDraw.Draw(image, "RGBA")
-    pedestal_top = [(365, 765), (757, 765), (810, 866), (312, 866)]
-    draw.polygon(
-        pedestal_top,
-        fill=(14, 14, 16, 250),
-        outline=(177, 178, 182, 145),
-    )
-    draw.rounded_rectangle(
-        (246, 850, 876, 1010),
-        radius=16,
-        fill=(8, 8, 10, 252),
-        outline=(124, 126, 132, 135),
-        width=2,
-    )
-    # deterministic marble veins
-    for i in range(17):
-        x1 = 255 + ((i * 83) % 590)
-        y1 = 865 + ((i * 29) % 120)
-        x2 = min(870, x1 + 55 + (i % 5) * 22)
-        y2 = min(1004, y1 + 10 + (i % 4) * 9)
-        draw.line((x1, y1, x2, y2), fill=(155, 158, 166, 32), width=2)
 
-    # Competition plate on the trophy pedestal.
-    plate_label = {
-        "league": "LIGA AJPA",
-        "champions": "CHAMPIONS LEAGUE",
-        "europa": "EUROPA LEAGUE",
-    }[key]
-    plate_w, plate_h = 310, 70
-    plate_x = (width - plate_w) // 2
-    plate_y = 805
-    draw.rounded_rectangle(
-        (plate_x, plate_y, plate_x + plate_w, plate_y + plate_h),
-        radius=8,
-        fill=(226, 226, 220, 235),
-        outline=(245, 245, 240, 210),
-        width=2,
-    )
-    plate_font = _fit_font(draw, plate_label, plate_w - 28, 25, 17, True)
-    _center_text(
-        draw,
-        width,
-        plate_y + 14,
-        plate_label,
-        plate_font,
-        (24, 24, 26, 255),
-    )
-    season_plate = f"TEMPORADA {int(season_number)}"
-    season_font = _fit_font(draw, season_plate, plate_w - 28, 18, 14, False)
-    _center_text(
-        draw,
-        width,
-        plate_y + 43,
-        season_plate,
-        season_font,
-        (54, 54, 58, 255),
-    )
-
-    # Reference-style typography: club name is the dominant lower headline.
+    # Only the variable copy is redrawn; the poster itself remains the original.
     club = str(team_name or "").strip().upper()
     subtitle = _SUBTITLES[key]
     manager = str(manager_name or "DT no registrado").strip() or "DT no registrado"
     bottom = f"{str(team_name).strip()} - {manager}"
 
-    club_font = _fit_font(draw, club, 1015, 106, 52, True, serif=True)
-    subtitle_font = _fit_font(draw, subtitle, 1010, 48, 30, True, serif=True)
-    bottom_font = _fit_font(draw, bottom, 900, 38, 24, False)
+    club_font = _fit_font(draw, club, 1010, 104, 50, True, serif=True)
+    subtitle_font = _fit_font(draw, subtitle, 1010, 48, 29, True, serif=True)
+    bottom_font = _fit_font(draw, bottom, 900, 37, 23, False)
 
-    # Silver engraved headline, matching the dominant Fulham title.
     def headline(y, text, font, fill):
         box = draw.textbbox((0, 0), text, font=font)
         tw = box[2] - box[0]
         x = (width - tw) / 2
-        draw.text((x + 4, y + 5), text, font=font, fill=(0, 0, 0, 225))
-        draw.text((x + 1, y + 1), text, font=font, fill=(102, 102, 106, 230))
+        draw.text((x + 4, y + 5), text, font=font, fill=(0, 0, 0, 230))
+        draw.text((x + 1, y + 1), text, font=font, fill=(104, 104, 108, 225))
         draw.text((x, y), text, font=font, fill=fill)
 
-    headline(990, club, club_font, (248, 248, 248, 255))
-    headline(1105, subtitle, subtitle_font, (238, 238, 240, 255))
+    headline(963, club, club_font, (248, 248, 248, 255))
+    headline(1081, subtitle, subtitle_font, (238, 238, 240, 255))
 
-    # Red separator from the approved Fulham composition.
-    draw.rectangle((235, 1178, 887, 1182), fill=(135, 10, 22, 220))
-    draw.rectangle((463, 1176, 659, 1185), fill=(225, 18, 34, 245))
-
-    _center_text(draw, width, 1210, bottom, bottom_font, (225, 225, 228, 255))
-
-    footer_font = _fit_font(
-        draw,
-        "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
-        720,
-        22,
-        16,
-        False,
-    )
-    _center_text(
-        draw,
-        width,
-        1303,
-        "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
-        footer_font,
-        (165, 165, 170, 235),
-    )
-    draw.rectangle((535, 1350, 587, 1354), fill=(218, 17, 33, 240))
-
-    # Confetti is drawn last so it sits in the foreground like the reference.
-    confetti = (
-        (224, 23, 37, 225),
-        (240, 240, 240, 220),
-        (151, 154, 162, 195),
-    )
-    for i in range(70):
-        x = 18 + ((i * 191) % 1080)
-        y = 70 + ((i * 109) % 1050)
-        if 430 < x < 690 and 315 < y < 805:
-            continue
-        w = 4 + (i % 4) * 2
-        h = 9 + (i % 5) * 3
-        draw.rounded_rectangle(
-            (x, y, x + w, y + h),
-            radius=2,
-            fill=confetti[i % len(confetti)],
-        )
+    # Keep the reference poster's red identity line while replacing only copy.
+    draw.rectangle((238, 1161, 884, 1165), fill=(126, 8, 18, 220))
+    draw.rectangle((462, 1159, 660, 1168), fill=(226, 18, 33, 245))
+    _center_text(draw, width, 1198, bottom, bottom_font, (226, 226, 230, 255))
 
     output = io.BytesIO()
     image.convert("RGB").save(output, format="PNG", optimize=True)
     output.seek(0)
 
-    # Release every large image object immediately after rendering.
     for obj in (
         badge,
-        vignette,
-        smoke,
         trophy_rgb,
         flat,
         distance,
@@ -711,7 +710,6 @@ def build_champion_poster(
                 pass
     gc.collect()
     return output
-
 
 async def _existing_message_id(channel, filename: str) -> int | None:
     """Recover send-before-marker crashes using the deterministic attachment name."""
@@ -801,11 +799,16 @@ async def _send_poster_once(
 
     payload = None
     try:
+        template_path = await _ensure_reference_template(channel)
+        if not template_path:
+            print("AJPA champion Radio: publicación aplazada; falta plantilla maestra.")
+            return None
         payload = build_champion_poster(
             competition,
             team,
             manager_name,
             season_number,
+            template_path=template_path,
         )
         sent = await channel.send(
             content=content,
@@ -1062,11 +1065,15 @@ async def _replace_existing_poster(
 ) -> bool:
     payload = None
     try:
+        template_path = await _ensure_reference_template(message.channel)
+        if not template_path:
+            return False
         payload = build_champion_poster(
             competition,
             team,
             manager_name,
             season_number,
+            template_path=template_path,
         )
         replacement = discord.File(payload, filename=filename)
         await message.edit(
