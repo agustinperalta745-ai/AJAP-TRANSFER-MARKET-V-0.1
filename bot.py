@@ -192,8 +192,12 @@ import radio_pasillo_classic_now_patch  # noqa: F401,E402
 # Discord result-message ingestion off. GES is the single official source.
 import league_disable_capture_ingest_patch  # noqa: F401,E402
 
+# Every successful Staff "GES actualizada" sync publishes the complete official
+# standings in Radio Pasillo with a short dynamic read of what changed.
+import radio_pasillo_ges_table_patch  # noqa: F401,E402
+
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-17T-radio-player-publications-v1"
+AJAP_RESTART_MARKER = "2026-09-18T-radio-ges-table-v1"
 
 import run_bot  # noqa: F401,E402
