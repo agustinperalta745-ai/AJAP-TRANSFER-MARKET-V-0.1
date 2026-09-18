@@ -335,7 +335,7 @@ async def _process_guild(guild) -> int:
     return published
 
 
-@tasks.loop(seconds=5)
+@tasks.loop(seconds=30)
 async def _publication_radio_loop():
     if BOT is None or not BOT.is_ready():
         return
