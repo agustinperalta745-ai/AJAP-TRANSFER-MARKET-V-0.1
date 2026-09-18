@@ -1237,6 +1237,9 @@ async def _publish_pending(runtime, bot, guild) -> None:
     channel = await radio._resolve_radio_channel(runtime, bot, guild)
     if channel is None:
         return
+    # Prewarm the exact published Fulham poster even when there is no pending
+    # final yet, so closing a competition never has to discover it at that moment.
+    await _ensure_reference_template(channel)
     await _publish_seasons(runtime, bot, guild, channel)
     await _publish_cups(runtime, bot, guild, channel)
     await _upgrade_posted_posters(runtime, bot, guild)
