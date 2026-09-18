@@ -711,6 +711,42 @@ def build_champion_poster(
     gc.collect()
     return output
 
+def _validate_composites_once(template_path: str) -> None:
+    """Dry-run the three official cups once on the persistent Railway volume."""
+    marker = str(template_path) + f".poster-v{_POSTER_VERSION}.ok"
+    if os.path.isfile(marker):
+        return
+
+    for competition in ("league", "champions", "europa"):
+        payload = build_champion_poster(
+            competition,
+            "Fulham",
+            "CyclopsMVG",
+            1,
+            template_path=template_path,
+        )
+        try:
+            head = payload.read(8)
+            if head != b"\x89PNG\r\n\x1a\n":
+                raise RuntimeError(
+                    f"El render de {competition} no produjo un PNG válido."
+                )
+            payload.seek(0, os.SEEK_END)
+            if payload.tell() < 40_000:
+                raise RuntimeError(
+                    f"El render de {competition} quedó anormalmente pequeño."
+                )
+        finally:
+            payload.close()
+
+    with open(marker, "w", encoding="utf-8") as handle:
+        handle.write("ok\n")
+    print(
+        "AJPA champion Radio: composición exacta validada en seco "
+        "(Liga + Champions + Europa, sin publicar)."
+    )
+
+
 async def _existing_message_id(channel, filename: str) -> int | None:
     """Recover send-before-marker crashes using the deterministic attachment name."""
     try:
@@ -1239,7 +1275,15 @@ async def _publish_pending(runtime, bot, guild) -> None:
         return
     # Prewarm the exact published Fulham poster even when there is no pending
     # final yet, so closing a competition never has to discover it at that moment.
-    await _ensure_reference_template(channel)
+    template_path = await _ensure_reference_template(channel)
+    if template_path:
+        try:
+            await asyncio.to_thread(_validate_composites_once, template_path)
+        except Exception as exc:
+            print(
+                "AJPA champion Radio: validación de composición falló: "
+                f"{type(exc).__name__}: {exc}"
+            )
     await _publish_seasons(runtime, bot, guild, channel)
     await _publish_cups(runtime, bot, guild, channel)
     await _upgrade_posted_posters(runtime, bot, guild)
