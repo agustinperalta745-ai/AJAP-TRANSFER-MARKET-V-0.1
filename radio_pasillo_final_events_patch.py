@@ -1330,29 +1330,16 @@ def _schedule_publish(guild_id: int | None, delay: float = 0.0) -> None:
 
 
 def apply_radio_pasillo_final_events_patch(runtime, bot) -> None:
+    """Champion announcements intentionally disabled by Staff decision."""
     global _RUNTIME, _BOT, _BOT_LOOP
     _RUNTIME, _BOT = runtime, bot
-    if getattr(runtime, "_ajpa_champion_radio_final_events_ready", False):
-        return
+    _BOT_LOOP = None
 
-    _wrap_official_closes()
-
-    async def ready_listener():
-        global _BOT_LOOP
-        _BOT_LOOP = asyncio.get_running_loop()
-        for guild in list(getattr(bot, "guilds", []) or []):
-            try:
-                await _publish_pending(runtime, bot, guild)
-            except Exception as exc:
-                print(
-                    f"AJPA champion Radio recuperación guild={guild.id}: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-
-    bot.add_listener(ready_listener, "on_ready")
-    runtime.build_champion_poster = build_champion_poster
+    # Do not wrap competition closes, do not register on_ready recovery,
+    # do not publish pending champion events, and do not edit old posts.
+    # Existing event rows are left untouched only as historical data.
     runtime._ajpa_champion_radio_final_events_ready = True
     print(
-        "AJPA Radio Pasillo: campeones Liga + Champions + Europa activos "
-        "(plantilla Fulham aprobada, cierre oficial, DT histórico, sin polling)"
+        "AJPA Radio Pasillo: anuncios automáticos de campeones DESACTIVADOS "
+        "(Liga + Champions + Europa)"
     )
