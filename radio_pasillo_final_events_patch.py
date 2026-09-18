@@ -541,7 +541,12 @@ def build_champion_poster(
             "No está disponible la publicación original de Fulham para usarla como plantilla."
         )
 
-    from PIL import Image, ImageDraw, ImageFilter
+    from PIL import Image, ImageDraw, ImageFilter, ImageFile
+    # Some of the historical AJPA trophy JPG assets were saved aggressively
+    # and Pillow can flag their final scan as truncated even though browsers
+    # render them correctly. Accept those exact source pixels instead of
+    # regenerating/re-encoding the trophy artwork.
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
 
     root = os.path.dirname(__file__)
     trophy_path = os.path.join(root, _TROPHY_FILES[key])
@@ -718,13 +723,18 @@ def _validate_composites_once(template_path: str) -> None:
         return
 
     for competition in ("league", "champions", "europa"):
-        payload = build_champion_poster(
-            competition,
-            "Fulham",
-            "CyclopsMVG",
-            1,
-            template_path=template_path,
-        )
+        try:
+            payload = build_champion_poster(
+                competition,
+                "Fulham",
+                "CyclopsMVG",
+                1,
+                template_path=template_path,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"{competition}: {type(exc).__name__}: {exc}"
+            ) from exc
         try:
             head = payload.read(8)
             if head != b"\x89PNG\r\n\x1a\n":
