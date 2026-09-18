@@ -182,6 +182,99 @@ def _compute_standings_from_matches(conn: sqlite3.Connection, competition_id: in
     return standings
 
 
+def _ges_standings_for_season(
+    conn: sqlite3.Connection,
+    competition_id: int,
+) -> list[dict]:
+    """Read the official GES table for this exact season/competition.
+
+    GES stores every table row with its explicit position, including clubs with
+    0 PJ / 0 pts. That is the source the "Cargar desde la tabla" action must use.
+    """
+    tables = mobile_read_api._tables(conn)
+    if "league_ges_competition_config" not in tables or "league_ges_standings" not in tables:
+        return []
+
+    config = conn.execute(
+        """SELECT league_id
+           FROM league_ges_competition_config
+           WHERE competition_id=?
+           LIMIT 1""",
+        (int(competition_id),),
+    ).fetchone()
+    league_id = str(config["league_id"] or "").strip() if config else ""
+    if not league_id:
+        return []
+
+    rows = conn.execute(
+        """SELECT position,team,pts,pj,pg,pe,pp,gf,gc,dg
+           FROM league_ges_standings
+           WHERE league_id=?
+           ORDER BY position ASC, team COLLATE NOCASE ASC""",
+        (league_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _complete_standings_with_active_clubs(
+    conn: sqlite3.Connection,
+    standings: list[dict],
+) -> list[dict]:
+    """Keep the official order and never drop active clubs just for being on 0."""
+    active = [str(name).strip() for name in mobile_read_api._live_mobile_club_names(conn)]
+    active = [name for name in active if name]
+    if not active:
+        return standings
+
+    canonical = {name.casefold(): name for name in active}
+    result: list[dict] = []
+    seen: set[str] = set()
+
+    for item in standings:
+        if not isinstance(item, dict):
+            continue
+        raw_team = str(item.get("team") or "").strip()
+        if not raw_team:
+            continue
+        key = raw_team.casefold()
+        team = canonical.get(key, raw_team)
+        if team.casefold() in seen:
+            continue
+        row = dict(item)
+        row["team"] = team
+        row["position"] = int(row.get("position") or (len(result) + 1))
+        for field in ("pts", "pj", "pg", "pe", "pp", "gf", "gc", "dg"):
+            row[field] = int(row.get(field) or 0)
+        result.append(row)
+        seen.add(team.casefold())
+
+    # Fallback for a not-yet-synced/partially populated table: active clubs still
+    # occupy table positions even if they have never played and have zero points.
+    next_position = len(result) + 1
+    for team in active:
+        key = team.casefold()
+        if key in seen:
+            continue
+        result.append(
+            {
+                "position": next_position,
+                "team": team,
+                "pts": 0,
+                "pj": 0,
+                "pg": 0,
+                "pe": 0,
+                "pp": 0,
+                "gf": 0,
+                "gc": 0,
+                "dg": 0,
+            }
+        )
+        seen.add(key)
+        next_position += 1
+
+    return result
+
+
 def _season_standings(conn: sqlite3.Connection, season_number: int) -> list[dict]:
     if "competition_editions" not in mobile_read_api._tables(conn):
         return []
@@ -191,6 +284,15 @@ def _season_standings(conn: sqlite3.Connection, season_number: int) -> list[dict
     ).fetchone()
     if not row:
         return []
+
+    competition_id = int(row["id"])
+
+    # First choice: actual GES positions. This includes 0-point / 0-match clubs,
+    # exactly as they appear in the table the Staff is looking at.
+    ges_standings = _ges_standings_for_season(conn, competition_id)
+    if ges_standings:
+        return _complete_standings_with_active_clubs(conn, ges_standings)
+
     keys = set(row.keys())
     snapshot = row["final_snapshot_json"] if "final_snapshot_json" in keys else None
     if snapshot:
@@ -198,10 +300,19 @@ def _season_standings(conn: sqlite3.Connection, season_number: int) -> list[dict
             parsed = json.loads(str(snapshot))
             standings = parsed.get("standings") if isinstance(parsed, dict) else None
             if isinstance(standings, list):
-                return [item for item in standings if isinstance(item, dict) and str(item.get("team") or "").strip()]
+                return _complete_standings_with_active_clubs(
+                    conn,
+                    [
+                        item
+                        for item in standings
+                        if isinstance(item, dict) and str(item.get("team") or "").strip()
+                    ],
+                )
         except Exception:
             pass
-    return _compute_standings_from_matches(conn, int(row["id"]))
+
+    computed = _compute_standings_from_matches(conn, competition_id)
+    return _complete_standings_with_active_clubs(conn, computed)
 
 
 def _previous_europa_champion(conn: sqlite3.Connection, season_number: int) -> str | None:
