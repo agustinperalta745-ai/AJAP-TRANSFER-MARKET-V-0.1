@@ -52,7 +52,7 @@ _COMPETITION_NAMES = {
     "europa": "Europa League",
 }
 
-_POSTER_VERSION = 4
+_POSTER_VERSION = 5
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -377,41 +377,105 @@ def _reference_cache_path() -> str:
     return os.path.join(os.path.dirname(__file__), ".ajpa_champion_reference.png")
 
 
+_FULHAM_REFERENCE_DHASH = 0x8D150E8E4D2B07C4
+_FULHAM_REFERENCE_AHASH = 0x38383838187E0C81
+
+
+def _hash_distance(left: int, right: int) -> int:
+    return int(left ^ right).bit_count()
+
+
+def _image_fingerprints(source) -> tuple[int, int]:
+    from PIL import Image
+
+    gray = source.convert("L")
+    try:
+        dh = gray.resize((9, 8), Image.Resampling.LANCZOS)
+        dp = list(dh.getdata())
+        dvalue = 0
+        for y in range(8):
+            offset = y * 9
+            for x in range(8):
+                dvalue = (dvalue << 1) | int(dp[offset + x] > dp[offset + x + 1])
+
+        ah = gray.resize((8, 8), Image.Resampling.LANCZOS)
+        ap = list(ah.getdata())
+        average = sum(ap) / max(1, len(ap))
+        avalue = 0
+        for value in ap:
+            avalue = (avalue << 1) | int(value >= average)
+        return dvalue, avalue
+    finally:
+        try:
+            gray.close()
+        except Exception:
+            pass
+        try:
+            dh.close()
+        except Exception:
+            pass
+        try:
+            ah.close()
+        except Exception:
+            pass
+
+
+def _reference_match_score(source) -> tuple[int, int]:
+    dhash, ahash = _image_fingerprints(source)
+    return (
+        _hash_distance(dhash, _FULHAM_REFERENCE_DHASH),
+        _hash_distance(ahash, _FULHAM_REFERENCE_AHASH),
+    )
+
+
 def _reference_is_usable(path: str) -> bool:
+    """Accept only the actual approved Fulham poster, not any preseason image."""
     if not path or not os.path.isfile(path):
         return False
     try:
         if os.path.getsize(path) < 25_000:
             return False
-        from PIL import Image
+        from PIL import Image, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
         with Image.open(path) as source:
             width, height = source.size
-            return width >= 700 and height >= 850 and height > width
+            if width < 700 or height < 850 or height <= width:
+                return False
+            d_distance, a_distance = _reference_match_score(source)
+            # dHash survives Discord resizing/recompression very well. aHash is
+            # a second guard so a standings/table image can never be accepted.
+            return d_distance <= 10 and a_distance <= 12
     except Exception:
         return False
 
 
 async def _ensure_reference_template(channel) -> str | None:
-    """Recover the exact Fulham preseason champion image already posted.
+    """Find the exact approved Fulham poster by visual fingerprint.
 
-    The first successful lookup is persisted on the Railway volume. Future
-    posters are then true composites over those exact pixels instead of a
-    regenerated imitation of the poster.
+    We intentionally do NOT rank by message words anymore. A preseason table
+    can contain Fulham + campeón and was previously selected by mistake.
     """
     path = _reference_cache_path()
     if _reference_is_usable(path):
         return path
 
+    # Remove the bad/old cache so it cannot be reused after this fix.
+    if os.path.isfile(path):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    best = None
-    best_score = -1
+    best_payload = None
+    best_distance = None
+    best_name = ""
 
     try:
-        async for message in channel.history(limit=1200, oldest_first=False):
-            content = str(getattr(message, "content", "") or "")
-            haystack = content.casefold()
-            created = getattr(message, "created_at", None)
+        from PIL import Image, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+        async for message in channel.history(limit=1800, oldest_first=False):
             for attachment in list(getattr(message, "attachments", []) or []):
                 filename = str(getattr(attachment, "filename", "") or "")
                 lower_name = filename.casefold()
@@ -424,48 +488,53 @@ async def _ensure_reference_template(channel) -> str | None:
 
                 width = int(getattr(attachment, "width", 0) or 0)
                 height = int(getattr(attachment, "height", 0) or 0)
-                score = 0
-
-                combined = f"{haystack} {lower_name}"
-                if "fulham" in combined:
-                    score += 7
-                if "pretemporada" in combined or "pre-temporada" in combined:
-                    score += 6
-                if "campeón" in combined or "campeon" in combined or "champion" in combined:
-                    score += 3
-                if height > width and width >= 700 and height >= 850:
+                if width and height:
+                    if height <= width or width < 650 or height < 800:
+                        continue
                     ratio = width / max(1, height)
-                    if 0.74 <= ratio <= 0.86:
-                        score += 3
-                if created is not None:
-                    try:
-                        if (
-                            int(created.year) == 2026
-                            and int(created.month) == 9
-                            and 9 <= int(created.day) <= 12
-                        ):
-                            score += 3
-                    except Exception:
-                        pass
+                    if not 0.72 <= ratio <= 0.86:
+                        continue
 
-                if score > best_score:
-                    best_score = score
-                    best = attachment
+                try:
+                    payload = await attachment.read(use_cached=True)
+                    if not payload or len(payload) < 25_000:
+                        continue
+                    with Image.open(io.BytesIO(payload)) as source:
+                        d_distance, a_distance = _reference_match_score(source)
+                    distance = d_distance * 2 + a_distance
+                except Exception:
+                    continue
 
-        if best is None or best_score < 6:
-            print(
-                "AJPA champion Radio: no se encontró con suficiente certeza "
-                "el póster Fulham de pretemporada en Radio Pasillo."
-            )
+                if best_distance is None or distance < best_distance:
+                    best_distance = distance
+                    best_payload = payload
+                    best_name = filename
+
+                # Exact/near-exact match: no reason to scan older images.
+                if d_distance <= 4 and a_distance <= 6:
+                    break
+            else:
+                continue
+            break
+
+        if best_payload is None or best_distance is None:
+            print("AJPA champion Radio: no se encontró la plantilla Fulham por huella visual.")
             return None
 
-        payload = await best.read(use_cached=True)
-        if not payload:
+        # Strict acceptance threshold. If this fails, do not publish a wrong
+        # poster; leave the event pending rather than guessing.
+        with Image.open(io.BytesIO(best_payload)) as candidate:
+            d_distance, a_distance = _reference_match_score(candidate)
+        if d_distance > 10 or a_distance > 12:
+            print(
+                "AJPA champion Radio: ninguna imagen coincide con la plantilla "
+                f"Fulham aprobada (mejor d={d_distance}, a={a_distance}, file={best_name!r})."
+            )
             return None
 
         tmp = path + ".tmp"
         with open(tmp, "wb") as handle:
-            handle.write(payload)
+            handle.write(best_payload)
         os.replace(tmp, path)
 
         if not _reference_is_usable(path):
@@ -476,8 +545,8 @@ async def _ensure_reference_template(channel) -> str | None:
             return None
 
         print(
-            "AJPA champion Radio: plantilla maestra recuperada desde la "
-            f"publicación original de Radio Pasillo -> {path}"
+            "AJPA champion Radio: plantilla Fulham exacta verificada por huella "
+            f"visual -> {path} (d={d_distance}, a={a_distance}, file={best_name!r})"
         )
         return path
     except (discord.Forbidden, discord.HTTPException) as exc:
