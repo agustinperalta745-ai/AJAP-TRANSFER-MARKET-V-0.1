@@ -12,6 +12,8 @@ Pillow is imported only while an image is actually being generated.
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import gc
 import io
 import json
@@ -52,7 +54,7 @@ _COMPETITION_NAMES = {
     "europa": "Europa League",
 }
 
-_POSTER_VERSION = 5
+_POSTER_VERSION = 6
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -368,193 +370,98 @@ def _center_text(draw, canvas_width: int, y: int, text: str, font, fill) -> None
 
 
 def _reference_cache_path() -> str:
-    """Persistent local copy of the already-published Fulham champion poster."""
+    """Persistent decoded copy of the exact approved Fulham poster."""
     configured = str(os.getenv("AJPA_CHAMPION_REFERENCE_PATH") or "").strip()
     if configured:
         return configured
     if os.path.isdir("/data"):
-        return "/data/ajpa_champion_reference.png"
-    return os.path.join(os.path.dirname(__file__), ".ajpa_champion_reference.png")
+        return "/data/ajpa_champion_reference_v6.jpg"
+    return os.path.join(os.path.dirname(__file__), ".ajpa_champion_reference_v6.jpg")
 
 
-_FULHAM_REFERENCE_DHASH = 0x8D150E8E4D2B07C4
-_FULHAM_REFERENCE_AHASH = 0x38383838187E0C81
+_REFERENCE_CHUNK_DIR = "mobile/assets/trophies/fulham_reference_chunks"
+_REFERENCE_CHUNK_COUNT = 9
+_REFERENCE_SHA256 = "33f316b554c4eea93386a9c9c18596f5f5a0f097646f911952d2826ae9aa15cb"
+_REFERENCE_SIZE = 29732
 
 
-def _hash_distance(left: int, right: int) -> int:
-    return int(left ^ right).bit_count()
-
-
-def _image_fingerprints(source) -> tuple[int, int]:
-    from PIL import Image
-
-    gray = source.convert("L")
-    try:
-        dh = gray.resize((9, 8), Image.Resampling.LANCZOS)
-        dp = list(dh.getdata())
-        dvalue = 0
-        for y in range(8):
-            offset = y * 9
-            for x in range(8):
-                dvalue = (dvalue << 1) | int(dp[offset + x] > dp[offset + x + 1])
-
-        ah = gray.resize((8, 8), Image.Resampling.LANCZOS)
-        ap = list(ah.getdata())
-        average = sum(ap) / max(1, len(ap))
-        avalue = 0
-        for value in ap:
-            avalue = (avalue << 1) | int(value >= average)
-        return dvalue, avalue
-    finally:
-        try:
-            gray.close()
-        except Exception:
-            pass
-        try:
-            dh.close()
-        except Exception:
-            pass
-        try:
-            ah.close()
-        except Exception:
-            pass
-
-
-def _reference_match_score(source) -> tuple[int, int]:
-    dhash, ahash = _image_fingerprints(source)
-    return (
-        _hash_distance(dhash, _FULHAM_REFERENCE_DHASH),
-        _hash_distance(ahash, _FULHAM_REFERENCE_AHASH),
-    )
+def _bundled_reference_payload() -> bytes:
+    """Reassemble the exact approved reference that ships with the bot."""
+    root = os.path.dirname(__file__)
+    chunk_dir = os.path.join(root, _REFERENCE_CHUNK_DIR)
+    encoded_parts = []
+    for index in range(_REFERENCE_CHUNK_COUNT):
+        chunk_path = os.path.join(chunk_dir, f"{index:02d}.txt")
+        with open(chunk_path, "r", encoding="ascii") as handle:
+            encoded_parts.append("".join(handle.read().split()))
+    payload = base64.b64decode("".join(encoded_parts), validate=True)
+    if len(payload) != _REFERENCE_SIZE:
+        raise RuntimeError(
+            f"Plantilla Fulham incompleta: {len(payload)} bytes; esperados {_REFERENCE_SIZE}."
+        )
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != _REFERENCE_SHA256:
+        raise RuntimeError(
+            "La plantilla Fulham empaquetada no coincide con el archivo aprobado."
+        )
+    if not payload.startswith(b"\xff\xd8"):
+        raise RuntimeError("La plantilla Fulham empaquetada no es un JPEG válido.")
+    return payload
 
 
 def _reference_is_usable(path: str) -> bool:
-    """Accept only the actual approved Fulham poster, not any preseason image."""
     if not path or not os.path.isfile(path):
         return False
     try:
-        if os.path.getsize(path) < 25_000:
+        with open(path, "rb") as handle:
+            payload = handle.read()
+        if len(payload) != _REFERENCE_SIZE:
+            return False
+        if hashlib.sha256(payload).hexdigest() != _REFERENCE_SHA256:
             return False
         from PIL import Image, ImageFile
         ImageFile.LOAD_TRUNCATED_IMAGES = True
-        with Image.open(path) as source:
+        with Image.open(io.BytesIO(payload)) as source:
             width, height = source.size
-            if width < 700 or height < 850 or height <= width:
-                return False
-            d_distance, a_distance = _reference_match_score(source)
-            # dHash survives Discord resizing/recompression very well. aHash is
-            # a second guard so a standings/table image can never be accepted.
-            return d_distance <= 10 and a_distance <= 12
+            return width == 500 and height == 625
     except Exception:
         return False
 
 
-async def _ensure_reference_template(channel) -> str | None:
-    """Find the exact approved Fulham poster by visual fingerprint.
-
-    We intentionally do NOT rank by message words anymore. A preseason table
-    can contain Fulham + campeón and was previously selected by mistake.
-    """
+def _ensure_bundled_reference() -> str:
+    """Install the approved poster on the Railway volume; never guess from Discord."""
     path = _reference_cache_path()
     if _reference_is_usable(path):
         return path
 
-    # Remove the bad/old cache so it cannot be reused after this fix.
-    if os.path.isfile(path):
-        try:
-            os.remove(path)
-        except OSError:
-            pass
-
+    payload = _bundled_reference_payload()
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    best_payload = None
-    best_distance = None
-    best_name = ""
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as handle:
+        handle.write(payload)
+    os.replace(tmp, path)
 
+    if not _reference_is_usable(path):
+        raise RuntimeError("No se pudo validar la plantilla Fulham después de instalarla.")
+
+    print(
+        "AJPA champion Radio: plantilla Fulham APROBADA cargada desde el proyecto "
+        f"-> {path} sha256={_REFERENCE_SHA256[:12]}"
+    )
+    return path
+
+
+async def _ensure_reference_template(channel) -> str | None:
+    """Return only the bundled approved Fulham poster.
+
+    Deliberately ignores Discord history: a standings image was once mistaken
+    for the poster because it contained the same team/competition words.
+    """
     try:
-        from PIL import Image, ImageFile
-        ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-        async for message in channel.history(limit=1800, oldest_first=False):
-            for attachment in list(getattr(message, "attachments", []) or []):
-                filename = str(getattr(attachment, "filename", "") or "")
-                lower_name = filename.casefold()
-                content_type = str(getattr(attachment, "content_type", "") or "").casefold()
-                if not (
-                    content_type.startswith("image/")
-                    or lower_name.endswith((".png", ".jpg", ".jpeg", ".webp"))
-                ):
-                    continue
-
-                width = int(getattr(attachment, "width", 0) or 0)
-                height = int(getattr(attachment, "height", 0) or 0)
-                if width and height:
-                    if height <= width or width < 650 or height < 800:
-                        continue
-                    ratio = width / max(1, height)
-                    if not 0.72 <= ratio <= 0.86:
-                        continue
-
-                try:
-                    payload = await attachment.read(use_cached=True)
-                    if not payload or len(payload) < 25_000:
-                        continue
-                    with Image.open(io.BytesIO(payload)) as source:
-                        d_distance, a_distance = _reference_match_score(source)
-                    distance = d_distance * 2 + a_distance
-                except Exception:
-                    continue
-
-                if best_distance is None or distance < best_distance:
-                    best_distance = distance
-                    best_payload = payload
-                    best_name = filename
-
-                # Exact/near-exact match: no reason to scan older images.
-                if d_distance <= 4 and a_distance <= 6:
-                    break
-            else:
-                continue
-            break
-
-        if best_payload is None or best_distance is None:
-            print("AJPA champion Radio: no se encontró la plantilla Fulham por huella visual.")
-            return None
-
-        # Strict acceptance threshold. If this fails, do not publish a wrong
-        # poster; leave the event pending rather than guessing.
-        with Image.open(io.BytesIO(best_payload)) as candidate:
-            d_distance, a_distance = _reference_match_score(candidate)
-        if d_distance > 10 or a_distance > 12:
-            print(
-                "AJPA champion Radio: ninguna imagen coincide con la plantilla "
-                f"Fulham aprobada (mejor d={d_distance}, a={a_distance}, file={best_name!r})."
-            )
-            return None
-
-        tmp = path + ".tmp"
-        with open(tmp, "wb") as handle:
-            handle.write(best_payload)
-        os.replace(tmp, path)
-
-        if not _reference_is_usable(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
-            return None
-
-        print(
-            "AJPA champion Radio: plantilla Fulham exacta verificada por huella "
-            f"visual -> {path} (d={d_distance}, a={a_distance}, file={best_name!r})"
-        )
-        return path
-    except (discord.Forbidden, discord.HTTPException) as exc:
-        print(f"AJPA champion Radio: no se pudo recuperar plantilla original: {exc}")
-        return None
+        return await asyncio.to_thread(_ensure_bundled_reference)
     except Exception as exc:
         print(
-            "AJPA champion Radio: error recuperando plantilla original: "
+            "AJPA champion Radio: plantilla aprobada no disponible: "
             f"{type(exc).__name__}: {exc}"
         )
         return None
