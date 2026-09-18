@@ -17,7 +17,6 @@ import unicodedata
 from typing import Any
 
 import discord
-from PIL import Image, ImageDraw
 
 import competition_cycle as cycle
 import league_automation_patch as league
@@ -35,6 +34,17 @@ _EVENT_TABLE = "league_top5_scorer_radio_events"
 _ONE_TIME_TABLE = "ajap_one_time_jobs"
 _LIVE_KEY = "radio_top5_scorers_live_2026_09_04_v1"
 _LOCKS: dict[int, asyncio.Lock] = {}
+
+# Pillow stays unloaded while AJPA is idle; scorer images load it on demand.
+Image = None
+ImageDraw = None
+
+
+def _ensure_pillow():
+    global Image, ImageDraw
+    if Image is None:
+        from PIL import Image as _Image, ImageDraw as _ImageDraw
+        Image, ImageDraw = _Image, _ImageDraw
 
 
 def _norm(value: Any) -> str:
@@ -367,6 +377,7 @@ def _badge_image(team: str, payloads: dict[str, bytes]):
 
 
 async def _render_top5_scorers(guild, rows: list[dict[str, Any]]) -> io.BytesIO:
+    _ensure_pillow()
     payloads = await _badge_payloads(guild, rows)
     width, height = 1200, 860
     image = Image.new("RGBA", (width, height), (13, 16, 24, 255))
