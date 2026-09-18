@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import re
 from typing import Any
 
 import discord
@@ -313,127 +315,481 @@ def _fit_text(draw, text: str, font, max_width: int) -> str:
     return value
 
 
+_APP_BADGE_KEYS = {
+    "ajax": ("team_badge_hq256", "ajax.png"),
+    "asmonaco": ("team_badge_test", "as_monaco_hd.png"),
+    "monaco": ("team_badge_test", "as_monaco_hd.png"),
+    "astonvilla": ("team_badge_hq256", "aston_villa.png"),
+    "atleticomadrid": ("team_badge_hq256", "atletico_madrid.png"),
+    "atleticodemadrid": ("team_badge_hq256", "atletico_madrid.png"),
+    "benfica": ("team_badge_hq256", "benfica.png"),
+    "boltonwanderers": ("team_badge_hq256", "bolton_wanderers.png"),
+    "bolton": ("team_badge_hq256", "bolton_wanderers.png"),
+    "everton": ("team_badge_hq256", "everton.png"),
+    "feyenoord": ("team_badge_hq256", "feyenoord.png"),
+    "fiorentina": ("team_badge_hq256", "fiorentina.png"),
+    "fulham": ("team_badge_hq256", "fulham.png"),
+    "galatasaray": ("team_badge_hq256", "galatasaray.png"),
+    "lazio": ("team_badge_hq256", "lazio.png"),
+    "manchestercity": ("team_badge_hq256", "manchester_city.png"),
+    "middlesbrough": ("team_badge_hq256", "middlesbrough.png"),
+    "olympiquelyon": ("team_badge_hq256", "olympique_lyon.png"),
+    "olympiquedelyon": ("team_badge_hq256", "olympique_lyon.png"),
+    "lyon": ("team_badge_hq256", "olympique_lyon.png"),
+    "olympiquemarseille": ("team_badge_hq256", "olympique_marseille.png"),
+    "olympiquedemarseille": ("team_badge_hq256", "olympique_marseille.png"),
+    "olympiquedemarsella": ("team_badge_hq256", "olympique_marseille.png"),
+    "marsella": ("team_badge_hq256", "olympique_marseille.png"),
+    "marseille": ("team_badge_hq256", "olympique_marseille.png"),
+    "porto": ("team_badge_hq256", "porto.png"),
+    "fcporto": ("team_badge_hq256", "porto.png"),
+    "psg": ("team_badge_hq256", "psg.png"),
+    "parissaintgermain": ("team_badge_hq256", "psg.png"),
+    "parissaintgermainpsg": ("team_badge_hq256", "psg.png"),
+    "realbetis": ("team_badge_hq256", "real_betis.png"),
+    "betis": ("team_badge_hq256", "real_betis.png"),
+    "sevilla": ("team_badge_hq256", "sevilla.png"),
+    "sevillafc": ("team_badge_hq256", "sevilla.png"),
+    "tottenhamhotspur": ("team_badge_hq256", "tottenham_hotspur.png"),
+    "tottenham": ("team_badge_hq256", "tottenham_hotspur.png"),
+    "villarreal": ("team_badge_hq256", "villarreal.png"),
+    "villarrealcf": ("team_badge_hq256", "villarreal.png"),
+    "westhamunited": ("team_badge_hq256", "west_ham_united.png"),
+    "westham": ("team_badge_hq256", "west_ham_united.png"),
+    "zaragoza": ("team_badge_hq256", "zaragoza.png"),
+    "realzaragoza": ("team_badge_hq256", "zaragoza.png"),
+}
+
+
+# Exact border/accent colors used by mobile/src/TeamCardTheme.tsx.
+_APP_TEAM_THEMES = (
+    (re.compile(r"monaco"), "#d8b753"),
+    (re.compile(r"ajax"), "#eeeeee"),
+    (re.compile(r"atletico"), "#d7b75c"),
+    (re.compile(r"aston.*villa"), "#85c9ec"),
+    (re.compile(r"benfica"), "#d8b753"),
+    (re.compile(r"bolton"), "#679cd7"),
+    (re.compile(r"everton"), "#aac9ee"),
+    (re.compile(r"feyenoord"), "#eeeeee"),
+    (re.compile(r"fiorentina"), "#c1a0e5"),
+    (re.compile(r"fulham"), "#b92d3c"),
+    (re.compile(r"galatasaray"), "#f4b236"),
+    (re.compile(r"lazio"), "#daeef4"),
+    (re.compile(r"manchester.*city"), "#cee8f4"),
+    (re.compile(r"middlesbrough"), "#eeeeee"),
+    (re.compile(r"lyon"), "#db4053"),
+    (re.compile(r"marseille|marsella"), "#c5e5f4"),
+    (re.compile(r"porto"), "#d2e3ff"),
+    (re.compile(r"psg|paris"), "#d83b52"),
+    (re.compile(r"betis"), "#e0eee6"),
+    (re.compile(r"sevilla"), "#eeeeee"),
+    (re.compile(r"torino"), "#d5b876"),
+    (re.compile(r"tottenham"), "#dce5ef"),
+    (re.compile(r"villarreal"), "#e8d878"),
+    (re.compile(r"west.*ham"), "#83badb"),
+    (re.compile(r"zaragoza"), "#d5b65a"),
+)
+
+
+def _hex_rgb(value: str) -> tuple[int, int, int]:
+    value = str(value or "").lstrip("#")
+    return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _app_team_border(team: str) -> tuple[int, int, int]:
+    key = str(team or "").casefold()
+    try:
+        import unicodedata
+        key = unicodedata.normalize("NFD", key)
+        key = "".join(ch for ch in key if not unicodedata.combining(ch))
+    except Exception:
+        pass
+    for pattern, color in _APP_TEAM_THEMES:
+        if pattern.search(key):
+            return _hex_rgb(color)
+    return _hex_rgb("#71c4ff")
+
+
+def _app_badge_path(team: str) -> str | None:
+    key = top5._norm(team)
+    info = _APP_BADGE_KEYS.get(key)
+    if info:
+        folder, filename = info
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "mobile",
+            "assets",
+            folder,
+            filename,
+        )
+        if os.path.isfile(path):
+            return path
+    # Zaragoza's mobile source currently uses a remote image because its old APK
+    # asset was problematic; keep the local Radio fallback if the HQ file is absent.
+    return top5._asset_path(team)
+
+
+def _clean_manager_name(member, club: str) -> str:
+    if member is None:
+        return ""
+    for raw in (
+        getattr(member, "global_name", None),
+        getattr(member, "name", None),
+        getattr(member, "display_name", None),
+    ):
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        suffix = f" | {club}".casefold()
+        if value.casefold().endswith(suffix):
+            value = value[: -len(suffix)].strip()
+        if value:
+            return value
+    return ""
+
+
+def _manager_names(guild) -> dict[str, str]:
+    """Use the same live club assignment source that the mobile table relies on."""
+    result: dict[str, str] = {}
+    cached: dict[str, tuple[int | None, str]] = {}
+    try:
+        import mobile_write_api
+
+        with mobile_write_api.write_db() as conn:
+            if _table_exists(conn, "mobile_manager_names"):
+                rows = conn.execute(
+                    "SELECT club,user_id,manager_name FROM mobile_manager_names"
+                ).fetchall()
+                for row in rows:
+                    key = top5._team_key(str(row["club"] or ""))
+                    if not key:
+                        continue
+                    cached[key] = (
+                        int(row["user_id"]) if row["user_id"] is not None else None,
+                        str(row["manager_name"] or "").strip(),
+                    )
+
+            if not _table_exists(conn, "clubs"):
+                return {key: name for key, (_, name) in cached.items() if name}
+
+            columns = {
+                str(row["name"])
+                for row in conn.execute("PRAGMA table_info(clubs)").fetchall()
+            }
+            if not {"name", "user_id"}.issubset(columns):
+                return {key: name for key, (_, name) in cached.items() if name}
+
+            rows = conn.execute(
+                """SELECT name,user_id FROM clubs
+                   WHERE TRIM(COALESCE(name,''))<>''
+                   ORDER BY name COLLATE NOCASE"""
+            ).fetchall()
+            for row in rows:
+                club = str(row["name"] or "").strip()
+                key = top5._team_key(club)
+                if not key:
+                    continue
+                user_id = int(row["user_id"]) if row["user_id"] is not None else None
+                manager_name = ""
+                if user_id is not None and guild is not None:
+                    manager_name = _clean_manager_name(guild.get_member(user_id), club)
+                old_user_id, old_name = cached.get(key, (None, ""))
+                if not manager_name and user_id is not None and old_user_id == user_id:
+                    manager_name = old_name
+                if manager_name:
+                    result[key] = manager_name
+    except Exception as exc:
+        print(f"AJPA GES Tabla Radio: no se pudieron leer DTs de Mobile: {exc}")
+        result = {key: name for key, (_, name) in cached.items() if name}
+    return result
+
+
+def _zone(index: int) -> tuple[str, tuple[int, int, int]]:
+    # Keep this byte-for-byte equivalent in meaning to
+    # mobile/scripts/apply-league-qualification-zones.mjs:
+    # positions 1-16 Champions League, 17-24 Europa League.
+    if index <= 15:
+        if index == 0:
+            return "Campeón + Champions League", _hex_rgb("#f2c94c")
+        return "Champions League", _hex_rgb("#66a7ff")
+    if index <= 23:
+        return "Europa League", _hex_rgb("#e2a45c")
+    return "", _hex_rgb("#718596")
+
+
 def _render_table(
     rows: list[dict[str, Any]],
     competition_label: str,
+    managers: dict[str, str] | None = None,
 ) -> io.BytesIO:
+    """Render the Discord image from the exact current AJPA Mobile table tokens."""
     from PIL import Image, ImageDraw, ImageFont
 
-    width = 1500
-    row_h = 70
-    header_h = 250
-    footer_h = 86
-    height = max(720, header_h + (len(rows) * row_h) + footer_h)
+    managers = managers or {}
 
-    image = Image.new("RGB", (width, height), (12, 15, 23))
+    # Mobile table geometry is 524 logical px. Render at 2x so Discord keeps the
+    # same proportions but text and badges stay crisp on phones.
+    scale = 2
+    table_width = 524 * scale
+    content_pad = 16 * scale
+    heading_h = 30 * scale
+    hint_h = 22 * scale
+    header_h = 34 * scale
+    row_h = 50 * scale
+    bottom_pad = 16 * scale
+    width = table_width + content_pad * 2
+    shell_y = heading_h + content_pad
+    shell_h = hint_h + header_h + len(rows) * row_h
+    height = shell_y + shell_h + bottom_pad
+
+    image = Image.new("RGB", (width, height), _hex_rgb("#02060a"))
     draw = ImageDraw.Draw(image)
 
-    draw.rounded_rectangle(
-        (38, 34, width - 38, height - 34),
-        radius=34,
-        fill=(24, 29, 42),
-    )
-    draw.rounded_rectangle(
-        (38, 34, width - 38, 180),
-        radius=34,
-        fill=(35, 42, 59),
-    )
-    draw.rectangle((38, 145, width - 38, 180), fill=(35, 42, 59))
-
-    title_font = _font(ImageFont, 50, True)
-    subtitle_font = _font(ImageFont, 24, False)
-    header_font = _font(ImageFont, 20, True)
-    team_font = _font(ImageFont, 25, True)
-    stat_font = _font(ImageFont, 23, True)
-    pos_font = _font(ImageFont, 25, True)
-    footer_font = _font(ImageFont, 20, True)
-
-    draw.text((78, 60), "TABLA DE POSICIONES", font=title_font, fill=(247, 249, 252))
-    subtitle = str(competition_label or "AJPA")
+    # Same title token as s.listHeading.
+    list_font = _font(ImageFont, 10 * scale, True)
     draw.text(
-        (80, 126),
-        f"{subtitle} • Actualizada desde GES",
-        font=subtitle_font,
-        fill=(178, 187, 207),
+        (content_pad, 8 * scale),
+        "🏆 TABLA DE POSICIONES",
+        font=list_font,
+        fill=_hex_rgb("#8ac5ff"),
     )
 
-    y_header = 198
-    columns = [
-        (78, "#"),
-        (205, "EQUIPO"),
-        (860, "PJ"),
-        (945, "PG"),
-        (1030, "PE"),
-        (1115, "PP"),
-        (1210, "DG"),
-        (1340, "PTS"),
-    ]
-    for x, label in columns:
-        draw.text((x, y_header), label, font=header_font, fill=(152, 162, 184))
+    shell_x = content_pad
+    shell_right = shell_x + table_width - 1
+    shell_bottom = shell_y + shell_h - 1
+    draw.rounded_rectangle(
+        (shell_x, shell_y, shell_right, shell_bottom),
+        radius=14 * scale,
+        fill=_hex_rgb("#050d15"),
+        outline=_hex_rgb("#263b4d"),
+        width=1 * scale,
+    )
 
-    top = 238
+    # App's horizontal-scroll hint remains part of the table visual language.
+    hint_font = _font(ImageFont, 9 * scale, True)
+    draw.text(
+        (shell_x + 10 * scale, shell_y + 6 * scale),
+        "Deslizá ↔ para ver todas las estadísticas",
+        font=hint_font,
+        fill=_hex_rgb("#718596"),
+    )
+
+    table_top = shell_y + hint_h
+    header_bottom = table_top + header_h
+    draw.rectangle(
+        (shell_x, table_top, shell_right, header_bottom),
+        fill=_hex_rgb("#0d1d2a"),
+    )
+    draw.line(
+        (shell_x, table_top, shell_right, table_top),
+        fill=_hex_rgb("#1d3447"),
+        width=scale,
+    )
+    draw.line(
+        (shell_x, header_bottom, shell_right, header_bottom),
+        fill=_hex_rgb("#31495c"),
+        width=scale,
+    )
+
+    widths = [
+        34 * scale,   # #
+        170 * scale,  # EQUIPO
+        38 * scale,   # PJ
+        38 * scale,   # PG
+        38 * scale,   # PE
+        38 * scale,   # PP
+        38 * scale,   # GF
+        38 * scale,   # GC
+        44 * scale,   # DG
+        48 * scale,   # PTS
+    ]
+    labels = ["#", "EQUIPO", "PJ", "PG", "PE", "PP", "GF", "GC", "DG", "PTS"]
+    starts = []
+    cursor = shell_x
+    for value in widths:
+        starts.append(cursor)
+        cursor += value
+
+    header_font = _font(ImageFont, 9 * scale, True)
+    for idx, (x, col_w, label) in enumerate(zip(starts, widths, labels)):
+        if idx == 1:
+            draw.text(
+                (x + 8 * scale, table_top + 10 * scale),
+                label,
+                font=header_font,
+                fill=_hex_rgb("#8fa6b8"),
+            )
+        else:
+            box = draw.textbbox((0, 0), label, font=header_font)
+            tw = box[2] - box[0]
+            th = box[3] - box[1]
+            draw.text(
+                (x + (col_w - tw) / 2, table_top + (header_h - th) / 2 - 1 * scale),
+                label,
+                font=header_font,
+                fill=_hex_rgb("#8fa6b8"),
+            )
+
+    pos_font = _font(ImageFont, 11 * scale, True)
+    team_font = _font(ImageFont, 11 * scale, True)
+    manager_font = _font(ImageFont, 8 * scale, True)
+    zone_font = _font(ImageFont, 7 * scale, True)
+    stat_font = _font(ImageFont, 11 * scale, True)
+    points_font = _font(ImageFont, 12 * scale, True)
+
     for index, row in enumerate(rows):
-        y = top + index * row_h
-        fill = (30, 36, 51) if index % 2 == 0 else (27, 33, 47)
-        draw.rounded_rectangle(
-            (62, y, width - 62, y + row_h - 8),
-            radius=18,
-            fill=fill,
+        y = header_bottom + index * row_h
+        row_bottom = y + row_h
+        bg = "#08121c" if index % 2 == 0 else "#0c1925"
+        draw.rectangle(
+            (shell_x, y, shell_right, row_bottom),
+            fill=_hex_rgb(bg),
         )
 
-        pos = int(row.get("position") or index + 1)
-        draw.text((86, y + 15), str(pos), font=pos_font, fill=(244, 246, 250))
+        border = _app_team_border(str(row.get("team") or ""))
+        draw.rectangle(
+            (shell_x, y, shell_x + 3 * scale - 1, row_bottom),
+            fill=border,
+        )
+        draw.line(
+            (shell_x, row_bottom - 1, shell_right, row_bottom - 1),
+            fill=_hex_rgb("#182c3b"),
+            width=scale,
+        )
 
-        badge_path = top5._asset_path(str(row.get("team") or ""))
+        pos = str(int(row.get("position") or index + 1))
+        pbox = draw.textbbox((0, 0), pos, font=pos_font)
+        draw.text(
+            (
+                starts[0] + (widths[0] - (pbox[2] - pbox[0])) / 2,
+                y + (row_h - (pbox[3] - pbox[1])) / 2 - 1 * scale,
+            ),
+            pos,
+            font=pos_font,
+            fill=_hex_rgb("#f7fbff"),
+        )
+
+        team = str(row.get("team") or "")
+        badge_size = 26 * scale
+        badge_x = starts[1] + 8 * scale
+        badge_y = y + (row_h - badge_size) // 2
+        badge_path = _app_badge_path(team)
         if badge_path:
             try:
                 badge = Image.open(badge_path).convert("RGBA")
-                badge.thumbnail((46, 46), Image.Resampling.LANCZOS)
-                bx = 174 - badge.width // 2
-                by = y + (row_h - 8 - badge.height) // 2
+                badge.thumbnail((badge_size, badge_size), Image.Resampling.LANCZOS)
+                bx = badge_x + (badge_size - badge.width) // 2
+                by = badge_y + (badge_size - badge.height) // 2
+                # Mobile ClubBadge restores Ajax's white circular field.
+                if top5._norm(team) == "ajax":
+                    inset_x = int(badge_size * 0.115)
+                    inset_y = int(badge_size * 0.22)
+                    disc_w = int(badge_size * 0.77)
+                    draw.ellipse(
+                        (
+                            badge_x + inset_x,
+                            badge_y + inset_y,
+                            badge_x + inset_x + disc_w,
+                            badge_y + inset_y + disc_w,
+                        ),
+                        fill=(255, 255, 255),
+                    )
                 image.paste(badge, (bx, by), badge)
             except Exception:
                 pass
 
-        team = _fit_text(
-            draw,
-            str(row.get("team") or ""),
-            team_font,
-            595,
-        )
-        draw.text((205, y + 14), team, font=team_font, fill=(246, 248, 252))
+        text_x = starts[1] + 8 * scale + badge_size + 8 * scale
+        text_w = widths[1] - (text_x - starts[1]) - 6 * scale
+        manager = managers.get(top5._team_key(team), "")
+        zone_label, zone_color = _zone(index)
 
-        stats = [
-            (870, int(row.get("pj") or 0)),
-            (955, int(row.get("pg") or 0)),
-            (1040, int(row.get("pe") or 0)),
-            (1125, int(row.get("pp") or 0)),
+        team_text = _fit_text(draw, team, team_font, text_w)
+        draw.text(
+            (text_x, y + 5 * scale),
+            team_text,
+            font=team_font,
+            fill=_hex_rgb("#f7fbff"),
+        )
+
+        manager_text = "DT: " + (manager or "Sin asignar")
+        manager_text = _fit_text(draw, manager_text, manager_font, text_w)
+        draw.text(
+            (text_x, y + 19 * scale),
+            manager_text,
+            font=manager_font,
+            fill=_hex_rgb("#a7b7c5"),
+        )
+
+        if zone_label:
+            zone_y = y + 32 * scale
+            dot = 5 * scale
+            draw.ellipse(
+                (text_x, zone_y + 1 * scale, text_x + dot, zone_y + 1 * scale + dot),
+                fill=zone_color,
+            )
+            zone_text = _fit_text(
+                draw,
+                zone_label,
+                zone_font,
+                max(20, text_w - dot - 4 * scale),
+            )
+            draw.text(
+                (text_x + dot + 4 * scale, zone_y),
+                zone_text,
+                font=zone_font,
+                fill=zone_color,
+            )
+
+        values = [
+            int(row.get("pj") or 0),
+            int(row.get("pg") or 0),
+            int(row.get("pe") or 0),
+            int(row.get("pp") or 0),
+            int(row.get("gf") or 0),
+            int(row.get("gc") or 0),
         ]
-        for x, value in stats:
-            draw.text((x, y + 16), str(value), font=stat_font, fill=(224, 229, 238))
+        for col_idx, value in enumerate(values, start=2):
+            label = str(value)
+            box = draw.textbbox((0, 0), label, font=stat_font)
+            draw.text(
+                (
+                    starts[col_idx] + (widths[col_idx] - (box[2] - box[0])) / 2,
+                    y + (row_h - (box[3] - box[1])) / 2 - 1 * scale,
+                ),
+                label,
+                font=stat_font,
+                fill=_hex_rgb("#d6e1e9"),
+            )
 
         dg = int(row.get("dg") or 0)
-        dg_text = f"+{dg}" if dg > 0 else str(dg)
-        draw.text((1202, y + 16), dg_text, font=stat_font, fill=(224, 229, 238))
+        dg_label = f"+{dg}" if dg > 0 else str(dg)
+        box = draw.textbbox((0, 0), dg_label, font=stat_font)
         draw.text(
-            (1342, y + 13),
-            str(int(row.get("pts") or 0)),
-            font=pos_font,
-            fill=(255, 255, 255),
+            (
+                starts[8] + (widths[8] - (box[2] - box[0])) / 2,
+                y + (row_h - (box[3] - box[1])) / 2 - 1 * scale,
+            ),
+            dg_label,
+            font=stat_font,
+            fill=_hex_rgb("#d6e1e9"),
         )
 
-    draw.text(
-        (80, height - 70),
-        "AJPA • Radio Pasillo • Fuente oficial: GES",
-        font=footer_font,
-        fill=(143, 153, 174),
-    )
+        pts_label = str(int(row.get("pts") or 0))
+        box = draw.textbbox((0, 0), pts_label, font=points_font)
+        draw.text(
+            (
+                starts[9] + (widths[9] - (box[2] - box[0])) / 2,
+                y + (row_h - (box[3] - box[1])) / 2 - 1 * scale,
+            ),
+            pts_label,
+            font=points_font,
+            fill=border,
+        )
 
     payload = io.BytesIO()
     image.save(payload, format="PNG", optimize=True)
     payload.seek(0)
     return payload
-
 
 async def _publish_event(runtime, bot, guild, sync_run_id: int) -> bool:
     row = _event(runtime, int(guild.id), int(sync_run_id))
@@ -459,8 +815,13 @@ async def _publish_event(runtime, bot, guild, sync_run_id: int) -> bool:
     if not after:
         return False
 
-    image = _render_table(after, str(row["competition_label"] or "AJPA"))
-    file = discord.File(image, filename=f"ajpa-tabla-ges-{int(sync_run_id)}.png")
+    managers = _manager_names(guild)
+    image = _render_table(
+        after,
+        str(row["competition_label"] or "AJPA"),
+        managers,
+    )
+    file = discord.File(image, filename=f"ajpa-tabla-app-{int(sync_run_id)}.png")
     try:
         sent = await channel.send(
             content=_commentary(guild, before, after),
