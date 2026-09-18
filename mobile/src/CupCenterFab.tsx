@@ -42,8 +42,6 @@ type CupEdition = {
   europa_name: string;
   champions_champion: string | null;
   europa_champion: string | null;
-  champions_finished_at?: string | null;
-  europa_finished_at?: string | null;
   started_at: string | null;
   finished_at: string | null;
   seed_slots: Record<CompetitionKey, SeedSlot[]>;
@@ -135,8 +133,6 @@ export default function CupCenterFab() {
   const currentSeason = data?.rules.season_number ?? 1;
   const currentEditionReady = Boolean(edition && edition.season_number === currentSeason);
   const activeRounds = useMemo(() => edition?.rounds?.[competition] ?? [], [edition, competition]);
-  const currentChampion = competition === 'champions' ? edition?.champions_champion : edition?.europa_champion;
-  const currentFinishedAt = competition === 'champions' ? edition?.champions_finished_at : edition?.europa_finished_at;
 
   const prepareEdition = () => mutate('/api/v1/cups/edition', { season_number: currentSeason }, `Copas de la Temporada ${currentSeason} preparadas.`);
   const seedFromTable = () => {
@@ -158,29 +154,6 @@ export default function CupCenterFab() {
       [
         { text: 'Volver', style: 'cancel' },
         { text: 'INICIAR COPAS', onPress: () => { void mutate(`/api/v1/cups/${edition.id}/start`, {}, 'Los cuadros quedaron iniciados.'); } },
-      ],
-    );
-  };
-
-  const finishCompetition = () => {
-    if (!edition || !currentChampion || currentFinishedAt) return;
-    const label = compName(competition);
-    Alert.alert(
-      `Finalizar ${label}`,
-      `¿Confirmar a ${currentChampion} como campeón de ${label}?\n\nAl confirmar se cierra oficialmente esta copa y Radio Pasillo publica el anuncio automático con el escudo del campeón y la copa correspondiente.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'FINALIZAR Y PUBLICAR',
-          style: 'destructive',
-          onPress: () => {
-            void mutate(
-              `/api/v1/cups/${edition.id}/finish/${competition}`,
-              {},
-              `${label} finalizada. Se programó el anuncio del campeón en Radio Pasillo.`,
-            );
-          },
-        },
       ],
     );
   };
@@ -386,25 +359,10 @@ export default function CupCenterFab() {
                       ))}
                     </View>
 
-                    {currentChampion ? (
+                    {(competition === 'champions' ? edition.champions_champion : edition.europa_champion) ? (
                       <View style={styles.championCard}>
-                        <Text style={styles.championEyebrow}>{currentFinishedAt ? 'CAMPEÓN · OFICIAL' : 'CAMPEÓN DETECTADO'}</Text>
-                        <Text style={styles.championTeam}>{currentChampion}</Text>
-                        {isStaff ? (
-                          currentFinishedAt ? (
-                            <View style={styles.finishedCupBadge}>
-                              <Text style={styles.finishedCupText}>✓ COPA FINALIZADA Y ANUNCIADA</Text>
-                            </View>
-                          ) : (
-                            <Pressable
-                              disabled={saving}
-                              onPress={finishCompetition}
-                              style={({ pressed }) => [styles.finishCupButton, (pressed || saving) && styles.disabled]}
-                            >
-                              <Text style={styles.finishCupButtonText}>🏆 FINALIZAR {competition === 'champions' ? 'CHAMPIONS' : 'EUROPA'} Y PUBLICAR</Text>
-                            </Pressable>
-                          )
-                        ) : null}
+                        <Text style={styles.championEyebrow}>CAMPEÓN</Text>
+                        <Text style={styles.championTeam}>{competition === 'champions' ? edition.champions_champion : edition.europa_champion}</Text>
                       </View>
                     ) : null}
 
@@ -541,10 +499,6 @@ const styles = StyleSheet.create({
   championCard: { borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,215,100,0.28)', backgroundColor: 'rgba(255,215,100,0.07)', padding: 13, alignItems: 'center' },
   championEyebrow: { color: '#cba858', fontSize: 8, fontWeight: '900', letterSpacing: 1.4 },
   championTeam: { color: '#fff3be', fontSize: 18, fontWeight: '900', marginTop: 3 },
-  finishCupButton: { marginTop: 11, minHeight: 42, alignSelf: 'stretch', borderRadius: 11, backgroundColor: '#d7ad4a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  finishCupButtonText: { color: '#11100d', fontSize: 9, fontWeight: '900', letterSpacing: 0.35, textAlign: 'center' },
-  finishedCupBadge: { marginTop: 9, alignSelf: 'stretch', minHeight: 34, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(100,214,146,0.45)', backgroundColor: 'rgba(100,214,146,0.08)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  finishedCupText: { color: '#71dea0', fontSize: 8.5, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center' },
   bracketHint: { color: '#71889b', fontSize: 9, textAlign: 'center' },
   bracket: { gap: 12, paddingBottom: 5, paddingRight: 10 },
   roundColumn: { width: 252, gap: 7 },
