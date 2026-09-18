@@ -21,11 +21,22 @@ import os
 import re
 import tempfile
 
-from PIL import Image, ImageDraw
 
 import league_automation_patch as league
 import league_top5_overtake_radio_patch as top5
 import team_badge_selector_patch as selector
+
+
+# Lazy-load Pillow only when an image must actually be produced.
+Image = None
+ImageDraw = None
+
+
+def _ensure_pillow():
+    global Image, ImageDraw
+    if Image is None:
+        from PIL import Image as _Image, ImageDraw as _ImageDraw
+        Image, ImageDraw = _Image, _ImageDraw
 
 
 if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
@@ -106,6 +117,7 @@ if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
         return _ORIGINAL_CLUB_EMOJI(guild, club)
 
     def _trimmed_badge_path(path: str) -> str:
+        _ensure_pillow()
         try:
             stat = os.stat(path)
             os.makedirs(_CACHE_DIR, exist_ok=True)
@@ -135,6 +147,7 @@ if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
         return sum((int(rgb[i]) - int(target[i])) ** 2 for i in range(3)) <= threshold**2
 
     def _remove_connected_border_background(image: Image.Image) -> Image.Image:
+        _ensure_pillow()
         """Quita solo un fondo uniforme conectado al borde; preserva el escudo interno."""
         img = image.convert("RGBA")
         w, h = img.size
@@ -182,6 +195,7 @@ if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
         return img
 
     def _prepare_badge(source) -> Image.Image:
+        _ensure_pillow()
         badge = source.convert("RGBA")
         badge = _remove_connected_border_background(badge)
         bbox = badge.getchannel("A").getbbox()
@@ -190,6 +204,7 @@ if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
         return badge
 
     def _badge_image(team: str, payloads: dict[str, bytes] | None) -> Image.Image | None:
+        _ensure_pillow()
         key = top5._team_key(team)
         if payloads and payloads.get(key):
             try:
@@ -215,6 +230,7 @@ if not getattr(top5, "_ajap_top5_badge_fix_v3", False):
             return None
 
     def _render_top5_fixed(after: list[dict], payloads: dict[str, bytes] | None = None) -> io.BytesIO:
+        _ensure_pillow()
         width, height = 1200, 860
         image = Image.new("RGBA", (width, height), (13, 16, 24, 255))
         draw = ImageDraw.Draw(image)
