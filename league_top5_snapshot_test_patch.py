@@ -206,6 +206,8 @@ def _apply_feedback_with_live_top5(runtime, bot):
 
 feedback.apply_league_result_feedback_patch = _apply_feedback_with_live_top5
 
-# Temporary operational freeze requested by the league admin: import this last so
-# every earlier image/text result wrapper remains bypassed until the reader is fixed.
-import league_result_intake_pause_patch  # noqa: F401,E402
+# Result ingestion is permanently GES-only in production.
+# Do not import the retired screenshot/Gemini bridge here: that bridge pulled in
+# Runtime Rescue + local OCR/NumPy/OpenCV even though a later layer disabled it.
+# Keeping this module limited to Top 5/Radio Pasillo preserves its live behavior
+# without paying the memory cost of the obsolete result reader.
