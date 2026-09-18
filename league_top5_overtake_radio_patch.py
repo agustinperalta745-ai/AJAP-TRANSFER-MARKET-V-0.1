@@ -20,7 +20,6 @@ import unicodedata
 from typing import Any
 
 import discord
-from PIL import Image, ImageDraw, ImageFont
 
 import league_automation_patch as league
 import league_result_feedback_patch as feedback
@@ -30,6 +29,19 @@ _BASE_FEEDBACK_HANDLE = feedback._feedback_handle
 _BASE_FEEDBACK_APPLY = feedback.apply_league_result_feedback_patch
 
 _EVENT_TABLE = "league_top5_radio_events"
+
+# Pillow is only needed when Radio Pasillo actually renders an image.
+# Keep it out of AJPA's idle Railway memory.
+Image = None
+ImageDraw = None
+ImageFont = None
+
+
+def _ensure_pillow():
+    global Image, ImageDraw, ImageFont
+    if Image is None:
+        from PIL import Image as _Image, ImageDraw as _ImageDraw, ImageFont as _ImageFont
+        Image, ImageDraw, ImageFont = _Image, _ImageDraw, _ImageFont
 
 
 def _norm(value: Any) -> str:
@@ -384,6 +396,7 @@ def _asset_path(team: str) -> str | None:
 
 
 def _font(size: int, bold: bool = False):
+    _ensure_pillow()
     names = (
         ["DejaVuSans-Bold.ttf", "Arial Bold.ttf"]
         if bold
@@ -410,6 +423,7 @@ def _fit_text(draw, text: str, font, max_width: int) -> str:
 
 
 def _render_top5(after: list[dict[str, Any]]) -> io.BytesIO:
+    _ensure_pillow()
     width, height = 1200, 860
     image = Image.new("RGB", (width, height), (13, 16, 24))
     draw = ImageDraw.Draw(image)
