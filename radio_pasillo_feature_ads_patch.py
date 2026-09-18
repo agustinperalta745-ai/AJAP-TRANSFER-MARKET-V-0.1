@@ -26,7 +26,7 @@ APP = None
 BOT = None
 
 INTERVAL_SECONDS = 2 * 60 * 60
-CHECK_EVERY_MINUTES = 5
+CHECK_EVERY_MINUTES = 15
 APP_DOWNLOAD_URL = (os.getenv("AJPA_APP_DOWNLOAD_URL") or "").strip()
 
 _ADS = (
@@ -75,12 +75,6 @@ _ADS = (
         "💥 **El clausulazo también se gestiona desde AJPA.**\n"
         "Cuando el mercado esté abierto, entrá a `/mercado` → **MERCADO** → **CLAUSULAZO** para iniciar "
         "la operación con las protecciones de la liga.",
-    ),
-    (
-        "match_search",
-        "⚽ **¿Querés jugar y no encontrás rival?**\n"
-        "Desde **AJPA Mobile** podés publicar que estás buscando partido; la búsqueda aparece en Discord "
-        "y otro DT puede tomarla desde **IR A LA CANCHA**.",
     ),
     (
         "tip_buttons_expire",
@@ -191,7 +185,7 @@ _ADS = (
 _APP_AD = (
     "app",
     "📲 **DESCARGÁ AJPA MOBILE**\n"
-    "Llevá la liga en el celu: buscá partido, seguí tu club y usá las funciones conectadas con Discord.\n"
+    "Llevá la liga en el celu: seguí tu club, operá el mercado y consultá Liga y Copas.\n"
     "🔗 {url}",
 )
 
