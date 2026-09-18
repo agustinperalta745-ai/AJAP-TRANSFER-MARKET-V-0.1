@@ -7,7 +7,7 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import MatchSearchShell from './src/MatchSearchShell';
+import BotParityAppV2 from './src/BotParityAppV2';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
 import SeasonCountdownBanner from './src/SeasonCountdownBanner';
@@ -68,7 +68,7 @@ export default function App() {
           translucent={false}
         />
         <SeasonCountdownBanner />
-        <MatchSearchShell />
+        <BotParityAppV2 />
         <CupCenterFab />
         <SeasonHistoryFab />
         <CompetitionCycleAdminFab />
