@@ -1138,10 +1138,8 @@ async def _upgrade_posted_posters(runtime, bot, guild) -> None:
             dict(row)
             for row in conn.execute(
                 f"""SELECT * FROM {_SEASON_EVENTS}
-                    WHERE guild_id=? AND status='posted'
+                    WHERE guild_id IN (0,?) AND status='posted'
                       AND COALESCE(poster_version,1)<?
-                      AND channel_id IS NOT NULL
-                      AND discord_message_id IS NOT NULL
                     ORDER BY competition_id""",
                 (int(guild.id), _POSTER_VERSION),
             ).fetchall()
@@ -1150,10 +1148,8 @@ async def _upgrade_posted_posters(runtime, bot, guild) -> None:
             dict(row)
             for row in conn.execute(
                 f"""SELECT * FROM {_CUP_EVENTS}
-                    WHERE guild_id=? AND status='posted'
+                    WHERE guild_id IN (0,?) AND status='posted'
                       AND COALESCE(poster_version,1)<?
-                      AND channel_id IS NOT NULL
-                      AND discord_message_id IS NOT NULL
                     ORDER BY edition_id,competition""",
                 (int(guild.id), _POSTER_VERSION),
             ).fetchall()
@@ -1171,18 +1167,28 @@ async def _upgrade_posted_posters(runtime, bot, guild) -> None:
             continue
 
         champion, manager_name, season_number = valid
-        channel = guild.get_channel(int(job["channel_id"]))
-        if channel is None:
-            continue
-        try:
-            message = await channel.fetch_message(int(job["discord_message_id"]))
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-            continue
-
         competition_id = int(job["competition_id"])
         filename = (
             f"ajpa-champion-league-s{season_number}-competition-{competition_id}.png"
         )
+        channel = await radio._resolve_radio_channel(runtime, bot, guild)
+        if channel is None:
+            continue
+        message = None
+        stored_message_id = job.get("discord_message_id")
+        if stored_message_id:
+            try:
+                message = await channel.fetch_message(int(stored_message_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                message = None
+        if message is None:
+            recovered_id = await _existing_message_id(channel, filename)
+            if recovered_id is None:
+                continue
+            try:
+                message = await channel.fetch_message(int(recovered_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
         content = (
             f"🏆 **{discord.utils.escape_markdown(champion)}** "
             "es el nuevo campeón de **Liga AJPA**."
@@ -1216,19 +1222,29 @@ async def _upgrade_posted_posters(runtime, bot, guild) -> None:
             continue
 
         champion, manager_name, season_number = valid
-        channel = guild.get_channel(int(job["channel_id"]))
-        if channel is None:
-            continue
-        try:
-            message = await channel.fetch_message(int(job["discord_message_id"]))
-        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-            continue
-
         competition = str(job["competition"])
         edition_id = int(job["edition_id"])
         filename = (
             f"ajpa-champion-{competition}-s{season_number}-edition-{edition_id}.png"
         )
+        channel = await radio._resolve_radio_channel(runtime, bot, guild)
+        if channel is None:
+            continue
+        message = None
+        stored_message_id = job.get("discord_message_id")
+        if stored_message_id:
+            try:
+                message = await channel.fetch_message(int(stored_message_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                message = None
+        if message is None:
+            recovered_id = await _existing_message_id(channel, filename)
+            if recovered_id is None:
+                continue
+            try:
+                message = await channel.fetch_message(int(recovered_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
         content = (
             f"🏆 **{discord.utils.escape_markdown(champion)}** "
             f"es el nuevo campeón de **{_COMPETITION_NAMES[competition]}**."
