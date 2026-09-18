@@ -52,7 +52,7 @@ _COMPETITION_NAMES = {
     "europa": "Europa League",
 }
 
-_POSTER_VERSION = 2
+_POSTER_VERSION = 3
 
 
 def _table_exists(conn, table: str) -> bool:
@@ -306,15 +306,59 @@ def _load_badge(team_name: str):
         return None
 
 
-def _fit_font(draw, text: str, max_width: int, start: int, minimum: int, bold: bool = True):
+def _poster_font(size: int, bold: bool = False, serif: bool = False):
+    """Poster-only scalable font that is reliable on Railway slim images."""
+    from PIL import ImageFont
+
+    candidates = []
+    if serif:
+        candidates.extend(
+            [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+                if bold
+                else "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+                "DejaVuSerif-Bold.ttf" if bold else "DejaVuSerif.ttf",
+            ]
+        )
+    candidates.extend(
+        [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            if bold
+            else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+        ]
+    )
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, int(size))
+        except Exception:
+            continue
+
+    # Pillow 10+ ships a scalable default font. Passing size avoids the tiny
+    # bitmap fallback that produced unreadable champion posters on Railway.
+    try:
+        return ImageFont.load_default(size=int(size))
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def _fit_font(
+    draw,
+    text: str,
+    max_width: int,
+    start: int,
+    minimum: int,
+    bold: bool = True,
+    serif: bool = False,
+):
     size = int(start)
     while size > minimum:
-        font = radio._font(size, bold=bold)
+        font = _poster_font(size, bold=bold, serif=serif)
         box = draw.textbbox((0, 0), text, font=font)
         if box[2] - box[0] <= max_width:
             return font
         size -= 2
-    return radio._font(minimum, bold=bold)
+    return _poster_font(minimum, bold=bold, serif=serif)
 
 
 def _center_text(draw, canvas_width: int, y: int, text: str, font, fill) -> None:
@@ -380,6 +424,24 @@ def build_champion_poster(
     draw.line((244, 145, 300, 905), fill=(105, 108, 116, 55), width=3)
     draw.line((width - 244, 145, width - 300, 905), fill=(105, 108, 116, 55), width=3)
 
+    # Side banners echo the approved Fulham composition without baking club-
+    # specific English copy into the template.
+    side_font = _poster_font(29, bold=True)
+    side_small = _poster_font(18, bold=False)
+    left_banner = ["AJPA", "PASIÓN", "FÚTBOL"]
+    right_banner = ["CAMPEÓN", _COMPETITION_NAMES[key].upper()]
+    for idx, text_value in enumerate(left_banner):
+        draw.text((42, 175 + idx * 42), text_value, font=side_font, fill=(185, 185, 190, 180))
+    for idx, text_value in enumerate(right_banner):
+        box = draw.textbbox((0, 0), text_value, font=side_small if idx else side_font)
+        tw = box[2] - box[0]
+        draw.text(
+            (width - 42 - tw, 190 + idx * 44),
+            text_value,
+            font=side_small if idx else side_font,
+            fill=(185, 185, 190, 180),
+        )
+
     # Crowd texture.
     for i in range(260):
         x = (i * 137 + 31) % width
@@ -413,11 +475,22 @@ def build_champion_poster(
 
     # Huge real club badge behind the trophy.
     badge = badge.convert("RGBA")
-    badge.thumbnail((735, 735), Image.Resampling.LANCZOS)
-    alpha = badge.getchannel("A").point(lambda value: int(value * 0.55))
+    # Existing AJPA badges are often only 64/128/256 px. thumbnail() never
+    # upscales, which is why Marsella appeared as a tiny icon. Force the crest
+    # to the dominant Fulham-reference size while preserving aspect ratio.
+    badge_target = 760
+    badge_scale = badge_target / max(1, max(badge.width, badge.height))
+    badge = badge.resize(
+        (
+            max(1, int(round(badge.width * badge_scale))),
+            max(1, int(round(badge.height * badge_scale))),
+        ),
+        Image.Resampling.LANCZOS,
+    )
+    alpha = badge.getchannel("A").point(lambda value: int(value * 0.68))
     badge.putalpha(alpha)
     bx = (width - badge.width) // 2
-    by = 55
+    by = 42
     image.alpha_composite(badge, (bx, by))
 
     # Dark vignette keeps the crest integrated into the stadium.
@@ -529,7 +602,7 @@ def build_champion_poster(
         outline=(245, 245, 240, 210),
         width=2,
     )
-    plate_font = _fit_font(draw, plate_label, plate_w - 28, 24, 17, True)
+    plate_font = _fit_font(draw, plate_label, plate_w - 28, 25, 17, True)
     _center_text(
         draw,
         width,
@@ -555,42 +628,43 @@ def build_champion_poster(
     manager = str(manager_name or "DT no registrado").strip() or "DT no registrado"
     bottom = f"{str(team_name).strip()} - {manager}"
 
-    club_font = _fit_font(draw, club, 1010, 92, 47, True)
-    subtitle_font = _fit_font(draw, subtitle, 1000, 45, 29, True)
-    bottom_font = _fit_font(draw, bottom, 900, 35, 23, False)
+    club_font = _fit_font(draw, club, 1015, 106, 52, True, serif=True)
+    subtitle_font = _fit_font(draw, subtitle, 1010, 48, 30, True, serif=True)
+    bottom_font = _fit_font(draw, bottom, 900, 38, 24, False)
 
-    # Tiny shadow under text, then bright silver/white face.
+    # Silver engraved headline, matching the dominant Fulham title.
     def headline(y, text, font, fill):
         box = draw.textbbox((0, 0), text, font=font)
         tw = box[2] - box[0]
         x = (width - tw) / 2
-        draw.text((x + 3, y + 4), text, font=font, fill=(0, 0, 0, 205))
+        draw.text((x + 4, y + 5), text, font=font, fill=(0, 0, 0, 225))
+        draw.text((x + 1, y + 1), text, font=font, fill=(102, 102, 106, 230))
         draw.text((x, y), text, font=font, fill=fill)
 
-    headline(1010, club, club_font, (245, 245, 245, 255))
-    headline(1110, subtitle, subtitle_font, (238, 238, 240, 255))
+    headline(990, club, club_font, (248, 248, 248, 255))
+    headline(1105, subtitle, subtitle_font, (238, 238, 240, 255))
 
     # Red separator from the approved Fulham composition.
-    draw.rectangle((250, 1172, 872, 1176), fill=(150, 13, 24, 210))
-    draw.rectangle((474, 1170, 648, 1179), fill=(220, 20, 36, 240))
+    draw.rectangle((235, 1178, 887, 1182), fill=(135, 10, 22, 220))
+    draw.rectangle((463, 1176, 659, 1185), fill=(225, 18, 34, 245))
 
-    _center_text(draw, width, 1202, bottom, bottom_font, (218, 218, 221, 255))
+    _center_text(draw, width, 1210, bottom, bottom_font, (225, 225, 228, 255))
 
     footer_font = _fit_font(
         draw,
         "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
-        690,
-        20,
-        15,
+        720,
+        22,
+        16,
         False,
     )
     _center_text(
         draw,
         width,
-        1302,
+        1303,
         "DISCIPLINA  •  PASIÓN  •  COMUNIDAD",
         footer_font,
-        (153, 153, 158, 235),
+        (165, 165, 170, 235),
     )
     draw.rectangle((535, 1350, 587, 1354), fill=(218, 17, 33, 240))
 
@@ -999,6 +1073,11 @@ async def _replace_existing_poster(
             content=content,
             attachments=[replacement],
             allowed_mentions=discord.AllowedMentions.none(),
+        )
+        print(
+            "AJPA champion Radio: póster corregido in-place "
+            f"message={getattr(message, 'id', None)} competition={competition} "
+            f"team={team!r} version={_POSTER_VERSION}"
         )
         return True
     except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
