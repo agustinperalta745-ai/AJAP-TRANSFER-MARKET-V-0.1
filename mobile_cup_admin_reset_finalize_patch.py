@@ -17,6 +17,7 @@ from http import HTTPStatus
 from urllib.parse import urlparse
 
 import mobile_cup_tournaments_api_patch as cups
+import mobile_latest_honours_api_patch as honours
 import mobile_read_api
 import mobile_write_api
 
@@ -48,12 +49,22 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             status TEXT NOT NULL DEFAULT 'pending',
             channel_id INTEGER,
             discord_message_id INTEGER,
+            closed_at DATETIME,
+            manager_user_id INTEGER,
+            manager_name TEXT,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             posted_at DATETIME,
             PRIMARY KEY (edition_id, competition)
         )
         """
     )
+    event_cols = _columns(conn, _EVENT_TABLE)
+    if "closed_at" not in event_cols:
+        conn.execute(f"ALTER TABLE {_EVENT_TABLE} ADD COLUMN closed_at DATETIME")
+    if "manager_user_id" not in event_cols:
+        conn.execute(f"ALTER TABLE {_EVENT_TABLE} ADD COLUMN manager_user_id INTEGER")
+    if "manager_name" not in event_cols:
+        conn.execute(f"ALTER TABLE {_EVENT_TABLE} ADD COLUMN manager_name TEXT")
 
 
 def _bootstrap() -> None:
@@ -99,6 +110,56 @@ def reset_edition(conn: sqlite3.Connection, edition_id: int) -> dict:
     }
 
 
+def _store_final_event(
+    conn: sqlite3.Connection,
+    edition,
+    edition_id: int,
+    competition: str,
+    champion: str,
+    closed_at: str,
+) -> None:
+    manager = honours.historical_manager_snapshot(conn, champion, closed_at)
+    raw_user_id = manager.get("user_id")
+    manager_user_id = int(raw_user_id) if str(raw_user_id or "").isdigit() else None
+    manager_name = str(manager.get("username") or "DT no registrado").strip() or "DT no registrado"
+
+    conn.execute(
+        f"""INSERT OR IGNORE INTO {_EVENT_TABLE}
+               (edition_id,competition,season_number,champion,guild_id,status,
+                closed_at,manager_user_id,manager_name,created_at)
+           VALUES(?,?,?,?,0,'pending',?,?,?,CURRENT_TIMESTAMP)""",
+        (
+            int(edition_id),
+            str(competition),
+            int(edition["season_number"]),
+            champion,
+            closed_at,
+            manager_user_id,
+            manager_name,
+        ),
+    )
+    conn.execute(
+        f"""UPDATE {_EVENT_TABLE}
+            SET season_number=?, champion=?,
+                closed_at=COALESCE(closed_at,?),
+                manager_user_id=COALESCE(manager_user_id,?),
+                manager_name=CASE
+                    WHEN manager_name IS NULL OR TRIM(manager_name)='' THEN ?
+                    ELSE manager_name
+                END
+            WHERE edition_id=? AND competition=?""",
+        (
+            int(edition["season_number"]),
+            champion,
+            closed_at,
+            manager_user_id,
+            manager_name,
+            int(edition_id),
+            str(competition),
+        ),
+    )
+
+
 def finalize_competition(conn: sqlite3.Connection, edition_id: int, competition: str) -> dict:
     edition = cups._edition(conn, int(edition_id))
     if not edition:
@@ -115,6 +176,11 @@ def finalize_competition(conn: sqlite3.Connection, edition_id: int, competition:
 
     current_finished = edition[finished_field] if finished_field in keys else None
     if current_finished:
+        closed_at = str(current_finished).strip()
+        if closed_at:
+            _store_final_event(
+                conn, edition, int(edition_id), str(competition), champion, closed_at
+            )
         return {
             "ok": True,
             "edition_id": int(edition_id),
@@ -137,27 +203,23 @@ def finalize_competition(conn: sqlite3.Connection, edition_id: int, competition:
             (int(edition_id),),
         )
     else:
-        # A final result may have made the legacy engine mark the combined edition
-        # FINISHED. Keep it ACTIVE until Staff explicitly closes both competitions.
         conn.execute(
             "UPDATE cup_tournament_editions SET status='ACTIVE',finished_at=NULL WHERE id=?",
             (int(edition_id),),
         )
 
-    conn.execute(
-        f"""INSERT INTO {_EVENT_TABLE}
-               (edition_id,competition,season_number,champion,guild_id,status,created_at)
-           VALUES(?,?,?,?,0,'pending',CURRENT_TIMESTAMP)
-           ON CONFLICT(edition_id,competition) DO UPDATE SET
-               season_number=excluded.season_number,
-               champion=excluded.champion,
-               guild_id=0,
-               status='pending',
-               channel_id=NULL,
-               discord_message_id=NULL,
-               created_at=CURRENT_TIMESTAMP,
-               posted_at=NULL""",
-        (int(edition_id), str(competition), int(edition["season_number"]), champion),
+    closed_at = (
+        str(refreshed[finished_field] or "").strip()
+        if refreshed and finished_field in refreshed_keys
+        else ""
+    )
+    if not closed_at:
+        raise mobile_write_api.ApiFailure(
+            f"No se pudo guardar el cierre oficial de {display_name}.",
+            HTTPStatus.CONFLICT,
+        )
+    _store_final_event(
+        conn, edition, int(edition_id), str(competition), champion, closed_at
     )
     return {
         "ok": True,
@@ -166,7 +228,6 @@ def finalize_competition(conn: sqlite3.Connection, edition_id: int, competition:
         "champion": champion,
         "status": "FINISHED" if champions_done and europa_done else "ACTIVE",
     }
-
 
 def _augment_payload(conn: sqlite3.Connection, payload: dict) -> dict:
     edition_payload = payload.get("edition") if isinstance(payload, dict) else None

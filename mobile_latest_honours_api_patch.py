@@ -186,6 +186,43 @@ def _discord_username(conn: sqlite3.Connection, user_id: int | None, club: str) 
     return "Nombre de Discord no disponible"
 
 
+def historical_manager_snapshot(
+    conn: sqlite3.Connection,
+    club: str,
+    closed_at: str | None,
+) -> dict:
+    """Resolve only the DT recorded in assignment history at the close instant.
+
+    Champion announcements must never read today's club owner for an old title.
+    If assignment history cannot prove the manager at closed_at, return the
+    explicit fallback required by the official title record.
+    """
+    user_id: int | None = None
+    tables = _tables(conn)
+
+    if closed_at and "club_assignment_history" in tables:
+        row = conn.execute(
+            """
+            SELECT user_id, action
+            FROM club_assignment_history
+            WHERE club=? COLLATE NOCASE AND created_at<=?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (str(club or "").strip(), str(closed_at)),
+        ).fetchone()
+        if row and str(row["action"] or "").strip().upper() in _ACTIVE_ASSIGNMENT_ACTIONS:
+            user_id = int(row["user_id"])
+
+    if user_id is None:
+        return {"user_id": None, "username": "DT no registrado"}
+
+    username = _discord_username(conn, user_id, str(club or "").strip())
+    if username in {"Sin DT asignado", "Nombre de Discord no disponible"}:
+        username = "DT no registrado"
+    return {"user_id": str(user_id), "username": username}
+
+
 def _manager_at(conn: sqlite3.Connection, club: str, closed_at: str | None) -> dict:
     user_id: int | None = None
     history_found = False

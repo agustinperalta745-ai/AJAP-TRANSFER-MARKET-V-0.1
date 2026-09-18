@@ -68,6 +68,10 @@ def _apply_guild_isolation_and_league(runtime, bot):
     _original_apply_guild_isolation_patch(runtime, bot)
     apply_league_automation_patch(runtime, bot)
     apply_competition_cycle(runtime, bot)
+    # Champion announcements attach to the official close actions after the
+    # canonical competition and Radio Pasillo layers are available.
+    from radio_pasillo_final_events_patch import apply_radio_pasillo_final_events_patch
+    apply_radio_pasillo_final_events_patch(runtime, bot)
 
 
 guild_isolation_patch.apply_guild_isolation_patch = _apply_guild_isolation_and_league
