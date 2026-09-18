@@ -2,6 +2,5 @@
   "$schema": "https://schema.railpack.com",
   "provider": "python",
   "deploy": {
-    "aptPackages": ["...", "tesseract-ocr", "tesseract-ocr-eng"]
-  }
+    }
 }
