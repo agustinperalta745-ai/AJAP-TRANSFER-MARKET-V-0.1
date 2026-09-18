@@ -612,6 +612,13 @@ def start_edition(
             (int(edition_id),),
         )
 
+    repaired_dropouts = _reconcile_champions_dropouts(conn, int(edition_id))
+    if repaired_dropouts:
+        print(
+            f"AJPA cups: {repaired_dropouts} baja(s) Champions -> Europa reconciliadas "
+            f"edition={int(edition_id)}"
+        )
+
     refreshed = _edition(conn, edition_id)
     return {
         "ok": True,
@@ -645,6 +652,69 @@ def _europa_drop_match(conn, row: sqlite3.Row):
 
 def _has_result(row) -> bool:
     return bool(row and str(row["status"] or "") == "FINISHED" and row["winner_team"])
+
+
+def _reconcile_champions_dropouts(
+    conn: sqlite3.Connection,
+    edition_id: int,
+) -> int:
+    """Make Europa R16 reflect every finished Champions R16 loser.
+
+    This is deliberately idempotent and also repairs legacy/current editions
+    where Champions results existed before the Europa drop slots were created.
+    A Europa match that has already been played is never rewritten.
+    """
+    _ensure_blank_bracket(conn, int(edition_id))
+    changed = 0
+
+    for index in range(8):
+        champions = conn.execute(
+            """SELECT * FROM cup_matches
+               WHERE edition_id=? AND competition=? AND round_key='R16'
+                 AND match_index=? LIMIT 1""",
+            (int(edition_id), CHAMPIONS, int(index)),
+        ).fetchone()
+        europa = conn.execute(
+            """SELECT * FROM cup_matches
+               WHERE edition_id=? AND competition=? AND round_key='R16'
+                 AND match_index=? LIMIT 1""",
+            (int(edition_id), EUROPA, int(index)),
+        ).fetchone()
+        if not europa:
+            continue
+
+        desired = None
+        if champions and str(champions["status"] or "") == "FINISHED":
+            desired = str(champions["loser_team"] or "").strip() or None
+
+        current = str(europa["away_team"] or "").strip() or None
+        if (current or "").casefold() == (desired or "").casefold():
+            continue
+
+        # Never mutate the identity of a participant after its Europa match was
+        # played. Normal result editing already blocks this dependency too.
+        if str(europa["status"] or "") == "FINISHED":
+            continue
+
+        home = str(europa["home_team"] or "").strip() or None
+        status = "READY" if home and desired else "PENDING"
+        conn.execute(
+            """UPDATE cup_matches
+               SET away_team=?,
+                   source_away=?,
+                   status=?,
+                   updated_at=CURRENT_TIMESTAMP
+               WHERE id=?""",
+            (
+                desired,
+                f"Perdedor Champions • Partido {index + 1}",
+                status,
+                int(europa["id"]),
+            ),
+        )
+        changed += 1
+
+    return changed
 
 
 def _validate_change_dependencies(conn, row: sqlite3.Row, new_winner: str | None, new_loser: str | None) -> None:
@@ -726,6 +796,8 @@ def save_result(conn: sqlite3.Connection, session: dict, match_id: int, payload:
         if str(row["round_key"]) == "F":
             field = "champions_champion" if str(row["competition"]) == CHAMPIONS else "europa_champion"
             conn.execute(f"UPDATE cup_tournament_editions SET {field}=NULL,status='ACTIVE',finished_at=NULL WHERE id=?", (int(row["edition_id"]),))
+        if str(row["competition"]) == CHAMPIONS and str(row["round_key"]) == "R16":
+            _reconcile_champions_dropouts(conn, int(row["edition_id"]))
         return {"ok": True, "match_id": int(match_id), "cleared": True}
 
     hg = _int_score(payload.get("home_goals"), "Goles del local")
@@ -760,6 +832,8 @@ def save_result(conn: sqlite3.Connection, session: dict, match_id: int, payload:
     )
     refreshed = conn.execute("SELECT * FROM cup_matches WHERE id=?", (int(match_id),)).fetchone()
     _propagate(conn, refreshed, winner, loser)
+    if str(row["competition"]) == CHAMPIONS and str(row["round_key"]) == "R16":
+        _reconcile_champions_dropouts(conn, int(row["edition_id"]))
 
     if str(row["round_key"]) == "F":
         field = "champions_champion" if str(row["competition"]) == CHAMPIONS else "europa_champion"
@@ -775,7 +849,20 @@ def _bootstrap_schema() -> None:
     try:
         with mobile_write_api.write_db() as conn:
             ensure_schema(conn)
+            active_rows = conn.execute(
+                """SELECT id FROM cup_tournament_editions
+                   WHERE status='ACTIVE'
+                   ORDER BY season_number DESC,id DESC"""
+            ).fetchall()
+            repaired = 0
+            for edition in active_rows:
+                repaired += _reconcile_champions_dropouts(conn, int(edition["id"]))
             conn.commit()
+            if repaired:
+                print(
+                    f"AJPA cups: reparación startup Champions -> Europa aplicada "
+                    f"a {repaired} slot(s)"
+                )
     except Exception as exc:
         print(f"AJPA cups schema bootstrap warning: {type(exc).__name__}: {exc}")
 
