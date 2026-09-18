@@ -21,6 +21,8 @@ import sitecustomize  # noqa: F401
 
 os.environ.setdefault("AJPA_MOBILE_API_ENABLED", "1")
 os.environ.setdefault("AJPA_MOBILE_GUILD_ID", "1541577795426324571")
+# Production Free-plan profile: Buscar Partido is intentionally retired.
+os.environ.setdefault("AJPA_MATCH_SEARCH_ENABLED", "0")
 
 # run_bot imports apply_guild_isolation_patch by value. Install this bridge first
 # so the real Discord runtime also restores the GES config + manual sync layers.
@@ -42,8 +44,6 @@ import mobile_club_profiles_runtime_fix  # noqa: E402
 import mobile_classic_rival_api_patch  # noqa: E402
 import classic_rival_ownership_reset_patch  # noqa: E402
 import mobile_latest_honours_api_patch  # noqa: E402
-import mobile_match_search_patch  # noqa: E402
-import mobile_match_result_timeout_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
 import mobile_ota_api_patch  # noqa: E402
 import mobile_results_background_api_patch  # noqa: E402
@@ -81,8 +81,6 @@ mobile_classic_rival_api_patch.apply_mobile_classic_rival_api_patch()
 # solicitudes/parejas creadas por el DT anterior.
 classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()
 mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()
-mobile_match_search_patch.apply_mobile_match_search_patch()
-mobile_match_result_timeout_patch.apply_mobile_match_result_timeout_patch()
 mobile_resignation_api_patch.apply_mobile_resignation_api_patch()
 mobile_ota_api_patch.apply_mobile_ota_api_patch()
 mobile_results_background_api_patch.apply_mobile_results_background_api_patch()
