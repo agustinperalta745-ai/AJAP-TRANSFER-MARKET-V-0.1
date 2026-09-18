@@ -775,7 +775,7 @@ def _reconcile_champions_dropouts(
     where Champions results existed before the Europa drop slots were created.
     A Europa match that has already been played is never rewritten.
     """
-    _ensure_blank_bracket(conn, int(edition_id))
+    _ensure_blank_bracket(conn, int(edition_id), EUROPA)
     changed = 0
 
     for index in range(8):
