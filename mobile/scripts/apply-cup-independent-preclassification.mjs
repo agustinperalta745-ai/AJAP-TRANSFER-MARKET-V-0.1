@@ -24,6 +24,23 @@ if (!cup.includes('const competitionStartedAt =')) {
   );
 }
 
+if (!cup.includes('const europaDropouts = useMemo')) {
+  const startedLine = "  const competitionStartedAt = edition ? (competition === 'champions' ? edition.champions_started_at : edition.europa_started_at) : null;\n";
+  if (!cup.includes(startedLine)) throw new Error('Cup split: competitionStartedAt marker missing.');
+  cup = cup.replace(
+    startedLine,
+    startedLine +
+      "  const europaDropouts = useMemo(() => {\n" +
+      "    const firstRound = edition?.rounds?.europa?.find((round) => round.key === 'R16');\n" +
+      "    return (firstRound?.matches ?? []).map((match) => ({\n" +
+      "      match_index: match.match_index,\n" +
+      "      team: match.away_team,\n" +
+      "      source: match.source_away,\n" +
+      "    }));\n" +
+      "  }, [edition]);\n",
+  );
+}
+
 const oldSeed = `  const seedFromTable = () => {
     if (!edition) return;
     Alert.alert(
@@ -156,6 +173,36 @@ cup = cup.replace(
   "                    {renderSeedList(competition)}",
 );
 
+if (!cup.includes('⬇ BAJAN DE CHAMPIONS')) {
+  const seedRender = "                    {renderSeedList(competition)}";
+  if (!cup.includes(seedRender)) throw new Error('Cup split: selected seed list marker missing.');
+  cup = cup.replace(
+    seedRender,
+    seedRender + `
+                    {competition === 'europa' ? (
+                      <View style={styles.seedSection}>
+                        <Text style={styles.seedTitle}>⬇ BAJAN DE CHAMPIONS</Text>
+                        <Text style={styles.seedHint}>
+                          Cada eliminado de la primera ronda de Champions aparece acá automáticamente apenas se carga su resultado.
+                        </Text>
+                        {europaDropouts.map((drop) => (
+                          <View key={\`europa-drop-\${drop.match_index}\`} style={styles.seedRow}>
+                            <Text style={styles.seedNumber}>{drop.match_index + 1}</Text>
+                            <View style={styles.flex}>
+                              <Text style={[styles.seedTeam, !drop.team && styles.placeholder]}>
+                                {drop.team || 'Esperando resultado de Champions'}
+                              </Text>
+                              <Text style={styles.seedSource}>
+                                {drop.source || \`Perdedor Champions · Partido \${drop.match_index + 1}\`}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}`,
+  );
+}
+
 // Once one cup starts, the other still shows its own loading menu. A bracket is
 // visible only after the selected competition itself has started.
 cup = cup.replace(
@@ -180,6 +227,8 @@ for (const required of [
   'champions_started_at?: string | null;',
   'europa_started_at?: string | null;',
   'const competitionStartedAt =',
+  'const europaDropouts = useMemo',
+  '⬇ BAJAN DE CHAMPIONS',
   'const startCompetition = () => {',
   '{ competition }',
   '{renderSeedList(competition)}',
