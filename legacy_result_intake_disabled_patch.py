@@ -9,6 +9,7 @@ data now enters AJPA only through the Staff-only manual GES synchronization.
 from __future__ import annotations
 
 import asyncio
+import sys
 
 import league_automation_patch as league
 
@@ -77,6 +78,10 @@ def _neutralize_functions() -> None:
     league.analyze = _disabled_analyze
     league.vision_sync = _disabled_vision
 
+    # Never import an old reader merely to disable it. Importing OCR.Space
+    # also imports the historical local OCR parser (NumPy/Pillow), which costs
+    # permanent Railway RAM even though GES is the only official result source.
+    # Neutralize only modules that some earlier startup layer already loaded.
     for module_name in (
         "league_ocrspace_result_bridge_patch",
         "league_result_intake_pause_patch",
@@ -84,9 +89,8 @@ def _neutralize_functions() -> None:
         "league_runtime_result_rescue_patch",
         "league_pending_review_reprocess_patch",
     ):
-        try:
-            module = __import__(module_name)
-        except Exception:
+        module = sys.modules.get(module_name)
+        if module is None:
             continue
         for attr in ("handle", "_feedback_handle", "analyze", "vision_sync"):
             if hasattr(module, attr):
