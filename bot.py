@@ -180,12 +180,12 @@ import league_top5_scorers_radio_patch  # noqa: F401,E402
 # La Recta Final y publica una sola previa por fecha usando el estado oficial de GES.
 import radio_pasillo_final_stretch_patch  # noqa: F401,E402
 
-# Periodic Radio Pasillo reminders: every two hours, rotate a short DT-facing
+# Periodic Radio Pasillo reminders: every 90 minutes, rotate a short DT-facing
 # feature tip. The AJPA Mobile download ad joins the rotation once its real URL
 # is configured in AJPA_APP_DOWNLOAD_URL.
 import radio_pasillo_feature_ads_patch  # noqa: F401,E402
 # Requested one-shot: publish the clásico rival reminder immediately on the next
-# successful start, once per guild, then resume the normal two-hour cadence.
+# successful start, once per guild, then resume the normal 90-minute cadence.
 import radio_pasillo_classic_now_patch  # noqa: F401,E402
 
 # Final safety layer: after every existing league/admin wrapper initializes, force
@@ -198,6 +198,6 @@ import radio_pasillo_ges_table_patch  # noqa: F401,E402
 
 # Operational restart marker: keep this at the entry point so a source-only
 # redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-18T-radio-ges-table-v1"
+AJAP_RESTART_MARKER = "2026-09-19T-radio-global-90m-v1"
 
 import run_bot  # noqa: F401,E402
