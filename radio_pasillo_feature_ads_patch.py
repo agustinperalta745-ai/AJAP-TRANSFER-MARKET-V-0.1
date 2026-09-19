@@ -1,6 +1,6 @@
 """Radio Pasillo: recordatorios rotativos de funciones y consejos para los DT.
 
-Publica un mensaje corto cada dos horas como máximo por servidor. El estado se
+Publica un mensaje corto cada 90 minutos como máximo por servidor. El estado se
 guarda en la DB aislada de cada guild para que reinicios/reconexiones de Railway
 no provoquen publicaciones duplicadas.
 
@@ -25,7 +25,7 @@ import guild_isolation_patch as guild_isolation
 APP = None
 BOT = None
 
-INTERVAL_SECONDS = 2 * 60 * 60
+INTERVAL_SECONDS = 90 * 60
 CHECK_EVERY_MINUTES = 15
 APP_DOWNLOAD_URL = (os.getenv("AJPA_APP_DOWNLOAD_URL") or "").strip()
 
@@ -473,7 +473,7 @@ def apply_radio_pasillo_feature_ads_patch(runtime, bot):
     runtime._ajap_radio_pasillo_feature_ads_patch = True
     print(
         "AJAP Radio Pasillo: publicidad y consejos rotativos activos "
-        f"cada {INTERVAL_SECONDS // 3600}h"
+        "cada 1h 30m"
         + (" + AJPA Mobile" if APP_DOWNLOAD_URL else " (link AJPA Mobile pendiente)")
     )
 
