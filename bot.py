@@ -196,8 +196,7 @@ import league_disable_capture_ingest_patch  # noqa: F401,E402
 # standings in Radio Pasillo with a short dynamic read of what changed.
 import radio_pasillo_ges_table_patch  # noqa: F401,E402
 
-# Operational restart marker: keep this at the entry point so a source-only
-# redeploy restarts the Discord gateway without altering any persisted AJAP data.
-AJAP_RESTART_MARKER = "2026-09-19T-radio-global-90m-v1"
+# Final hard cap for the whole Radio Pasillo channel: every source shares one\n# 90-minute send slot, including GES, clásicos, market publications and reminders.\nimport radio_pasillo_rate_limit_patch  # noqa: F401,E402\n\n# Operational restart marker: keep this at the entry point so a source-only\n# redeploy restarts the Discord gateway without altering any persisted AJAP data.
+AJAP_RESTART_MARKER = "2026-09-19T-radio-global-90m-v2"
 
 import run_bot  # noqa: F401,E402
