@@ -422,65 +422,264 @@ def _fit_text(draw, text: str, font, max_width: int) -> str:
     return value
 
 
-def _render_top5(after: list[dict[str, Any]]) -> io.BytesIO:
+def _zone_for_position(index: int) -> tuple[str, tuple[int, int, int]]:
+    if index <= 15:
+        if index == 0:
+            return "Campeón + Champions League", (242, 201, 76)
+        return "Champions League", (102, 167, 255)
+    if index <= 23:
+        return "Europa League", (226, 164, 92)
+    return "", (113, 133, 150)
+
+
+def _render_standings(
+    after: list[dict[str, Any]],
+    *,
+    full_table: bool = False,
+    managers: dict[str, str] | None = None,
+) -> io.BytesIO:
+    """Shared Radio Pasillo standings renderer.
+
+    full_table=False preserves the proven Top 5 artwork.
+    full_table=True uses the same visual language, HD badge source and row cards,
+    but expands it to the complete standings and all football statistics.
+    """
     _ensure_pillow()
-    width, height = 1200, 860
+    managers = managers or {}
+
+    if not full_table:
+        width, height = 1200, 860
+        image = Image.new("RGB", (width, height), (13, 16, 24))
+        draw = ImageDraw.Draw(image)
+
+        draw.rounded_rectangle((42, 38, width - 42, height - 38), radius=34, fill=(24, 29, 42))
+        draw.rounded_rectangle((42, 38, width - 42, 172), radius=34, fill=(35, 42, 59))
+        draw.rectangle((42, 138, width - 42, 172), fill=(35, 42, 59))
+
+        title_font = _font(52, bold=True)
+        sub_font = _font(25)
+        header_font = _font(23, bold=True)
+        row_font = _font(30, bold=True)
+        stat_font = _font(28, bold=True)
+        pos_font = _font(34, bold=True)
+
+        draw.text((82, 66), "LIGA", font=title_font, fill=(246, 248, 252))
+        draw.text((82, 126), "TOP 5 • TABLA ACTUALIZADA", font=sub_font, fill=(178, 187, 207))
+
+        y_header = 194
+        draw.text((84, y_header), "#", font=header_font, fill=(152, 162, 184))
+        draw.text((215, y_header), "EQUIPO", font=header_font, fill=(152, 162, 184))
+        draw.text((845, y_header), "PJ", font=header_font, fill=(152, 162, 184))
+        draw.text((955, y_header), "DG", font=header_font, fill=(152, 162, 184))
+        draw.text((1070, y_header), "PTS", font=header_font, fill=(152, 162, 184))
+
+        row_top = 238
+        row_h = 112
+        for idx, row in enumerate(after[:5], start=1):
+            y = row_top + (idx - 1) * row_h
+            fill = (30, 36, 51) if idx % 2 else (27, 33, 47)
+            draw.rounded_rectangle((68, y, width - 68, y + 94), radius=22, fill=fill)
+
+            pos = str(idx)
+            pos_box = draw.textbbox((0, 0), pos, font=pos_font)
+            pos_w = pos_box[2] - pos_box[0]
+            draw.text((113 - pos_w / 2, y + 25), pos, font=pos_font, fill=(244, 246, 250))
+
+            badge_path = _asset_path(str(row["team"]))
+            if badge_path:
+                try:
+                    badge = Image.open(badge_path).convert("RGBA")
+                    badge.thumbnail((66, 66), Image.Resampling.LANCZOS)
+                    bx = 170 - badge.width // 2
+                    by = y + 47 - badge.height // 2
+                    image.paste(badge, (bx, by), badge)
+                except Exception:
+                    pass
+
+            name = _fit_text(draw, str(row["team"]), row_font, 540)
+            draw.text((215, y + 28), name, font=row_font, fill=(246, 248, 252))
+            draw.text((850, y + 30), str(int(row["pj"])), font=stat_font, fill=(225, 229, 238))
+
+            dg = int(row["dg"])
+            dg_text = f"+{dg}" if dg > 0 else str(dg)
+            draw.text((947, y + 30), dg_text, font=stat_font, fill=(225, 229, 238))
+            draw.text((1070, y + 27), str(int(row["pts"])), font=pos_font, fill=(255, 255, 255))
+
+        draw.text(
+            (82, height - 82),
+            "AJPA • Radio Pasillo",
+            font=_font(21, bold=True),
+            fill=(143, 153, 174),
+        )
+
+        payload = io.BytesIO()
+        image.save(payload, format="PNG", optimize=True)
+        payload.seek(0)
+        return payload
+
+    # Tabla completa: exactamente la estética probada del Top 5, pero con más
+    # columnas y altura dinámica. No usa el renderer visual de la app.
+    width = 1700
+    outer = 42
+    header_bottom = 172
+    table_header_y = 194
+    row_top = 244
+    row_h = 104
+    row_card_h = 90
+    footer_h = 92
+    height = row_top + len(after) * row_h + footer_h
+
     image = Image.new("RGB", (width, height), (13, 16, 24))
     draw = ImageDraw.Draw(image)
 
-    # Encabezado inspirado en la pantalla Liga de AJPA: oscuro, limpio y legible.
-    draw.rounded_rectangle((42, 38, width - 42, height - 38), radius=34, fill=(24, 29, 42))
-    draw.rounded_rectangle((42, 38, width - 42, 172), radius=34, fill=(35, 42, 59))
-    draw.rectangle((42, 138, width - 42, 172), fill=(35, 42, 59))
+    draw.rounded_rectangle(
+        (outer, 38, width - outer, height - 38),
+        radius=34,
+        fill=(24, 29, 42),
+    )
+    draw.rounded_rectangle(
+        (outer, 38, width - outer, header_bottom),
+        radius=34,
+        fill=(35, 42, 59),
+    )
+    draw.rectangle(
+        (outer, 138, width - outer, header_bottom),
+        fill=(35, 42, 59),
+    )
 
     title_font = _font(52, bold=True)
     sub_font = _font(25)
-    header_font = _font(23, bold=True)
-    row_font = _font(30, bold=True)
-    stat_font = _font(28, bold=True)
-    pos_font = _font(34, bold=True)
+    header_font = _font(21, bold=True)
+    team_font = _font(25, bold=True)
+    manager_font = _font(15, bold=True)
+    zone_font = _font(13, bold=True)
+    stat_font = _font(23, bold=True)
+    pos_font = _font(29, bold=True)
+    pts_font = _font(30, bold=True)
 
     draw.text((82, 66), "LIGA", font=title_font, fill=(246, 248, 252))
-    draw.text((82, 126), "TOP 5 • TABLA ACTUALIZADA", font=sub_font, fill=(178, 187, 207))
+    draw.text(
+        (82, 126),
+        "TABLA COMPLETA • ACTUALIZADA",
+        font=sub_font,
+        fill=(178, 187, 207),
+    )
 
-    y_header = 194
-    draw.text((84, y_header), "#", font=header_font, fill=(152, 162, 184))
-    draw.text((215, y_header), "EQUIPO", font=header_font, fill=(152, 162, 184))
-    draw.text((845, y_header), "PJ", font=header_font, fill=(152, 162, 184))
-    draw.text((955, y_header), "DG", font=header_font, fill=(152, 162, 184))
-    draw.text((1070, y_header), "PTS", font=header_font, fill=(152, 162, 184))
+    # Same Top 5 header style, extended with the complete football columns.
+    columns = [
+        (84, "#"),
+        (220, "EQUIPO"),
+        (860, "PJ"),
+        (955, "PG"),
+        (1050, "PE"),
+        (1145, "PP"),
+        (1240, "GF"),
+        (1335, "GC"),
+        (1430, "DG"),
+        (1550, "PTS"),
+    ]
+    for x, label in columns:
+        draw.text(
+            (x, table_header_y),
+            label,
+            font=header_font,
+            fill=(152, 162, 184),
+        )
 
-    row_top = 238
-    row_h = 112
-    for idx, row in enumerate(after[:5], start=1):
+    for idx, row in enumerate(after, start=1):
         y = row_top + (idx - 1) * row_h
         fill = (30, 36, 51) if idx % 2 else (27, 33, 47)
-        draw.rounded_rectangle((68, y, width - 68, y + 94), radius=22, fill=fill)
+        draw.rounded_rectangle(
+            (68, y, width - 68, y + row_card_h),
+            radius=22,
+            fill=fill,
+        )
 
-        pos = str(idx)
+        pos = str(int(row.get("position") or idx))
         pos_box = draw.textbbox((0, 0), pos, font=pos_font)
         pos_w = pos_box[2] - pos_box[0]
-        draw.text((113 - pos_w / 2, y + 25), pos, font=pos_font, fill=(244, 246, 250))
+        draw.text(
+            (116 - pos_w / 2, y + 30),
+            pos,
+            font=pos_font,
+            fill=(244, 246, 250),
+        )
 
-        badge_path = _asset_path(str(row["team"]))
+        team = str(row.get("team") or "")
+        badge_path = _asset_path(team)
         if badge_path:
             try:
                 badge = Image.open(badge_path).convert("RGBA")
-                badge.thumbnail((66, 66), Image.Resampling.LANCZOS)
-                bx = 170 - badge.width // 2
-                by = y + 47 - badge.height // 2
+                badge.thumbnail((62, 62), Image.Resampling.LANCZOS)
+                bx = 175 - badge.width // 2
+                by = y + 45 - badge.height // 2
                 image.paste(badge, (bx, by), badge)
             except Exception:
                 pass
 
-        name = _fit_text(draw, str(row["team"]), row_font, 540)
-        draw.text((215, y + 28), name, font=row_font, fill=(246, 248, 252))
-        draw.text((850, y + 30), str(int(row["pj"])), font=stat_font, fill=(225, 229, 238))
+        # The app currently shows DT + qualification below the club name; preserve
+        # those details without changing the proven Top 5 card style.
+        team_key = _team_key(team)
+        manager = str(managers.get(team_key) or "").strip()
+        zone_label, zone_color = _zone_for_position(idx - 1)
 
-        dg = int(row["dg"])
+        name = _fit_text(draw, team, team_font, 560)
+        draw.text((220, y + 10), name, font=team_font, fill=(246, 248, 252))
+
+        manager_label = f"DT: {manager}" if manager else "DT: Sin asignar"
+        manager_label = _fit_text(draw, manager_label, manager_font, 560)
+        draw.text(
+            (220, y + 41),
+            manager_label,
+            font=manager_font,
+            fill=(167, 183, 197),
+        )
+
+        if zone_label:
+            dot_x = 222
+            dot_y = y + 68
+            draw.ellipse(
+                (dot_x, dot_y, dot_x + 9, dot_y + 9),
+                fill=zone_color,
+            )
+            zone_text = _fit_text(draw, zone_label, zone_font, 530)
+            draw.text(
+                (dot_x + 16, y + 63),
+                zone_text,
+                font=zone_font,
+                fill=zone_color,
+            )
+
+        values = [
+            (865, int(row.get("pj") or 0)),
+            (960, int(row.get("pg") or 0)),
+            (1055, int(row.get("pe") or 0)),
+            (1150, int(row.get("pp") or 0)),
+            (1245, int(row.get("gf") or 0)),
+            (1340, int(row.get("gc") or 0)),
+        ]
+        for x, value in values:
+            draw.text(
+                (x, y + 31),
+                str(value),
+                font=stat_font,
+                fill=(225, 229, 238),
+            )
+
+        dg = int(row.get("dg") or 0)
         dg_text = f"+{dg}" if dg > 0 else str(dg)
-        draw.text((947, y + 30), dg_text, font=stat_font, fill=(225, 229, 238))
-        draw.text((1070, y + 27), str(int(row["pts"])), font=pos_font, fill=(255, 255, 255))
+        draw.text(
+            (1428, y + 31),
+            dg_text,
+            font=stat_font,
+            fill=(225, 229, 238),
+        )
+        draw.text(
+            (1550, y + 27),
+            str(int(row.get("pts") or 0)),
+            font=pts_font,
+            fill=(255, 255, 255),
+        )
 
     draw.text(
         (82, height - 82),
@@ -494,6 +693,9 @@ def _render_top5(after: list[dict[str, Any]]) -> io.BytesIO:
     payload.seek(0)
     return payload
 
+
+def _render_top5(after: list[dict[str, Any]]) -> io.BytesIO:
+    return _render_standings(after, full_table=False)
 
 def _ordinal(position: int) -> str:
     return f"{int(position)}.º"
