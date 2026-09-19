@@ -266,6 +266,7 @@ try:
                 # Do not import the old local OCR/NumPy chain at startup: it was
                 # disabled later anyway and only consumed Railway RAM.
                 import radio_pasillo_feature_ads_patch as radio_pasillo_ads
+                import radio_pasillo_rate_limit_patch as radio_pasillo_rate_limit
                 from radio_pasillo_force_rumor_preview_patch import register_force_rumor_preview
 
                 enable_additional_teams()
@@ -281,6 +282,7 @@ try:
                 # the one-shot preview listener is registered before Bot.run()
                 # connects to Discord and dispatches on_ready.
                 radio_pasillo_ads.apply_radio_pasillo_feature_ads_patch(__main__, self)
+                radio_pasillo_rate_limit.apply_radio_pasillo_rate_limit_patch(__main__, self)
                 register_force_rumor_preview(__main__, self)
             except Exception as exc:
                 print(f"Error cargando equipos/plantillas AJAP: {exc}")
