@@ -20,6 +20,7 @@ from contextlib import closing
 import discord
 
 import radio_pasillo_feature_ads_patch as radio
+import guild_isolation_patch as guild_isolation
 
 
 INTERVAL_SECONDS = 90 * 60
@@ -178,3 +179,20 @@ def apply_radio_pasillo_rate_limit_patch(runtime, bot) -> None:
     print(
         "AJPA Radio Pasillo: límite global activo — máximo 1 anuncio cada 1h 30m por servidor"
     )
+
+
+_BASE_APPLY_GUILD_ISOLATION = guild_isolation.apply_guild_isolation_patch
+
+
+def _apply_guild_isolation_then_radio_rate_limit(runtime, bot):
+    _BASE_APPLY_GUILD_ISOLATION(runtime, bot)
+    apply_radio_pasillo_rate_limit_patch(runtime, bot)
+
+
+if not getattr(
+    guild_isolation.apply_guild_isolation_patch,
+    "_ajap_radio_pasillo_rate_limit_wrapped",
+    False,
+):
+    _apply_guild_isolation_then_radio_rate_limit._ajap_radio_pasillo_rate_limit_wrapped = True
+    guild_isolation.apply_guild_isolation_patch = _apply_guild_isolation_then_radio_rate_limit
