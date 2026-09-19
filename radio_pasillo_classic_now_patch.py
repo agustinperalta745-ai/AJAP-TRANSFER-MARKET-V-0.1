@@ -2,7 +2,7 @@
 
 On the next successful bot start, publish the AJPA Mobile download reminder
 immediately once per guild. From that message onward, the regular rotating
-Radio Pasillo reminders run every 40 minutes. State remains persisted per guild
+Radio Pasillo reminders run every 90 minutes. State remains persisted per guild
 so Railway reconnects/restarts do not duplicate the one-shot.
 """
 
@@ -19,7 +19,7 @@ import radio_pasillo_feature_ads_patch as ads
 
 APP_DOWNLOAD_URL = "https://www.mediafire.com/file/m13t4jblgeb473c/AJPA-Transfer-Market-Actualizador.apk/file"
 PUSH_KEY = "app-now-2026-09-04-v1"
-INTERVAL_MINUTES = 40
+INTERVAL_MINUTES = 90
 
 
 def _app_body() -> str:
