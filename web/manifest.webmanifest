@@ -1,0 +1,20 @@
+{
+  "name": "AJPA Transfer Market",
+  "short_name": "AJPA Market",
+  "description": "Mercado de fichajes de AJPA para PES 6",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07110d",
+  "theme_color": "#101915",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
