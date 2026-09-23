@@ -12,6 +12,8 @@ y el control de duplicados queden guardados en la SQLite correcta de cada liga.
 
 from __future__ import annotations
 
+import inspect
+
 import discord
 
 import guild_isolation_patch
@@ -315,7 +317,7 @@ def _install_clausulazo_channel_bridge():
     if getattr(current, "_ajap_public_market_channel", False):
         return False
 
-    def configured_summary_or_original(guild):
+    async def configured_summary_or_original(guild):
         if guild is not None:
             try:
                 channel_id = get_public_channel_id(guild.id)
@@ -325,7 +327,10 @@ def _install_clausulazo_channel_bridge():
                         return channel
             except Exception as exc:
                 print(f"WARNING AJAP: no pude resolver canal público de clausulazo: {exc}")
-        return current(guild)
+        resolved = current(guild)
+        if inspect.isawaitable(resolved):
+            resolved = await resolved
+        return resolved
 
     configured_summary_or_original._ajap_public_market_channel = True
     clause_announcements._announce_channel = configured_summary_or_original
