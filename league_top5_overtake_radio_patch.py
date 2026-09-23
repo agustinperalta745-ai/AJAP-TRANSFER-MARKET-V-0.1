@@ -437,6 +437,7 @@ def _render_standings(
     *,
     full_table: bool = False,
     managers: dict[str, str] | None = None,
+    page_label: str | None = None,
 ) -> io.BytesIO:
     """Shared Radio Pasillo standings renderer.
 
@@ -517,89 +518,71 @@ def _render_standings(
         payload.seek(0)
         return payload
 
-    # Tabla completa: exactamente la estética probada del Top 5, pero con más
-    # columnas y altura dinámica. No usa el renderer visual de la app.
-    width = 1700
-    outer = 42
-    header_bottom = 172
-    table_header_y = 194
-    row_top = 244
-    row_h = 104
-    row_card_h = 90
-    footer_h = 92
+    # Tabla completa para Radio Pasillo, optimizada para lectura en celular.
+    # Se renderiza por páginas (6 equipos por imagen desde el publicador) y cada
+    # fila usa dos líneas de estadísticas. Así Discord no comprime 24 filas y
+    # 10 columnas en una única miniatura ilegible.
+    width = 760
+    outer = 24
+    header_bottom = 142
+    row_top = 164
+    row_h = 136
+    row_card_h = 124
+    footer_h = 58
     height = row_top + len(after) * row_h + footer_h
 
     image = Image.new("RGB", (width, height), (13, 16, 24))
     draw = ImageDraw.Draw(image)
 
     draw.rounded_rectangle(
-        (outer, 38, width - outer, height - 38),
-        radius=34,
+        (outer, 24, width - outer, height - 24),
+        radius=26,
         fill=(24, 29, 42),
     )
     draw.rounded_rectangle(
-        (outer, 38, width - outer, header_bottom),
-        radius=34,
+        (outer, 24, width - outer, header_bottom),
+        radius=26,
         fill=(35, 42, 59),
     )
     draw.rectangle(
-        (outer, 138, width - outer, header_bottom),
+        (outer, 116, width - outer, header_bottom),
         fill=(35, 42, 59),
     )
 
-    title_font = _font(52, bold=True)
-    sub_font = _font(25)
-    header_font = _font(21, bold=True)
-    team_font = _font(25, bold=True)
-    manager_font = _font(15, bold=True)
-    zone_font = _font(13, bold=True)
-    stat_font = _font(23, bold=True)
-    pos_font = _font(29, bold=True)
-    pts_font = _font(30, bold=True)
+    title_font = _font(36, bold=True)
+    sub_font = _font(18, bold=True)
+    team_font = _font(22, bold=True)
+    manager_font = _font(16, bold=True)
+    zone_font = _font(14, bold=True)
+    stat_font = _font(16, bold=True)
+    pos_font = _font(24, bold=True)
 
-    draw.text((82, 66), "LIGA", font=title_font, fill=(246, 248, 252))
+    draw.text((48, 48), "LIGA", font=title_font, fill=(246, 248, 252))
+    subtitle = str(page_label or "TABLA COMPLETA • ACTUALIZADA")
     draw.text(
-        (82, 126),
-        "TABLA COMPLETA • ACTUALIZADA",
+        (48, 100),
+        subtitle,
         font=sub_font,
         fill=(178, 187, 207),
     )
 
-    # Same Top 5 header style, extended with the complete football columns.
-    columns = [
-        (84, "#"),
-        (220, "EQUIPO"),
-        (860, "PJ"),
-        (955, "PG"),
-        (1050, "PE"),
-        (1145, "PP"),
-        (1240, "GF"),
-        (1335, "GC"),
-        (1430, "DG"),
-        (1550, "PTS"),
-    ]
-    for x, label in columns:
-        draw.text(
-            (x, table_header_y),
-            label,
-            font=header_font,
-            fill=(152, 162, 184),
-        )
+    stat_x = (155, 300, 445, 590)
 
     for idx, row in enumerate(after, start=1):
         y = row_top + (idx - 1) * row_h
         fill = (30, 36, 51) if idx % 2 else (27, 33, 47)
         draw.rounded_rectangle(
-            (68, y, width - 68, y + row_card_h),
-            radius=22,
+            (34, y, width - 34, y + row_card_h),
+            radius=20,
             fill=fill,
         )
 
-        pos = str(int(row.get("position") or idx))
+        position = int(row.get("position") or idx)
+        pos = str(position)
         pos_box = draw.textbbox((0, 0), pos, font=pos_font)
         pos_w = pos_box[2] - pos_box[0]
         draw.text(
-            (116 - pos_w / 2, y + 30),
+            (62 - pos_w / 2, y + 18),
             pos,
             font=pos_font,
             fill=(244, 246, 250),
@@ -610,81 +593,68 @@ def _render_standings(
         if badge_path:
             try:
                 badge = Image.open(badge_path).convert("RGBA")
-                badge.thumbnail((62, 62), Image.Resampling.LANCZOS)
-                bx = 175 - badge.width // 2
-                by = y + 45 - badge.height // 2
+                badge.thumbnail((52, 52), Image.Resampling.LANCZOS)
+                bx = 111 - badge.width // 2
+                by = y + 35 - badge.height // 2
                 image.paste(badge, (bx, by), badge)
             except Exception:
                 pass
 
-        # The app currently shows DT + qualification below the club name; preserve
-        # those details without changing the proven Top 5 card style.
         team_key = _team_key(team)
         manager = str(managers.get(team_key) or "").strip()
-        zone_label, zone_color = _zone_for_position(idx - 1)
+        zone_label, zone_color = _zone_for_position(max(0, position - 1))
 
-        name = _fit_text(draw, team, team_font, 560)
-        draw.text((220, y + 10), name, font=team_font, fill=(246, 248, 252))
+        name = _fit_text(draw, team, team_font, 535)
+        draw.text((155, y + 9), name, font=team_font, fill=(246, 248, 252))
 
         manager_label = f"DT: {manager}" if manager else "DT: Sin asignar"
-        manager_label = _fit_text(draw, manager_label, manager_font, 560)
+        manager_label = _fit_text(draw, manager_label, manager_font, 535)
         draw.text(
-            (220, y + 41),
+            (155, y + 38),
             manager_label,
             font=manager_font,
             fill=(167, 183, 197),
         )
 
         if zone_label:
-            dot_x = 222
-            dot_y = y + 68
+            dot_x = 157
+            dot_y = y + 66
             draw.ellipse(
                 (dot_x, dot_y, dot_x + 9, dot_y + 9),
                 fill=zone_color,
             )
-            zone_text = _fit_text(draw, zone_label, zone_font, 530)
+            zone_text = _fit_text(draw, zone_label, zone_font, 515)
             draw.text(
-                (dot_x + 16, y + 63),
+                (dot_x + 16, y + 61),
                 zone_text,
                 font=zone_font,
                 fill=zone_color,
             )
 
-        values = [
-            (865, int(row.get("pj") or 0)),
-            (960, int(row.get("pg") or 0)),
-            (1055, int(row.get("pe") or 0)),
-            (1150, int(row.get("pp") or 0)),
-            (1245, int(row.get("gf") or 0)),
-            (1340, int(row.get("gc") or 0)),
-        ]
-        for x, value in values:
-            draw.text(
-                (x, y + 31),
-                str(value),
-                font=stat_font,
-                fill=(225, 229, 238),
-            )
-
         dg = int(row.get("dg") or 0)
         dg_text = f"+{dg}" if dg > 0 else str(dg)
-        draw.text(
-            (1428, y + 31),
-            dg_text,
-            font=stat_font,
-            fill=(225, 229, 238),
+        top_stats = (
+            f"PJ {int(row.get('pj') or 0)}",
+            f"PG {int(row.get('pg') or 0)}",
+            f"PE {int(row.get('pe') or 0)}",
+            f"PP {int(row.get('pp') or 0)}",
         )
-        draw.text(
-            (1550, y + 27),
-            str(int(row.get("pts") or 0)),
-            font=pts_font,
-            fill=(255, 255, 255),
+        bottom_stats = (
+            f"GF {int(row.get('gf') or 0)}",
+            f"GC {int(row.get('gc') or 0)}",
+            f"DG {dg_text}",
+            f"PTS {int(row.get('pts') or 0)}",
         )
+        for x, label in zip(stat_x, top_stats):
+            draw.text((x, y + 84), label, font=stat_font, fill=(225, 229, 238))
+        for x, label in zip(stat_x, bottom_stats):
+            fill_color = (255, 255, 255) if label.startswith("PTS ") else (225, 229, 238)
+            draw.text((x, y + 104), label, font=stat_font, fill=fill_color)
 
     draw.text(
-        (82, height - 82),
+        (48, height - 47),
         "AJPA • Radio Pasillo",
-        font=_font(21, bold=True),
+        font=_font(16, bold=True),
         fill=(143, 153, 174),
     )
 
