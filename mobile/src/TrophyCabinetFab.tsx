@@ -75,6 +75,19 @@ type WinnerRecord = {
   source: 'archive' | 'officialLeague' | 'current' | 'latest';
 };
 
+type RankingMode = 'clubs' | 'managers';
+
+type RankingEntry = {
+  id: string;
+  name: string;
+  total: number;
+  league: number;
+  champions: number;
+  europa: number;
+  clubs: string[];
+  managers: string[];
+};
+
 const TROPHY = {
   league: require('../assets/trophies/liga-ajpa.jpg'),
   champions: require('../assets/trophies/champions-ajpa.jpg'),
@@ -201,6 +214,38 @@ function mergeRecords(rows: WinnerRecord[]): WinnerRecord[] {
   });
 }
 
+function TrophyCount({ trophyKey, count }: { trophyKey: TrophyKey; count: number }) {
+  const meta = META[trophyKey];
+  return (
+    <View style={styles.trophyCount}>
+      <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyCountImage} />
+      <View>
+        <Text style={styles.trophyCountValue}>{count}</Text>
+        <Text style={[styles.trophyCountLabel, { color: meta.accent }]}>
+          {trophyKey === 'league' ? 'LIGA' : trophyKey === 'champions' ? 'CHAMPIONS' : 'EUROPA'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function RankingIdentity({ entry, mode, compact = false }: { entry: RankingEntry; mode: RankingMode; compact?: boolean }) {
+  if (mode === 'clubs') {
+    return (
+      <View style={compact ? styles.podiumBadgeWrap : styles.rankBadgeWrap}>
+        <ClubBadge club={entry.name} size={compact ? 42 : 38} />
+      </View>
+    );
+  }
+
+  const initial = entry.name.trim().slice(0, 1).toUpperCase() || 'D';
+  return (
+    <View style={compact ? styles.podiumManagerAvatar : styles.rankManagerAvatar}>
+      <Text style={compact ? styles.podiumManagerInitial : styles.rankManagerInitial}>{initial}</Text>
+    </View>
+  );
+}
+
 function TrophyCard({
   trophyKey,
   selected,
@@ -256,6 +301,7 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
   const [cups, setCups] = useState<CupsPayload | null>(null);
   const [honours, setHonours] = useState<Awaited<ReturnType<typeof fetchLatestHonours>> | null>(null);
   const [selected, setSelected] = useState<TrophyKey>('league');
+  const [rankingMode, setRankingMode] = useState<RankingMode>('clubs');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -373,6 +419,70 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
     europa: records.filter(row => row.key === 'europa'),
   }), [records]);
 
+  const rankings = useMemo(() => {
+    const clubMap = new Map<string, RankingEntry>();
+    const managerMap = new Map<string, RankingEntry>();
+
+    const addUnique = (items: string[], value: string | null | undefined) => {
+      const next = clean(value);
+      if (!next || items.some(item => normalized(item) === normalized(next))) return;
+      items.push(next);
+    };
+
+    for (const row of records) {
+      const clubId = normalized(row.champion);
+      if (clubId) {
+        const clubEntry = clubMap.get(clubId) ?? {
+          id: clubId,
+          name: row.champion,
+          total: 0,
+          league: 0,
+          champions: 0,
+          europa: 0,
+          clubs: [row.champion],
+          managers: [],
+        };
+        clubEntry.total += 1;
+        clubEntry[row.key] += 1;
+        addUnique(clubEntry.managers, row.manager);
+        clubMap.set(clubId, clubEntry);
+      }
+
+      if (row.manager) {
+        const managerId = normalized(row.manager);
+        if (managerId) {
+          const managerEntry = managerMap.get(managerId) ?? {
+            id: managerId,
+            name: row.manager,
+            total: 0,
+            league: 0,
+            champions: 0,
+            europa: 0,
+            clubs: [],
+            managers: [row.manager],
+          };
+          managerEntry.total += 1;
+          managerEntry[row.key] += 1;
+          addUnique(managerEntry.clubs, row.champion);
+          managerMap.set(managerId, managerEntry);
+        }
+      }
+    }
+
+    const sortRanking = (a: RankingEntry, b: RankingEntry) =>
+      b.total - a.total
+      || b.champions - a.champions
+      || b.league - a.league
+      || b.europa - a.europa
+      || a.name.localeCompare(b.name, 'es');
+
+    return {
+      clubs: [...clubMap.values()].sort(sortRanking),
+      managers: [...managerMap.values()].sort(sortRanking),
+    };
+  }, [records]);
+
+  const rankingRows = rankingMode === 'clubs' ? rankings.clubs : rankings.managers;
   const selectedRows = byCompetition[selected];
   const selectedMeta = META[selected];
 
@@ -403,6 +513,99 @@ export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void 
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.subtitle}>Las copas oficiales y todos los campeones, ordenados por competencia.</Text>
+
+          <View style={styles.rankingPanel}>
+            <View style={styles.rankingHeader}>
+              <View style={styles.flex}>
+                <Text style={styles.rankingEyebrow}>🏆 HISTORIA AJPA</Text>
+                <Text style={styles.rankingTitle}>Ranking de títulos</Text>
+                <Text style={styles.rankingSubtitle}>Quiénes construyeron la historia, con cada copa desglosada.</Text>
+              </View>
+              <View style={styles.totalBadge}>
+                <Text style={styles.totalBadgeValue}>{records.length}</Text>
+                <Text style={styles.totalBadgeLabel}>TÍTULOS</Text>
+              </View>
+            </View>
+
+            <View style={styles.rankingTabs}>
+              <Pressable
+                onPress={() => setRankingMode('clubs')}
+                style={({ pressed }) => [styles.rankingTab, rankingMode === 'clubs' && styles.rankingTabActive, pressed && styles.pressed]}
+              >
+                <Text style={[styles.rankingTabText, rankingMode === 'clubs' && styles.rankingTabTextActive]}>🛡️ CLUBES</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setRankingMode('managers')}
+                style={({ pressed }) => [styles.rankingTab, rankingMode === 'managers' && styles.rankingTabActive, pressed && styles.pressed]}
+              >
+                <Text style={[styles.rankingTabText, rankingMode === 'managers' && styles.rankingTabTextActive]}>🎩 DTS</Text>
+              </Pressable>
+            </View>
+
+            {loading && !records.length ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator />
+                <Text style={styles.muted}>Armando el ranking histórico…</Text>
+              </View>
+            ) : rankingRows.length ? (
+              <>
+                <Text style={styles.podiumHeading}>PODIO HISTÓRICO</Text>
+                <View style={styles.podiumRow}>
+                  {rankingRows.slice(0, 3).map((entry, index) => (
+                    <View key={entry.id} style={[styles.podiumCard, index === 0 && styles.podiumFirst]}>
+                      <Text style={styles.podiumPosition}>{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</Text>
+                      <RankingIdentity entry={entry} mode={rankingMode} compact />
+                      <Text style={styles.podiumName} numberOfLines={2}>{entry.name}</Text>
+                      <Text style={styles.podiumTotal}>{entry.total}</Text>
+                      <Text style={styles.podiumTotalLabel}>{entry.total === 1 ? 'TÍTULO' : 'TÍTULOS'}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={styles.fullRankingHeading}>CLASIFICACIÓN COMPLETA</Text>
+                <View style={styles.rankingList}>
+                  {rankingRows.map((entry, index) => (
+                    <View key={entry.id} style={styles.rankRow}>
+                      <View style={styles.rankMain}>
+                        <View style={styles.rankPositionWrap}>
+                          <Text style={styles.rankPosition}>{index + 1}</Text>
+                        </View>
+                        <RankingIdentity entry={entry} mode={rankingMode} />
+                        <View style={styles.rankCopy}>
+                          <Text style={styles.rankName} numberOfLines={1}>{entry.name}</Text>
+                          <Text style={styles.rankMeta} numberOfLines={2}>
+                            {rankingMode === 'clubs'
+                              ? (entry.managers.length ? `DT: ${entry.managers.join(' · ')}` : 'DT histórico no registrado')
+                              : (entry.clubs.length ? `Clubes: ${entry.clubs.join(' · ')}` : 'Club no registrado')}
+                          </Text>
+                        </View>
+                        <View style={styles.rankTotal}>
+                          <Text style={styles.rankTotalValue}>{entry.total}</Text>
+                          <Text style={styles.rankTotalLabel}>{entry.total === 1 ? 'TÍTULO' : 'TÍTULOS'}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.trophyCountsRow}>
+                        <TrophyCount trophyKey="league" count={entry.league} />
+                        <TrophyCount trophyKey="champions" count={entry.champions} />
+                        <TrophyCount trophyKey="europa" count={entry.europa} />
+                      </View>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={styles.rankingRule}>Orden: títulos totales · desempate por Champions, Liga y Europa.</Text>
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🏆</Text>
+                <Text style={styles.emptyTitle}>Todavía no hay títulos para rankear</Text>
+                <Text style={styles.muted}>El ranking se completa automáticamente cuando se cierren competencias oficiales.</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.sectionDividerTitle}>PALMARÉS POR COMPETENCIA</Text>
 
           <TrophyCard trophyKey="league" selected={selected === 'league'} champion={byCompetition.league[0] || null} onPress={() => setSelected('league')} />
           <TrophyCard trophyKey="champions" selected={selected === 'champions'} champion={byCompetition.champions[0] || null} onPress={() => setSelected('champions')} />
@@ -568,5 +771,133 @@ const styles = StyleSheet.create({
   emptyTitle: { color: '#eef3f6', fontSize: 13, fontWeight: '900', textAlign: 'center' },
   retryButton: { marginTop: 2, paddingVertical: 8 },
   errorText: { color: '#efa2a2', fontSize: 8.5, lineHeight: 13, textAlign: 'center', fontWeight: '800' },
+  rankingPanel: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#5b4822',
+    backgroundColor: '#0a1015',
+    padding: 13,
+    gap: 10,
+  },
+  rankingHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  rankingEyebrow: { color: '#e5bd68', fontSize: 8, fontWeight: '900', letterSpacing: 1.3 },
+  rankingTitle: { color: '#fff', fontSize: 23, fontWeight: '900', marginTop: 2 },
+  rankingSubtitle: { color: '#96a6b3', fontSize: 10, lineHeight: 14, marginTop: 3 },
+  totalBadge: {
+    minWidth: 56,
+    minHeight: 56,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#80672f',
+    backgroundColor: '#151207',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  totalBadgeValue: { color: '#f2d68c', fontSize: 18, fontWeight: '900', lineHeight: 20 },
+  totalBadgeLabel: { color: '#a58d57', fontSize: 6.5, fontWeight: '900', letterSpacing: 0.8, marginTop: 2 },
+  rankingTabs: { flexDirection: 'row', gap: 7 },
+  rankingTab: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#273644',
+    backgroundColor: '#081019',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankingTabActive: { borderColor: '#b3924f', backgroundColor: '#17150c' },
+  rankingTabText: { color: '#778998', fontSize: 9, fontWeight: '900', letterSpacing: 0.65 },
+  rankingTabTextActive: { color: '#f1d38a' },
+  podiumHeading: { color: '#b9c5ce', fontSize: 8, fontWeight: '900', letterSpacing: 1.2, marginTop: 1 },
+  podiumRow: { flexDirection: 'row', gap: 7, alignItems: 'stretch' },
+  podiumCard: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 154,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#2b3a46',
+    backgroundColor: '#09121a',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 10,
+  },
+  podiumFirst: { borderColor: '#b59650', backgroundColor: '#17140b' },
+  podiumPosition: { fontSize: 18, marginBottom: 5 },
+  podiumBadgeWrap: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
+  podiumManagerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#b59650',
+    backgroundColor: '#171e25',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  podiumManagerInitial: { color: '#f1d38a', fontSize: 19, fontWeight: '900' },
+  podiumName: { color: '#fff', fontSize: 10, lineHeight: 13, fontWeight: '900', textAlign: 'center', minHeight: 27, marginTop: 5 },
+  podiumTotal: { color: '#f1d38a', fontSize: 22, fontWeight: '900', lineHeight: 23, marginTop: 5 },
+  podiumTotalLabel: { color: '#93825d', fontSize: 6.5, fontWeight: '900', letterSpacing: 0.8, marginTop: 2 },
+  fullRankingHeading: { color: '#b9c5ce', fontSize: 8, fontWeight: '900', letterSpacing: 1.2, marginTop: 2 },
+  rankingList: { gap: 8 },
+  rankRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#22313d',
+    backgroundColor: '#071018',
+    padding: 10,
+  },
+  rankMain: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rankPositionWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#121d26',
+    borderWidth: 1,
+    borderColor: '#314352',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankPosition: { color: '#b7c4ce', fontSize: 10, fontWeight: '900' },
+  rankBadgeWrap: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  rankManagerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#3a5367',
+    backgroundColor: '#101b24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankManagerInitial: { color: '#9dc8ee', fontSize: 16, fontWeight: '900' },
+  rankCopy: { flex: 1, minWidth: 0 },
+  rankName: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  rankMeta: { color: '#7f93a3', fontSize: 8, lineHeight: 11, marginTop: 2 },
+  rankTotal: { minWidth: 47, alignItems: 'flex-end' },
+  rankTotalValue: { color: '#f1d38a', fontSize: 20, fontWeight: '900', lineHeight: 21 },
+  rankTotalLabel: { color: '#8a7a55', fontSize: 6, fontWeight: '900', letterSpacing: 0.65 },
+  trophyCountsRow: { flexDirection: 'row', gap: 6, marginTop: 9 },
+  trophyCount: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1e2e3b',
+    backgroundColor: '#050b10',
+    paddingHorizontal: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  trophyCountImage: { width: 26, height: 26, borderRadius: 4 },
+  trophyCountValue: { color: '#fff', fontSize: 12, fontWeight: '900', lineHeight: 13 },
+  trophyCountLabel: { fontSize: 5.5, fontWeight: '900', letterSpacing: 0.35, marginTop: 1 },
+  rankingRule: { color: '#667988', fontSize: 7.5, lineHeight: 11, textAlign: 'center' },
+  sectionDividerTitle: { color: '#b49a65', fontSize: 9, fontWeight: '900', letterSpacing: 1.35, marginTop: 5 },
   footerNote: { color: '#647889', fontSize: 9, lineHeight: 13, textAlign: 'center', paddingHorizontal: 14, paddingTop: 2 },
 });
