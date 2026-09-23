@@ -94,6 +94,12 @@ const TROPHY = {
   europa: require('../assets/trophies/europa-ajpa.jpg'),
 } as const;
 
+const RANKING_TROPHY = {
+  league: require('../assets/trophies/ranking-icons/liga-ajpa.jpg'),
+  champions: require('../assets/trophies/ranking-icons/champions-ajpa.jpg'),
+  europa: require('../assets/trophies/ranking-icons/europa-ajpa.jpg'),
+} as const;
+
 const META: Record<TrophyKey, { title: string; eyebrow: string; accent: string; description: string }> = {
   league: {
     title: 'Liga AJPA',
@@ -218,7 +224,7 @@ function TrophyCount({ trophyKey, count }: { trophyKey: TrophyKey; count: number
   const meta = META[trophyKey];
   return (
     <View style={styles.trophyCount}>
-      <Image source={TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyCountImage} />
+      <Image source={RANKING_TROPHY[trophyKey]} resizeMode="contain" style={styles.trophyCountImage} />
       <View>
         <Text style={styles.trophyCountValue}>{count}</Text>
         <Text style={[styles.trophyCountLabel, { color: meta.accent }]}>
