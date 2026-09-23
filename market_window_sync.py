@@ -19,6 +19,15 @@ def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
     )
 
 
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    if not _table_exists(conn, table):
+        return set()
+    return {
+        str(row["name"])
+        for row in conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+    }
+
+
 def ensure_market_window_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
@@ -34,6 +43,14 @@ def ensure_market_window_schema(conn: sqlite3.Connection) -> None:
         );
         """
     )
+    if _table_exists(conn, "market_state"):
+        columns = _columns(conn, "market_state")
+        if "updated_by" not in columns:
+            conn.execute("ALTER TABLE market_state ADD COLUMN updated_by INTEGER")
+        if "updated_at" not in columns:
+            conn.execute(
+                "ALTER TABLE market_state ADD COLUMN updated_at DATETIME"
+            )
 
 
 def _active_season_id(conn: sqlite3.Connection):
