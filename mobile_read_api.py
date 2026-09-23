@@ -413,6 +413,11 @@ def market_payload(conn: sqlite3.Connection) -> list[dict]:
         if "min_sale_value" in roster_cols
         else "NULL AS min_sale_value"
     )
+    player_id = (
+        "r.id AS player_id"
+        if "roster_players" in tables
+        else "NULL AS player_id"
+    )
     join = (
         "LEFT JOIN roster_players r ON r.name=p.player COLLATE NOCASE"
         if "roster_players" in tables
@@ -420,7 +425,7 @@ def market_payload(conn: sqlite3.Connection) -> list[dict]:
     )
     rows = conn.execute(
         f"""
-        SELECT p.id AS publication_id, p.player, p.position, p.club,
+        SELECT p.id AS publication_id, {player_id}, p.player, p.position, p.club,
                p.price, p.detail, {operation}, {rating}, {value}
         FROM publications p
         {join}
@@ -437,6 +442,16 @@ def market_payload(conn: sqlite3.Connection) -> list[dict]:
         result.append(
             {
                 "publication_id": int(row["publication_id"]),
+                "player_id": (
+                    int(row["player_id"])
+                    if "player_id" in keys and row["player_id"] is not None
+                    else None
+                ),
+                "player_code": (
+                    f"AJAP-{int(row['player_id']):06d}"
+                    if "player_id" in keys and row["player_id"] is not None
+                    else None
+                ),
                 "player": row["player"],
                 "position": row["position"],
                 "club": row["club"],
