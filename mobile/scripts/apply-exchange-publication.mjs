@@ -62,7 +62,7 @@ const priceValidation = String.raw`    if (!publishPrice.trim()) {
 requireMarker(ui.includes(priceValidation), 'validación de precio');
 ui = ui.replace(
   priceValidation,
-  String.raw`    if (publishType !== 'INTERCAMBIO' && !publishPrice.trim()) {
+  String.raw`    if (publishType !== 'INTERCAMBIO' && publishType !== 'PRÉSTAMO' && !publishPrice.trim()) {
       Alert.alert('Precio requerido', 'Indicá el precio o cargo de la operación.');
       return;
     }`,
@@ -93,7 +93,7 @@ const mutateReplacement = String.raw`    const exchangeTarget = exchangeTargetPl
         operation_type: publishType,
         // El backend histórico exige un precio numérico. En intercambio se guarda 0,
         // pero la app no lo muestra como precio: las condiciones quedan en el detalle.
-        price: publishType === 'INTERCAMBIO' ? '0' : publishPrice,
+        price: publishType === 'INTERCAMBIO' ? '0' : publishType === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : publishPrice,
         detail: publishType === 'INTERCAMBIO' ? exchangeDetail : publishDetail,`;
 // Usamos callback para que String.replace NO interprete "$'" como token especial
 // de reemplazo y conserve literalmente el signo $ del texto de diferencia.
@@ -126,7 +126,13 @@ ui = ui.replace(
                 kind={publishType === type ? 'blue' : 'ghost'}
                 onPress={() => {
                   setPublishType(type);
-                  if (type === 'INTERCAMBIO') void loadExchangePlayers();
+                  if (type === 'INTERCAMBIO') {
+                    void loadExchangePlayers();
+                  } else if (type === 'PRÉSTAMO') {
+                    setPublishPrice(FIXED_LOAN_PRICE);
+                  } else if (publishType === 'PRÉSTAMO') {
+                    setPublishPrice(publishTarget?.market_value ? String(publishTarget.market_value) : '');
+                  }
                 }}
               />`,
 );
@@ -181,9 +187,14 @@ const exchangeBlock = String.raw`          {publishType === 'INTERCAMBIO' ? (
                 placeholderTextColor="#657382"
               />
             </>
+          ) : publishType === 'PRÉSTAMO' ? (
+            <>
+              <Text style={s.inputLabel}>CARGO FIJO DEL PRÉSTAMO</Text>
+              <TextInput style={s.input} value="$1.000.000" editable={false} />
+            </>
           ) : (
             <>
-              <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO / PRECIO' : 'PRECIO PEDIDO'}</Text>
+              <Text style={s.inputLabel}>PRECIO PEDIDO</Text>
               <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
             </>
           )}`;
