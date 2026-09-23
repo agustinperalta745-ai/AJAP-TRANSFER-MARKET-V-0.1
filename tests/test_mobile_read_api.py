@@ -56,7 +56,11 @@ class MobileReadApiTests(unittest.TestCase):
         self.assertNotIn("Viejo FC", {club["name"] for club in data["clubs"]})
         self.assertEqual(len(data["market"]), 2)
         self.assertEqual(len(data["free_agents"]), 1)
+        market_by_name = {item["player"]: item for item in data["market"]}
+        self.assertEqual(market_by_name["Jugador A"]["player_id"], 1)
+        self.assertEqual(market_by_name["Jugador A"]["player_code"], "AJAP-000001")
         self.assertEqual(data["free_agents"][0]["player"], "Jugador Libre A")
+        self.assertEqual(data["free_agents"][0]["player_id"], 2)
 
     def test_roster_exposes_ovr_and_value(self):
         with api.readonly_db() as conn:
