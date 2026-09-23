@@ -10,21 +10,7 @@ El canal público se resuelve en este orden:
 4) el primer canal de texto visible por @everyone donde el bot pueda escribir.
 """
 
-import os
-
 import clausulazo_patch as clauses
-
-
-PREFERRED_CHANNEL_NAMES = (
-    "mercado-de-pases",
-    "mercado",
-    "fichajes",
-    "transferencias",
-    "transfer-market",
-    "mercado-ajap",
-    "anuncios-mercado",
-    "anuncios",
-)
 
 
 def _money(value):
@@ -33,6 +19,7 @@ def _money(value):
 
 def _public_message(req):
     return (
+        "📻 **RADIO PASILLO**\n\n"
         "🚨 **¡CLAUSULAZO!** 🚨\n\n"
         f"💥 **{req['buyer_club']}** ejecutó la cláusula de rescisión de **{req['player']}**.\n\n"
         f"⬅️ **Club anterior:** {req['seller_club']}\n"
@@ -63,63 +50,20 @@ async def _member_from_id(guild, user_id):
         return None
 
 
-def _channel_is_public_and_writable(guild, channel):
-    if not guild or channel is None or not hasattr(channel, "send"):
-        return False
-    try:
-        everyone = channel.permissions_for(guild.default_role)
-        if not everyone.view_channel:
-            return False
-        me = guild.me
-        if me is not None:
-            mine = channel.permissions_for(me)
-            if not mine.view_channel or not mine.send_messages:
-                return False
-    except Exception:
-        return False
-    return True
-
-
-def _announce_channel(guild):
-    if not guild:
+async def _announce_channel(guild):
+    """Usa el mismo destino oficial de Radio Pasillo que el resto de AJPA."""
+    if guild is None:
         return None
+    import radio_pasillo_feature_ads_patch as radio
 
-    configured = (os.getenv("CLAUSULAZO_CHANNEL_ID") or "").strip()
-    if configured.isdigit():
-        channel = guild.get_channel(int(configured))
-        if _channel_is_public_and_writable(guild, channel):
-            return channel
-
-    channels = list(getattr(guild, "text_channels", []) or [])
-    by_name = {(channel.name or "").strip().casefold(): channel for channel in channels}
-
-    for wanted in PREFERRED_CHANNEL_NAMES:
-        channel = by_name.get(wanted.casefold())
-        if _channel_is_public_and_writable(guild, channel):
-            return channel
-
-    for channel in channels:
-        name = (channel.name or "").strip().casefold()
-        if any(word in name for word in ("mercado", "fichaje", "transfer")):
-            if _channel_is_public_and_writable(guild, channel):
-                return channel
-
-    system_channel = getattr(guild, "system_channel", None)
-    if _channel_is_public_and_writable(guild, system_channel):
-        return system_channel
-
-    for channel in channels:
-        if _channel_is_public_and_writable(guild, channel):
-            return channel
-
-    return None
+    return await radio._resolve_radio_channel(guild)
 
 
 async def announce_public(guild, req):
-    channel = _announce_channel(guild)
+    channel = await _announce_channel(guild)
     if channel is None:
         print(
-            "WARNING AJAP: clausulazo aprobado sin canal público disponible "
+            "WARNING AJAP: clausulazo aprobado sin canal Radio Pasillo disponible "
             f"(request #{req['id']})"
         )
         return False
