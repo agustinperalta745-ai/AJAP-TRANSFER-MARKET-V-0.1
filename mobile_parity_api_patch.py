@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import club_access_revocation as access
 import mobile_read_api
 import mobile_write_api
+import market_window_sync
 
 
 def _tables(conn: sqlite3.Connection) -> set[str]:
@@ -92,6 +93,11 @@ def set_market_state(conn: sqlite3.Connection, session: dict, opened: bool) -> d
     previous = conn.execute("SELECT is_open FROM market_state WHERE id=1").fetchone(); old = int(previous["is_open"]) if previous else None
     conn.execute("INSERT INTO market_state (id,is_open,updated_by,updated_at) VALUES (1,?,?,CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET is_open=excluded.is_open,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP", (value, int(session["user_id"])))
     if old != value: conn.execute("INSERT INTO market_state_history (is_open, changed_by) VALUES (?, ?)", (value, int(session["user_id"])))
+    market_window_sync.sync_market_window(
+        conn,
+        bool(value),
+        actor_id=int(session["user_id"]),
+    )
     return {"ok": True, "market_open": bool(value)}
 
 

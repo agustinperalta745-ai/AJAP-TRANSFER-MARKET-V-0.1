@@ -6,6 +6,7 @@ from pathlib import Path
 
 import mobile_write_api as api
 import mobile_write_release_compat
+import mobile_clausulazo_api_patch as clauses
 
 mobile_write_release_compat.apply()
 
@@ -148,6 +149,34 @@ class MobileWriteApiTests(unittest.TestCase):
             self.assertEqual(transfer["status"], "PENDIENTE_ADMIN")
             self.assertEqual(transfer["seller"], "Ajax")
             self.assertEqual(transfer["buyer"], "Aston Villa")
+
+    def test_clausulazo_repairs_open_market_window(self):
+        with api.write_db() as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute(
+                "UPDATE club_finances SET balance=100000000 WHERE club='Ajax'"
+            )
+            self.assertFalse(
+                conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='market_cycles'"
+                ).fetchone()
+            )
+
+            payload = clauses.clausulazo_payload(
+                conn,
+                {"user_id": 1001, "is_staff": False},
+            )
+
+            self.assertTrue(payload["market_open"])
+            self.assertIsNotNone(payload["cycle_id"])
+            self.assertNotEqual(
+                payload["blocked_reason"],
+                "No hay una ventana de mercado activa.",
+            )
+            active = conn.execute(
+                "SELECT id FROM market_cycles WHERE closed_at IS NULL"
+            ).fetchone()
+            self.assertEqual(int(active["id"]), int(payload["cycle_id"]))
 
     def test_release_charges_20_percent_and_creates_free_listing(self):
         with api.write_db() as conn:

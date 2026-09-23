@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 import mobile_read_api
 import mobile_write_api as writes
+import market_window_sync
 
 DEFAULT_CLAUSE_PRICE = 50_000_000
 FREE_AGENT_CLUB = "Jugador Libre"
@@ -69,11 +70,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def _cycle(conn: sqlite3.Connection):
-    if not writes._table_exists(conn, "market_cycles"):
-        return None
-    return conn.execute(
-        "SELECT * FROM market_cycles WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1"
-    ).fetchone()
+    # market_state is the canonical open/closed flag. Older manual market
+    # toggles did not always create market_cycles, so repair that mismatch here.
+    # This does not touch the competitive phase; it only scopes per-market rules.
+    return market_window_sync.active_market_window(conn)
 
 
 def _clause_price(conn: sqlite3.Connection) -> int:

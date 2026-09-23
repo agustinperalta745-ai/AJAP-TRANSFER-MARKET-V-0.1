@@ -9,6 +9,7 @@ base cada vez que se construye la vista.
 """
 
 import discord
+import market_window_sync
 
 
 def ensure_schema(runtime):
@@ -83,6 +84,11 @@ def install_persistent_state(runtime):
                     (value, int(admin_id)),
                 )
 
+            market_window_sync.sync_market_window(
+                conn,
+                bool(value),
+                actor_id=int(admin_id),
+            )
             conn.commit()
         except Exception:
             conn.rollback()
