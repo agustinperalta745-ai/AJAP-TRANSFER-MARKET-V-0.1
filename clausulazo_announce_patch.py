@@ -10,6 +10,8 @@ El canal público se resuelve en este orden:
 4) el primer canal de texto visible por @everyone donde el bot pueda escribir.
 """
 
+import inspect
+
 import clausulazo_patch as clauses
 
 
@@ -56,7 +58,10 @@ async def _announce_channel(guild):
         return None
     import radio_pasillo_feature_ads_patch as radio
 
-    return await radio._resolve_radio_channel(guild)
+    resolved = radio._resolve_radio_channel(guild)
+    if inspect.isawaitable(resolved):
+        resolved = await resolved
+    return resolved
 
 
 async def announce_public(guild, req):
@@ -108,9 +113,23 @@ def apply_clausulazo_announce_patch(runtime):
 
     async def notify_buyer_and_announce(guild, req, approved):
         # El anuncio público no depende de que el comprador tenga los DMs abiertos.
-        buyer_delivered = await original_notify_buyer(guild, req, approved)
+        buyer_delivered = False
+        try:
+            buyer_delivered = await original_notify_buyer(guild, req, approved)
+        except Exception as exc:
+            print(
+                "WARNING AJAP: fallo DM comprador de clausulazo "
+                f"#{req['id']}: {type(exc).__name__}: {exc}"
+            )
+
         if approved:
-            await announce_public(guild, req)
+            try:
+                await announce_public(guild, req)
+            except Exception as exc:
+                print(
+                    "WARNING AJAP: fallo inesperado publicando clausulazo "
+                    f"#{req['id']}: {type(exc).__name__}: {exc}"
+                )
         return buyer_delivered
 
     clauses.notify_seller = notify_seller
