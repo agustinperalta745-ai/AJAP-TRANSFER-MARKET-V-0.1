@@ -31,6 +31,7 @@ SESSION_TTL = 60 * 60 * 24 * 30
 PAIR_TTL = 60 * 10
 ACTIVE_LOAN_STATUSES = ("ACTIVE", "OPTION_PENDING", "RETURN_PENDING", "REVIEW_REQUIRED")
 PENDING_TRANSFER_STATUSES = ("PENDIENTE_ADMIN", "APROBADA")
+FIXED_LOAN_PRICE = 1_000_000
 
 
 class ApiFailure(Exception):
@@ -335,7 +336,7 @@ def create_publication(conn, session: dict, payload: dict) -> dict:
     if operation == "TRANSFERENCIA" and state["active"] <= MIN_SQUAD:
         raise ApiFailure(f"Con {state['active']} jugadores no podés vender; el mínimo es {MIN_SQUAD}. Un intercambio 1x1 sí está permitido.")
 
-    raw_price = _price_number(payload.get("price"))
+    raw_price = FIXED_LOAN_PRICE if operation == "PRÉSTAMO" else _price_number(payload.get("price"))
     if raw_price is None or raw_price < 0:
         raise ApiFailure("El precio debe ser un número igual o mayor a 0.")
     minimum = _player_floor(player)
@@ -400,7 +401,8 @@ def create_offer(conn, session: dict, pub_id: int, payload: dict) -> dict:
     if _open_transfer(conn, int(target["id"]), target["name"]):
         raise ApiFailure("Ese jugador ya tiene una operación pendiente.")
 
-    cash = _price_number(payload.get("amount") or 0)
+    is_loan = _normalize_operation(pub["operation_type"]) == "PRÉSTAMO"
+    cash = FIXED_LOAN_PRICE if is_loan else _price_number(payload.get("amount") or 0)
     if cash is None or cash < 0:
         raise ApiFailure("El dinero ofrecido debe ser un número.")
     offered = None
@@ -415,8 +417,8 @@ def create_offer(conn, session: dict, pub_id: int, payload: dict) -> dict:
             raise ApiFailure("No podés ofrecer el mismo jugador.")
         if _open_transfer(conn, int(offered["id"]), offered["name"]):
             raise ApiFailure(f"{offered['name']} ya tiene una operación pendiente.")
-        if _normalize_operation(pub["operation_type"]) == "PRÉSTAMO":
-            raise ApiFailure("En préstamos, por ahora la propuesta desde la app debe ser económica.")
+        if is_loan:
+            raise ApiFailure("En préstamos, la operación es económica y tiene cargo fijo de $1.000.000.")
     if cash <= 0 and not offered:
         raise ApiFailure("La oferta debe incluir dinero, un jugador o ambos.")
 
