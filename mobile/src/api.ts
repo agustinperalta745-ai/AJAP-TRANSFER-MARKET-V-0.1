@@ -27,8 +27,8 @@ export type ClubSummary = {
 
 export type MarketItem = {
   publication_id: number;
-  player_id?: number | null;
-  player_code?: string | null;
+  player_id: number | null;
+  player_code: string | null;
   player: string;
   position: string;
   club: string;
