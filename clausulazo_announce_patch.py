@@ -129,7 +129,26 @@ async def announce_public(guild, req):
         )
         return False
     try:
-        message = await channel.send(_public_message(req))
+        send_method = channel.send
+        print(
+            "AJAP clausulazo send diagnostic | "
+            f"request={req['id']} channel_type={type(channel).__name__} "
+            f"send_module={getattr(send_method, '__module__', None)} "
+            f"send_qualname={getattr(send_method, '__qualname__', None)} "
+            f"iscoro={inspect.iscoroutinefunction(send_method)}"
+        )
+        pending = send_method(_public_message(req))
+        print(
+            "AJAP clausulazo send diagnostic result | "
+            f"request={req['id']} result_type={type(pending).__name__} "
+            f"awaitable={inspect.isawaitable(pending)}"
+        )
+        if not inspect.isawaitable(pending):
+            raise TypeError(
+                "channel.send devolvió un valor no-awaitable "
+                f"({type(pending).__name__})"
+            )
+        message = await pending
         _remember_announcement(req["id"], channel.id, message.id)
         print(
             "AJAP clausulazo anunciado: "
