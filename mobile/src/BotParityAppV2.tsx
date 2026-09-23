@@ -82,7 +82,9 @@ const C = {
 };
 
 const money = (value: number | null | undefined) =>
-  value === null || value === undefined ? '—' : `$${Math.round(value).toLocaleString('es-AR')}`;
+  value === null || value === undefined ? '—' : `${Math.round(value).toLocaleString('es-AR')}`;
+
+const FIXED_LOAN_PRICE = '1000000';
 
 const apiError = (error: unknown) =>
   typeof error === 'object' && error && 'message' in error
@@ -407,8 +409,8 @@ export default function BotParityAppV2() {
 
   const submitPublication = () => {
     if (!publishTarget?.id) return;
-    if (!publishPrice.trim()) {
-      Alert.alert('Precio requerido', 'Indicá el precio o cargo de la operación.');
+    if (publishType !== 'PRÉSTAMO' && !publishPrice.trim()) {
+      Alert.alert('Precio requerido', 'Indicá el precio de la operación.');
       return;
     }
     if (publishType === 'PRÉSTAMO' && Number(loanSeasons) <= 0) {
@@ -423,7 +425,7 @@ export default function BotParityAppV2() {
       () => publishPlayer({
         player_id: publishTarget.id!,
         operation_type: publishType,
-        price: publishPrice,
+        price: publishType === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : publishPrice,
         detail: publishDetail,
         loan_seasons: publishType === 'PRÉSTAMO' ? loanSeasons : undefined,
         purchase_option_enabled: publishType === 'PRÉSTAMO' ? purchaseOption : undefined,
@@ -435,14 +437,15 @@ export default function BotParityAppV2() {
 
   const submitOffer = () => {
     if (!offerTarget) return;
-    if (!offerAmount.trim() && !offeredPlayerId) {
+    const loanOffer = offerTarget.operation_type === 'PRÉSTAMO';
+    if (!loanOffer && !offerAmount.trim() && !offeredPlayerId) {
       Alert.alert('Oferta vacía', 'Ofrecé dinero, un jugador o ambas cosas.');
       return;
     }
     mutate(
       () => sendOffer(offerTarget.publication_id, {
-        amount: offerAmount,
-        offered_player_id: offeredPlayerId,
+        amount: loanOffer ? FIXED_LOAN_PRICE : offerAmount,
+        offered_player_id: loanOffer ? null : offeredPlayerId,
         message: offerMessage,
       }),
       `Oferta enviada por ${offerTarget.player}.`,
@@ -650,12 +653,28 @@ export default function BotParityAppV2() {
           <Text style={s.inputLabel}>TIPO DE OPERACIÓN</Text>
           <View style={s.actionRow}>
             {(['TRANSFERENCIA', 'PRÉSTAMO', 'INTERCAMBIO'] as PublicationType[]).map((type) => (
-              <Button key={type} label={type} kind={publishType === type ? 'blue' : 'ghost'} onPress={() => setPublishType(type)} />
+              <Button
+                key={type}
+                label={type}
+                kind={publishType === type ? 'blue' : 'ghost'}
+                onPress={() => {
+                  setPublishType(type);
+                  if (type === 'PRÉSTAMO') {
+                    setPublishPrice(FIXED_LOAN_PRICE);
+                  } else if (publishType === 'PRÉSTAMO') {
+                    setPublishPrice(publishTarget.market_value ? String(publishTarget.market_value) : '');
+                  }
+                }}
+              />
             ))}
           </View>
 
-          <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO / PRECIO' : 'PRECIO PEDIDO'}</Text>
-          <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
+          <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO FIJO DEL PRÉSTAMO' : 'PRECIO PEDIDO'}</Text>
+          {publishType === 'PRÉSTAMO' ? (
+            <TextInput style={s.input} value="$1.000.000" editable={false} />
+          ) : (
+            <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
+          )}
 
           {publishType === 'PRÉSTAMO' ? (
             <>
@@ -695,15 +714,21 @@ export default function BotParityAppV2() {
           <Text style={s.eyebrow}>HACER OFERTA</Text>
           <Text style={s.editorTitle}>{offerTarget.player}</Text>
           <Text style={s.muted}>{offerTarget.club} · {offerTarget.price}</Text>
-          <Text style={s.inputLabel}>DINERO OFRECIDO</Text>
-          <TextInput style={s.input} keyboardType="numeric" value={offerAmount} onChangeText={setOfferAmount} placeholder="Puede ser 0 si ofrecés jugador" placeholderTextColor="#657382" />
-          <Text style={s.inputLabel}>JUGADOR OFRECIDO (OPCIONAL)</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalChoices}>
-            <Button label={offeredPlayerId ? 'SIN JUGADOR' : 'NINGUNO'} kind="ghost" onPress={() => setOfferedPlayerId(null)} />
-            {roster.filter((player) => player.id).map((player) => (
-              <Button key={player.id!} label={player.name} kind={offeredPlayerId === player.id ? 'blue' : 'ghost'} onPress={() => setOfferedPlayerId(player.id)} />
-            ))}
-          </ScrollView>
+          <Text style={s.inputLabel}>{offerTarget.operation_type === 'PRÉSTAMO' ? 'CARGO FIJO DEL PRÉSTAMO' : 'DINERO OFRECIDO'}</Text>
+          {offerTarget.operation_type === 'PRÉSTAMO' ? (
+            <TextInput style={s.input} value="$1.000.000" editable={false} />
+          ) : (
+            <>
+              <TextInput style={s.input} keyboardType="numeric" value={offerAmount} onChangeText={setOfferAmount} placeholder="Puede ser 0 si ofrecés jugador" placeholderTextColor="#657382" />
+              <Text style={s.inputLabel}>JUGADOR OFRECIDO (OPCIONAL)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalChoices}>
+                <Button label={offeredPlayerId ? 'SIN JUGADOR' : 'NINGUNO'} kind="ghost" onPress={() => setOfferedPlayerId(null)} />
+                {roster.filter((player) => player.id).map((player) => (
+                  <Button key={player.id!} label={player.name} kind={offeredPlayerId === player.id ? 'blue' : 'ghost'} onPress={() => setOfferedPlayerId(player.id)} />
+                ))}
+              </ScrollView>
+            </>
+          )}
           <Text style={s.inputLabel}>MENSAJE / CONDICIONES</Text>
           <TextInput style={[s.input, s.textarea]} value={offerMessage} onChangeText={setOfferMessage} multiline placeholder="Opcional" placeholderTextColor="#657382" />
           <View style={s.actionRow}>
@@ -721,7 +746,7 @@ export default function BotParityAppV2() {
           item={item}
           actions={<Button label="HACER OFERTA" disabled={!snapshot.status.market_open || !profile?.club} onPress={() => {
             setOfferTarget(item);
-            setOfferAmount('');
+            setOfferAmount(item.operation_type === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : '');
             setOfferMessage('');
             setOfferedPlayerId(null);
           }} />}
