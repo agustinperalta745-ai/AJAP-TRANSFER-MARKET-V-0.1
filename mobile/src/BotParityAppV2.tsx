@@ -409,8 +409,8 @@ export default function BotParityAppV2() {
 
   const submitPublication = () => {
     if (!publishTarget?.id) return;
-    if (publishType !== 'PRÉSTAMO' && !publishPrice.trim()) {
-      Alert.alert('Precio requerido', 'Indicá el precio de la operación.');
+    if (!publishPrice.trim()) {
+      Alert.alert('Precio requerido', 'Indicá el precio o cargo de la operación.');
       return;
     }
     if (publishType === 'PRÉSTAMO' && Number(loanSeasons) <= 0) {
@@ -425,7 +425,7 @@ export default function BotParityAppV2() {
       () => publishPlayer({
         player_id: publishTarget.id!,
         operation_type: publishType,
-        price: publishType === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : publishPrice,
+        price: publishPrice,
         detail: publishDetail,
         loan_seasons: publishType === 'PRÉSTAMO' ? loanSeasons : undefined,
         purchase_option_enabled: publishType === 'PRÉSTAMO' ? purchaseOption : undefined,
@@ -653,28 +653,12 @@ export default function BotParityAppV2() {
           <Text style={s.inputLabel}>TIPO DE OPERACIÓN</Text>
           <View style={s.actionRow}>
             {(['TRANSFERENCIA', 'PRÉSTAMO', 'INTERCAMBIO'] as PublicationType[]).map((type) => (
-              <Button
-                key={type}
-                label={type}
-                kind={publishType === type ? 'blue' : 'ghost'}
-                onPress={() => {
-                  setPublishType(type);
-                  if (type === 'PRÉSTAMO') {
-                    setPublishPrice(FIXED_LOAN_PRICE);
-                  } else if (publishType === 'PRÉSTAMO') {
-                    setPublishPrice(publishTarget.market_value ? String(publishTarget.market_value) : '');
-                  }
-                }}
-              />
+              <Button key={type} label={type} kind={publishType === type ? 'blue' : 'ghost'} onPress={() => setPublishType(type)} />
             ))}
           </View>
 
-          <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO FIJO DEL PRÉSTAMO' : 'PRECIO PEDIDO'}</Text>
-          {publishType === 'PRÉSTAMO' ? (
-            <TextInput style={s.input} value="$1.000.000" editable={false} />
-          ) : (
-            <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
-          )}
+          <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO / PRECIO' : 'PRECIO PEDIDO'}</Text>
+          <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
 
           {publishType === 'PRÉSTAMO' ? (
             <>
