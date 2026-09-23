@@ -156,9 +156,9 @@ if (!cabinet.includes(championsBannerRequire)) {
   if (dataUriConst.test(cabinet)) {
     cabinet = cabinet.replace(dataUriConst, championsBannerRequire);
   } else if (!cabinet.includes('const CHAMPIONS_BANNER =')) {
-    const anchor = `} as const;\n\nconst META:`;
-    if (!cabinet.includes(anchor)) throw new Error('Trophy cabinet: TROPHY map anchor not found.');
-    cabinet = cabinet.replace(anchor, `} as const;\n\n${championsBannerRequire}\n${europaBannerRequire}\n\nconst META:`);
+    const metaAnchor = 'const META:';
+    if (!cabinet.includes(metaAnchor)) throw new Error('Trophy cabinet: META anchor not found.');
+    cabinet = cabinet.replace(metaAnchor, `${championsBannerRequire}\n${europaBannerRequire}\n\n${metaAnchor}`);
   }
 }
 
