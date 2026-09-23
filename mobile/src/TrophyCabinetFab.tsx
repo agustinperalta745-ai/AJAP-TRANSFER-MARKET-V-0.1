@@ -89,16 +89,12 @@ type RankingEntry = {
 };
 
 const TROPHY = {
-  league: require('../assets/trophies/liga-ajpa.jpg'),
-  champions: require('../assets/trophies/champions-ajpa.jpg'),
-  europa: require('../assets/trophies/europa-ajpa.jpg'),
+  league: require('../assets/trophies/liga-ajpa-banner.jpg'),
+  champions: require('../assets/trophies/champions-ajpa-card-icon.png'),
+  europa: require('../assets/trophies/europa-ajpa-card-icon.png'),
 } as const;
 
-const RANKING_TROPHY = {
-  league: require('../assets/trophies/ranking-icons/liga-ajpa.jpg'),
-  champions: require('../assets/trophies/ranking-icons/champions-ajpa.jpg'),
-  europa: require('../assets/trophies/ranking-icons/europa-ajpa.jpg'),
-} as const;
+const RANKING_TROPHY = TROPHY;
 
 const META: Record<TrophyKey, { title: string; eyebrow: string; accent: string; description: string }> = {
   league: {
