@@ -94,7 +94,11 @@ const TROPHY = {
   europa: require('../assets/trophies/europa-ajpa-card-icon.png'),
 } as const;
 
-const RANKING_TROPHY = TROPHY;
+const RANKING_TROPHY = {
+  league: require('../assets/trophies/liga-ajpa-rank-icon.png'),
+  champions: require('../assets/trophies/champions-ajpa-card-icon.png'),
+  europa: require('../assets/trophies/europa-ajpa-card-icon.png'),
+} as const;
 
 const META: Record<TrophyKey, { title: string; eyebrow: string; accent: string; description: string }> = {
   league: {
