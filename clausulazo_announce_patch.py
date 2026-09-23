@@ -121,7 +121,14 @@ async def announce_public(guild, req):
         print(f"AJAP clausulazo #{req['id']}: Radio Pasillo YA_PUBLICADO")
         return True
 
-    channel = await _announce_channel(guild)
+    # Other market modules may wrap ``_announce_channel`` with a configured
+    # channel resolver.  Some resolvers return a TextChannel directly while
+    # the original resolver is async, so support both contracts here at the
+    # final call site.  Awaiting an already-resolved TextChannel used to abort
+    # every Mobile-approved clausulazo before ``channel.send``.
+    channel = _announce_channel(guild)
+    if inspect.isawaitable(channel):
+        channel = await channel
     if channel is None:
         print(
             "WARNING AJAP: clausulazo aprobado sin canal Radio Pasillo disponible "
