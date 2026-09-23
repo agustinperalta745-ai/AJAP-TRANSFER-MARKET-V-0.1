@@ -41,6 +41,7 @@ import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
+import TrophyCabinetScreen from './TrophyCabinetFab';
 
 type Screen =
   | 'home'
@@ -57,6 +58,7 @@ type Screen =
   | 'search'
   | 'history'
   | 'league'
+  | 'titles'
   | 'admin'
   | 'adminTools'
   | 'assignments'
@@ -548,6 +550,7 @@ export default function BotParityAppV2() {
       <MenuTile emoji="🔎" title="BUSCAR" subtitle="Buscar jugadores" onPress={() => openScreen('search')} />
       <MenuTile emoji="📜" title="HISTORIAL" subtitle="Movimientos del mercado" onPress={() => openScreen('history')} />
       <MenuTile emoji="🏆" title="LIGA" subtitle="Tabla y goleadores" onPress={() => openScreen('league')} />
+      <MenuTile emoji="👑" title="RANKING DE TÍTULOS" subtitle="Clubes, DTs, copas y palmarés histórico" onPress={() => openScreen('titles')} />
       {profile?.is_staff ? <MenuTile emoji="⚙️" title="ADMINISTRACIÓN" subtitle="Administración y asignaciones" onPress={() => openScreen('admin')} /> : null}
       {profile?.club ? <MenuTile emoji="🚪" title="RENUNCIAR AL CLUB" subtitle="Salida del club" onPress={() => openScreen('resign')} danger /> : null}
     </ScrollView>
@@ -878,6 +881,7 @@ export default function BotParityAppV2() {
           <View style={s.screenShade}>{body}</View>
         </ImageBackground>
       </View>
+      {screen === 'titles' ? <TrophyCabinetScreen onClose={() => setScreen('home')} /> : null}
     </View>
   );
 }
