@@ -40,6 +40,7 @@ import { BG_EQUIPOS } from './bg_equipos';
 import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
+import PlayerPes6StatsButton from './PlayerPes6StatsButton';
 
 type Screen =
   | 'home'
@@ -169,6 +170,7 @@ function PlayerCard({ player, actions }: { player: RosterPlayer; actions?: React
           <Text style={s.playerValue}>Valor AJPA {money(player.market_value)}</Text>
         </View>
       </View>
+      <PlayerPes6StatsButton player={player} />
       {actions ? <View style={s.actionRow}>{actions}</View> : null}
     </View>
   );
@@ -190,6 +192,17 @@ function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }
         <Text style={[s.price, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
       </View>
       {item.detail ? <Text style={s.detail}>{item.detail}</Text> : null}
+      <PlayerPes6StatsButton
+        player={{
+          id: item.player_id,
+          code: item.player_code,
+          name: item.player,
+          position: item.position,
+          club: item.club,
+          ovr: item.ovr,
+          market_value: item.market_value,
+        }}
+      />
       {actions ? <View style={s.actionRow}>{actions}</View> : null}
     </View>
   );
@@ -934,3 +947,4 @@ const s = StyleSheet.create({
   infoValue: { color: C.white, fontSize: 16, fontWeight: '800', marginTop: 5 },
   separator: { height: 1, backgroundColor: '#1b2e3d', marginVertical: 13 },
 });
+// player-pes6-stats applied
