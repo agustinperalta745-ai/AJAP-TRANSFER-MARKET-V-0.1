@@ -12,6 +12,7 @@ Discord.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from http import HTTPStatus
@@ -198,6 +199,49 @@ def _runtime_modules():
     return staff_review, clauses, admin_tools
 
 
+def _schedule_clause_notifications(clauses, request_id: int, approved: bool) -> None:
+    """Mirror the Discord clausulazo notifications for Staff actions made in Mobile."""
+    fresh = clauses.request_by_id(int(request_id))
+    runtime = getattr(clauses, "APP", None)
+    bot = getattr(runtime, "bot", None)
+    guild = bot.get_guild(_mobile_guild_id()) if bot is not None else None
+    if fresh is None or bot is None or guild is None:
+        print(
+            "WARNING AJPA mobile Staff: no se pudieron programar avisos de clausulazo "
+            f"request={request_id} approved={approved} "
+            f"fresh={fresh is not None} bot={bot is not None} guild={guild is not None}"
+        )
+        return
+
+    async def deliver():
+        if approved:
+            await clauses.notify_seller(guild, fresh)
+        await clauses.notify_buyer(guild, fresh, approved)
+
+    try:
+        future = asyncio.run_coroutine_threadsafe(deliver(), bot.loop)
+
+        def done_callback(done):
+            try:
+                done.result()
+                print(
+                    "AJPA mobile Staff: avisos de clausulazo enviados "
+                    f"request={request_id} approved={approved}"
+                )
+            except Exception as exc:
+                print(
+                    "WARNING AJPA mobile Staff: fallo enviando avisos de clausulazo "
+                    f"request={request_id}: {type(exc).__name__}: {exc}"
+                )
+
+        future.add_done_callback(done_callback)
+    except Exception as exc:
+        print(
+            "WARNING AJPA mobile Staff: no se pudo programar aviso de clausulazo "
+            f"request={request_id}: {type(exc).__name__}: {exc}"
+        )
+
+
 def _perform_staff_action(kind: str, item_id: int, action: str, staff_id: int):
     staff_review, clauses, admin_tools = _runtime_modules()
     with guild_isolation_patch.guild_context(_mobile_guild_id()):
@@ -222,11 +266,13 @@ def _perform_staff_action(kind: str, item_id: int, action: str, staff_id: int):
                 ok, result = clauses.approve_request(req, staff_id)
                 if not ok:
                     raise mobile_write_api.ApiFailure(str(result or "No se pudo aprobar el clausulazo."))
+                _schedule_clause_notifications(clauses, item_id, True)
                 return {"ok": True, "id": item_id, "action": action, "transfer_id": int(result)}
             if action == "reject":
                 ok = clauses.reject_request(req, staff_id)
                 if not ok:
                     raise mobile_write_api.ApiFailure("El clausulazo ya fue resuelto.")
+                _schedule_clause_notifications(clauses, item_id, False)
                 return {"ok": True, "id": item_id, "action": action}
             raise mobile_write_api.ApiFailure("Acción de clausulazo inválida.")
 
