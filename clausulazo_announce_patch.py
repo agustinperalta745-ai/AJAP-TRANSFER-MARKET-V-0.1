@@ -121,7 +121,11 @@ async def announce_public(guild, req):
         print(f"AJAP clausulazo #{req['id']}: Radio Pasillo YA_PUBLICADO")
         return True
 
-    channel = await _announce_channel(guild)
+    # The public-market bridge may return a channel directly or an awaitable.
+    # Support both contracts so Mobile approvals always reach channel.send.
+    channel = _announce_channel(guild)
+    if inspect.isawaitable(channel):
+        channel = await channel
     if channel is None:
         print(
             "WARNING AJAP: clausulazo aprobado sin canal Radio Pasillo disponible "
