@@ -385,19 +385,46 @@ async def _publish_event(runtime, bot, guild, sync_run_id: int) -> bool:
         return False
 
     managers = _manager_names(guild)
-    image = top5._render_standings(
-        after,
-        full_table=True,
-        managers=managers,
-    )
-    file = discord.File(
-        image,
-        filename=f"ajpa-tabla-top5-style-{int(sync_run_id)}.png",
-    )
+
+    # Discord vuelve ilegible una tabla de 24 equipos en una sola imagen.
+    # La publicamos como 4 páginas de 6 equipos, cada una en su propio embed:
+    # siguen siendo un único mensaje, pero las imágenes quedan apiladas y con
+    # tamaño suficiente para leerse desde el celular.
+    page_size = 6
+    page_count = max(1, (len(after) + page_size - 1) // page_size)
+    files = []
+    embeds = []
+    for page_index in range(page_count):
+        start = page_index * page_size
+        chunk = after[start : start + page_size]
+        if not chunk:
+            continue
+        first_pos = int(chunk[0].get("position") or (start + 1))
+        last_pos = int(chunk[-1].get("position") or (start + len(chunk)))
+        page_label = (
+            f"TABLA {page_index + 1}/{page_count} • "
+            f"PUESTOS {first_pos}–{last_pos}"
+        )
+        image = top5._render_standings(
+            chunk,
+            full_table=True,
+            managers=managers,
+            page_label=page_label,
+        )
+        filename = (
+            f"ajpa-tabla-{int(sync_run_id)}-"
+            f"p{page_index + 1}.png"
+        )
+        files.append(discord.File(image, filename=filename))
+        embed = discord.Embed(color=0x181D2A)
+        embed.set_image(url=f"attachment://{filename}")
+        embeds.append(embed)
+
     try:
         sent = await channel.send(
             content=_commentary(guild, before, after),
-            file=file,
+            files=files,
+            embeds=embeds,
             allowed_mentions=discord.AllowedMentions.none(),
         )
     except (discord.Forbidden, discord.HTTPException) as exc:
