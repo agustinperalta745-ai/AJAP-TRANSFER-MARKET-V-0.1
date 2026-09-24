@@ -63,9 +63,92 @@ export function rgba(hex: string, alpha: number) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
+let ACTIVE_VISUAL_THEME: VisualTheme = DEFAULT_VISUAL_THEME;
+
+export function getActiveVisualTheme() {
+  return ACTIVE_VISUAL_THEME;
+}
+
+export function visualCardStyle(variant: 'panel' | 'alt' = 'panel') {
+  const theme = ACTIVE_VISUAL_THEME;
+  const source = variant === 'alt' ? theme.panel_alt : theme.panel;
+  return {
+    backgroundColor: rgba(source, theme.panel_opacity),
+    borderColor: theme.border,
+    borderRadius: theme.card_radius,
+  };
+}
+
+export function visualInputStyle() {
+  const theme = ACTIVE_VISUAL_THEME;
+  return {
+    backgroundColor: rgba(theme.background, 0.76),
+    borderColor: theme.border,
+    borderRadius: theme.button_radius,
+    color: theme.text,
+  };
+}
+
+export function visualContentStyle() {
+  const theme = ACTIVE_VISUAL_THEME;
+  return {
+    padding: theme.content_padding,
+    gap: theme.compact ? 8 : 11,
+  };
+}
+
+export function visualButtonStyle(kind: 'blue' | 'green' | 'red' | 'ghost' = 'blue') {
+  const theme = ACTIVE_VISUAL_THEME;
+  return {
+    backgroundColor:
+      kind === 'green' ? theme.success :
+      kind === 'red' ? theme.danger :
+      kind === 'ghost' ? rgba(theme.panel_alt, 0.88) :
+      theme.accent,
+    borderColor: kind === 'ghost' ? theme.border : undefined,
+    borderRadius: theme.button_radius,
+  };
+}
+
+export function visualTextStyle(kind: 'text' | 'muted' | 'accent' | 'accentSoft' | 'success' | 'danger' | 'warning' = 'text') {
+  const theme = ACTIVE_VISUAL_THEME;
+  return {
+    color:
+      kind === 'muted' ? theme.muted :
+      kind === 'accent' ? theme.accent :
+      kind === 'accentSoft' ? theme.accent_soft :
+      kind === 'success' ? theme.success :
+      kind === 'danger' ? theme.danger :
+      kind === 'warning' ? theme.warning :
+      theme.text,
+  };
+}
+
+export function visualTopBarStyle() {
+  const theme = ACTIVE_VISUAL_THEME;
+  return {
+    backgroundColor: rgba(theme.topbar, 0.94),
+    borderBottomColor: theme.border,
+  };
+}
+
+export function visualRootStyle() {
+  return { backgroundColor: ACTIVE_VISUAL_THEME.background };
+}
+
+export function visualImageStyle() {
+  return { opacity: ACTIVE_VISUAL_THEME.image_opacity };
+}
+
+export function visualShadeStyle() {
+  const theme = ACTIVE_VISUAL_THEME;
+  return { backgroundColor: rgba(theme.background, theme.shade_opacity) };
+}
+
 export function VisualThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<VisualTheme>(DEFAULT_VISUAL_THEME);
   const [loading, setLoading] = useState(true);
+  ACTIVE_VISUAL_THEME = theme;
 
   const refresh = async () => {
     try {
