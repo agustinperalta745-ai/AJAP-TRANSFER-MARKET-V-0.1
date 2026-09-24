@@ -29,8 +29,8 @@ mustReplace(
 );
 
 mustReplace(
-  `  | 'adminTools'\n  | 'assignments'`,
-  `  | 'adminTools'\n  | 'adminMarket'\n  | 'adminRosters'\n  | 'adminEconomy'\n  | 'adminManagement'\n  | 'assignments'`,
+  `  | 'adminTools'\n  | 'appearance'\n  | 'assignments'`,
+  `  | 'adminTools'\n  | 'appearance'\n  | 'adminMarket'\n  | 'adminRosters'\n  | 'adminEconomy'\n  | 'adminManagement'\n  | 'assignments'`,
   'las pantallas Staff',
 );
 
