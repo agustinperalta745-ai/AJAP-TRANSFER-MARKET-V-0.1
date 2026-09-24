@@ -55,6 +55,9 @@ jobs:
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
 
+      - name: Prepare XI Ideal splash
+        run: node scripts/prepare-xi-ideal-splash.mjs
+
       - name: Apply Discord menu parity
         run: node scripts/apply-discord-menu-parity.mjs
 
