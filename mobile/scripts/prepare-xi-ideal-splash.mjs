@@ -4,11 +4,11 @@ import path from 'node:path';
 
 const chunkDir = path.resolve('assets/xi_ideal_splash_chunks');
 const outDir = path.resolve('assets/generated');
-const outPath = path.join(outDir, 'xi-ideal-splash.jpg');
-const expectedSha = 'dd4d4a3a6bd9c5dfe71422e73a210b4982003865801f032978934af7456643f6';
-const expectedBytes = 82717;
+const outPath = path.join(outDir, 'xi-ideal-splash.webp');
+const expectedSha = '8c40df5fbe20e517e5fdd4cb9dddec2b202c617c072785d508b70807d18b06ac';
+const expectedBytes = 158124;
 
-const names = Array.from({ length: 10 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
+const names = Array.from({ length: 18 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
 const base64 = names
   .map((name) => fs.readFileSync(path.join(chunkDir, name), 'utf8').replace(/\s+/g, ''))
   .join('');
@@ -27,8 +27,11 @@ if (sha !== expectedSha) {
   throw new Error(`XI Ideal splash: SHA mismatch ${sha}`);
 }
 
-if (!(bytes[0] === 0xff && bytes[1] === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9)) {
-  throw new Error('XI Ideal splash: invalid JPEG');
+if (
+  bytes.subarray(0, 4).toString('ascii') !== 'RIFF' ||
+  bytes.subarray(8, 12).toString('ascii') !== 'WEBP'
+) {
+  throw new Error('XI Ideal splash: invalid WEBP');
 }
 
 fs.mkdirSync(outDir, { recursive: true });
