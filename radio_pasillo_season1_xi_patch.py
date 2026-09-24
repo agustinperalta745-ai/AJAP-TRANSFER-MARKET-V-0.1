@@ -8,6 +8,7 @@ The delivery marker is persisted in SQLite so Railway restarts cannot duplicate 
 from __future__ import annotations
 
 import asyncio
+import os
 
 import discord
 
@@ -66,16 +67,16 @@ def _ensure_schema(conn) -> None:
     conn.commit()
 
 
-def _done(runtime, guild_id: int) -> bool:
+def _job_row(runtime, guild_id: int):
     conn = league.db(runtime, int(guild_id))
     try:
         _ensure_schema(conn)
-        return bool(
-            conn.execute(
-                f"SELECT 1 FROM {_JOB_TABLE} WHERE guild_id=? AND job_key=? LIMIT 1",
-                (int(guild_id), _JOB_KEY),
-            ).fetchone()
-        )
+        return conn.execute(
+            f"""SELECT completed_at,discord_message_id
+                FROM {_JOB_TABLE}
+                WHERE guild_id=? AND job_key=? LIMIT 1""",
+            (int(guild_id), _JOB_KEY),
+        ).fetchone()
     finally:
         conn.close()
 
@@ -221,9 +222,15 @@ def _message(guild, managers: dict[str, tuple[int | None, str]]) -> str:
 
 
 async def _publish(runtime, bot, guild) -> bool:
-    if _done(runtime, guild.id):
+    existing = _job_row(runtime, guild.id)
+    if existing:
+        print(
+            f"AJPA XI Ideal T1 ya publicado guild={guild.id} "
+            f"mensaje={existing['discord_message_id']} completed_at={existing['completed_at']}"
+        )
         return True
 
+    print(f"AJPA XI Ideal T1 procesando guild={guild.id}")
     channel = await radio._resolve_radio_channel(runtime, bot, guild)
     if channel is None:
         print(
@@ -278,17 +285,38 @@ def apply_radio_pasillo_season1_xi_patch(runtime, bot) -> None:
         return
 
     async def on_ready():
-        # Give the rest of AJPA's startup hooks a moment to finish their own
-        # schema/cache initialization before resolving historical DTs.
+        # This announcement belongs only to the production AJPA guild. The old
+        # test guild intentionally has no Radio Pasillo and must never consume work.
         await asyncio.sleep(1.0)
-        for guild in list(getattr(bot, "guilds", []) or []):
-            try:
-                await _publish(runtime, bot, guild)
-            except Exception as exc:
-                print(
-                    f"AJPA XI Ideal T1 falló guild={getattr(guild, 'id', '?')}: "
-                    f"{type(exc).__name__}: {exc}"
-                )
+        configured = str(os.getenv("AJPA_MOBILE_GUILD_ID") or "").strip()
+        guilds = list(getattr(bot, "guilds", []) or [])
+        if configured.isdigit():
+            target = bot.get_guild(int(configured))
+            guilds = [target] if target is not None else []
+
+        if not guilds:
+            print(
+                f"AJPA XI Ideal T1 pendiente: guild producción {configured or '?'} no disponible"
+            )
+            return
+
+        # A busy Discord startup may temporarily rate-limit unrelated routes.
+        # Retry only until the persisted one-shot marker proves delivery.
+        for attempt in range(1, 7):
+            all_done = True
+            for guild in guilds:
+                try:
+                    ok = await _publish(runtime, bot, guild)
+                    all_done = all_done and bool(ok)
+                except Exception as exc:
+                    all_done = False
+                    print(
+                        f"AJPA XI Ideal T1 falló guild={getattr(guild, 'id', '?')} "
+                        f"intento={attempt}: {type(exc).__name__}: {exc}"
+                    )
+            if all_done:
+                return
+            await asyncio.sleep(10.0)
 
     bot.add_listener(on_ready, "on_ready")
     bot._ajpa_radio_season1_xi_patch = True
