@@ -22,7 +22,7 @@ mustReplace(
 
 mustReplace(
   `  const openScreen = async (next: Screen) => {\n    setScreen(next);`,
-  `  const openScreen = async (next: Screen) => {\n    const staffOnly = next === 'admin' || next === 'adminTools' || next === 'assignments' || next === 'adminMarket' || next === 'adminOperations' || next === 'adminClauses' || next === 'adminUndo' || next === 'adminRosters' || next === 'adminEconomy' || next === 'adminEconomyAdjust' || next === 'adminManagement';\n    if (staffOnly && !profile?.is_staff) {\n      Alert.alert('Acceso restringido', 'Esta sección es exclusiva para administradores.');\n      return;\n    }\n    if (next !== screen) setScreenHistory((previous) => [...previous, screen].slice(-30));\n    setScreen(next);`,
+  `  const openScreen = async (next: Screen) => {\n    const staffOnly = next === 'admin' || next === 'adminTools' || next === 'appearance' || next === 'assignments' || next === 'adminMarket' || next === 'adminOperations' || next === 'adminClauses' || next === 'adminUndo' || next === 'adminRosters' || next === 'adminEconomy' || next === 'adminEconomyAdjust' || next === 'adminManagement';\n    if (staffOnly && !profile?.is_staff) {\n      Alert.alert('Acceso restringido', 'Esta sección es exclusiva para administradores.');\n      return;\n    }\n    if (next !== screen) setScreenHistory((previous) => [...previous, screen].slice(-30));\n    setScreen(next);`,
   'openScreen',
 );
 
