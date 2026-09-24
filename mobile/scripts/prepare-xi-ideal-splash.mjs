@@ -8,7 +8,7 @@ const outPath = path.join(outDir, 'xi-ideal-splash.webp');
 const expectedSize = 122312;
 const expectedSha = '23adf2c7b667096d35b2410ecf19536353a3c264b10e61cdfab0984a041abd69';
 
-const names = Array.from({ length: 12 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
+const names = Array.from({ length: 16 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
 const pieces = names.map((name) => {
   const base64 = fs.readFileSync(path.join(chunkDir, name), 'utf8').replace(/\s+/g, '');
   if (!/^[A-Za-z0-9+/=]+$/.test(base64)) {
