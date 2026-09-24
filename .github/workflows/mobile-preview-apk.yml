@@ -223,6 +223,9 @@ jobs:
       - name: Add contextual market actions to player search
         run: node scripts/apply-search-player-market-actions.mjs
 
+      - name: Apply editable visual theme last
+        run: node scripts/apply-visual-theme-final.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
