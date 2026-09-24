@@ -245,7 +245,7 @@ function OfferCard({
   );
 }
 
-export default function BotParityAppV2() {
+export default function BotParityAppV2({ onMenuReady }: { onMenuReady?: () => void }) {
   const [screen, setScreen] = useState<Screen>('home');
   const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);
   const [latestHonours, setLatestHonours] = useState<LatestHonours | null>(null);
@@ -455,6 +455,10 @@ export default function BotParityAppV2() {
       `Oferta enviada por ${offerTarget.player}.`,
     );
   };
+
+  useEffect(() => {
+    if (!loading && snapshot) onMenuReady?.();
+  }, [loading, snapshot, onMenuReady]);
 
   if (loading) {
     return (
