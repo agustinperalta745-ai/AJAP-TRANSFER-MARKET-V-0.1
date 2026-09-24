@@ -46,6 +46,7 @@ import classic_rival_ownership_reset_patch  # noqa: E402
 import mobile_latest_honours_api_patch  # noqa: E402
 import mobile_resignation_api_patch  # noqa: E402
 import mobile_ota_api_patch  # noqa: E402
+import mobile_theme_api_patch  # noqa: E402
 import mobile_results_background_api_patch  # noqa: E402
 import mobile_player_stats_api_patch  # noqa: E402
 import mobile_cup_tournaments_api_patch  # noqa: E402
@@ -83,6 +84,7 @@ classic_rival_ownership_reset_patch.apply_classic_rival_ownership_reset_patch()
 mobile_latest_honours_api_patch.apply_mobile_latest_honours_api_patch()
 mobile_resignation_api_patch.apply_mobile_resignation_api_patch()
 mobile_ota_api_patch.apply_mobile_ota_api_patch()
+mobile_theme_api_patch.apply_mobile_theme_api_patch()
 mobile_results_background_api_patch.apply_mobile_results_background_api_patch()
 # Read-only PES6 player details are installed after every other GET wrapper so
 # the new endpoint cannot disturb the existing Liga/Staff/mobile routes.
