@@ -140,7 +140,7 @@ const home = String.raw`  const home = (
       <View style={s.quickGrid}>
         <QuickAction emoji="📤" title="Publicar jugador" onPress={() => requireClub('publish')} />
         <QuickAction emoji="📩" title="Ver ofertas" onPress={() => openScreen('offers')} />
-        <QuickAction emoji="🆓" title="Agentes libres" onPress={() => openScreen('transferibles')} />
+        <QuickAction emoji="🆓" title="Agentes libres" onPress={() => openScreen('freeAgents')} />
       </View>
 
       <View style={s.homeStatusRow}>
@@ -201,7 +201,7 @@ const marketMenu = String.raw`  const marketMenu = (
 
       <SectionLabel title="OPERACIONES" />
       <View style={s.featureGrid}>
-        <FeatureTile emoji="📋" title="Transferibles" subtitle="Otros equipos, tus publicaciones y agentes libres" onPress={() => openScreen('transferibles')} />
+        <FeatureTile emoji="📋" title="Transferibles" subtitle="Jugadores publicados por otros equipos y tus publicaciones" onPress={() => openScreen('transferibles')} />
         <FeatureTile emoji="📤" title="Publicar" subtitle="Transferencia, préstamo o intercambio" onPress={() => requireClub('publish')} />
         <FeatureTile emoji="📩" title="Ofertas" subtitle="Recibidas, enviadas y decisiones" onPress={() => openScreen('offers')} />
         <FeatureTile emoji="💥" title="Clausulazo" subtitle="Ejecutar cláusula de rescisión" onPress={() => openScreen('clausulazo')} danger />
@@ -211,7 +211,7 @@ const marketMenu = String.raw`  const marketMenu = (
       <View style={s.quickGrid}>
         <QuickAction emoji="🔎" title="Buscar jugador" onPress={() => openScreen('search')} />
         <QuickAction emoji="📜" title="Historial" onPress={() => openScreen('history')} />
-        <QuickAction emoji="🆓" title="Agentes libres" onPress={() => openScreen('transferibles')} />
+        <QuickAction emoji="🆓" title="Agentes libres" onPress={() => openScreen('freeAgents')} />
       </View>
     </ScrollView>
   );`;
