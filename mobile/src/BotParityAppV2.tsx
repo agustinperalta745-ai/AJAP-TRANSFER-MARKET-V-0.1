@@ -53,6 +53,7 @@ type Screen =
   | 'market'
   | 'publish'
   | 'transferibles'
+  | 'freeAgents'
   | 'clausulazo'
   | 'offers'
   | 'search'
@@ -633,7 +634,8 @@ export default function BotParityAppV2() {
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
       <Title eyebrow="MERCADO" title="Mercado de Pases" subtitle="Mismas tres opciones del bot." />
       <MenuTile emoji="📤" title="PUBLICAR" subtitle="Transferencia, préstamo o intercambio" onPress={() => requireClub('publish')} />
-      <MenuTile emoji="📋" title="TRANSFERIBLES" subtitle="Otros equipos, mis publicaciones y libres" onPress={() => openScreen('transferibles')} />
+      <MenuTile emoji="📋" title="TRANSFERIBLES" subtitle="Jugadores publicados por otros equipos y tus publicaciones" onPress={() => openScreen('transferibles')} />
+      <MenuTile emoji="🆓" title="AGENTES LIBRES" subtitle="Jugadores sin club disponibles para fichar por $0" onPress={() => openScreen('freeAgents')} />
       <MenuTile emoji="💥" title="CLAUSULAZO" subtitle="Ejecutar cláusula de rescisión" onPress={() => openScreen('clausulazo')} danger />
     </ScrollView>
   );
@@ -753,8 +755,14 @@ export default function BotParityAppV2() {
         />
       ))}
 
-      <Text style={s.listHeading}>🆓 AGENTES LIBRES · {freeAgents.length}</Text>
-      {freeAgents.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay agentes libres.</Text></View> : null}
+    </ScrollView>
+  );
+
+  const freeAgentsScreen = (
+    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+      <Title eyebrow="MERCADO · AGENTES LIBRES" title="Agentes libres" subtitle="Jugadores sin club disponibles para fichar." />
+      <Text style={s.listHeading}>🆓 DISPONIBLES · {freeAgents.length}</Text>
+      {freeAgents.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay agentes libres disponibles.</Text></View> : null}
       {freeAgents.map((item) => (
         <MarketCard
           key={item.publication_id}
@@ -836,8 +844,8 @@ export default function BotParityAppV2() {
   const screenBackground = (() => {
     if (screen === 'profile') return BG_PERFIL;
     if (['club', 'roster', 'economy', 'clubValue', 'clubInfo'].includes(screen)) return BG_EQUIPOS;
-    if (screen === 'transferibles') return BG_LIBRES;
-    if (['market', 'publish', 'clausulazo', 'offers', 'search', 'history'].includes(screen)) return BG_MERCADO;
+    if (screen === 'freeAgents') return BG_LIBRES;
+    if (['market', 'publish', 'transferibles', 'clausulazo', 'offers', 'search', 'history'].includes(screen)) return BG_MERCADO;
     return BG_INICIO;
   })();
 
@@ -850,6 +858,7 @@ export default function BotParityAppV2() {
   else if (screen === 'market') body = marketMenu;
   else if (screen === 'publish') body = publishScreen;
   else if (screen === 'transferibles') body = transferibles;
+  else if (screen === 'freeAgents') body = freeAgentsScreen;
   else if (screen === 'clausulazo') body = placeholder('Clausulazo', 'Ejecución de cláusula de rescisión con las reglas del bot.');
   else if (screen === 'offers') body = offersScreen;
   else if (screen === 'search') body = search;
