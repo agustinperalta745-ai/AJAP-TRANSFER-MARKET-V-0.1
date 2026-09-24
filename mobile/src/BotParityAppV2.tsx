@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 
+import xiIdealPart1 from './xiIdealSplash/part1';
+
 import {
   LatestHonours,
   LeagueSnapshot,
@@ -88,6 +90,7 @@ const money = (value: number | null | undefined) =>
   value === null || value === undefined ? '—' : '$' + Math.round(value).toLocaleString('es-AR');
 
 const FIXED_LOAN_PRICE = '1000000';
+const XI_IDEAL_LOADING_URI = 'data:image/jpeg;base64,' + xiIdealPart1;
 
 const apiError = (error: unknown) =>
   typeof error === 'object' && error && 'message' in error
@@ -457,9 +460,16 @@ export default function BotParityAppV2() {
 
   if (loading) {
     return (
-      <View style={[s.root, s.center]}>
-        <ActivityIndicator color={C.blue} size="large" />
-        <Text style={s.muted}>Cargando AJPA Mobile…</Text>
+      <View style={{ flex: 1, backgroundColor: '#02060a' }}>
+        <ImageBackground
+          source={{ uri: XI_IDEAL_LOADING_URI }}
+          resizeMode="contain"
+          style={{ flex: 1, backgroundColor: '#02060a', justifyContent: 'flex-end' }}
+        >
+          <View style={{ alignItems: 'center', paddingBottom: 24 }}>
+            <ActivityIndicator color="#ffffff" size="small" />
+          </View>
+        </ImageBackground>
       </View>
     );
   }
