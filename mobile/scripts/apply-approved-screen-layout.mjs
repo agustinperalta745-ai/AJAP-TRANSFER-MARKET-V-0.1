@@ -99,7 +99,7 @@ const home = String.raw`  const home = (
       <View style={s.quickGrid}>
         <QuickAction emoji="📤" title="Publicar jugador" onPress={() => requireClub('publish')} />
         <QuickAction emoji="🏷️" title="Mis ofertas" onPress={() => openScreen('offers')} />
-        <QuickAction emoji="👥" title="Agentes libres" onPress={() => openScreen('transferibles')} />
+        <QuickAction emoji="👥" title="Agentes libres" onPress={() => openScreen('freeAgents')} />
         <QuickAction emoji="🔎" title="Buscar jugador" onPress={() => openScreen('search')} />
       </View>
 
@@ -166,7 +166,7 @@ const marketMenu = String.raw`  const marketMenu = (
         <FeatureTile emoji="🛡️" title="Transferibles" subtitle="Jugadores publicados por otros clubes" onPress={() => openScreen('transferibles')} />
         <FeatureTile emoji="🏷️" title="Mis ofertas" subtitle="Recibidas, enviadas y decisiones" onPress={() => openScreen('offers')} />
         <FeatureTile emoji="📤" title="Publicar jugador" subtitle="Transferencia, préstamo o intercambio" onPress={() => requireClub('publish')} />
-        <FeatureTile emoji="👥" title="Agentes libres" subtitle="Jugadores sin club listos para fichar" onPress={() => openScreen('transferibles')} />
+        <FeatureTile emoji="👥" title="Agentes libres" subtitle="Jugadores sin club listos para fichar" onPress={() => openScreen('freeAgents')} />
       </View>
 
       <SectionLabel title="⚡ HERRAMIENTAS DEL MERCADO" />
