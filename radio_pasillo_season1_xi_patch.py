@@ -14,7 +14,6 @@ import discord
 import competition_cycle as cycle
 import league_automation_patch as league
 import league_top5_overtake_radio_patch as radio
-import mobile_latest_honours_api_patch as honours
 
 
 _JOB_KEY = "radio_season1_xi_ideal_20260924_v1"
@@ -117,12 +116,34 @@ def _season_one_closed_at(conn) -> str | None:
 
 
 def _manager_snapshot(conn, team: str, closed_at: str | None) -> tuple[int | None, str]:
+    """Resolve the historical Discord user id locally; mentions do not need a REST name lookup."""
+    if not closed_at:
+        return None, "DT no registrado"
+
+    table = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='club_assignment_history' LIMIT 1"
+    ).fetchone()
+    if not table:
+        return None, "DT no registrado"
+
+    active_actions = {"ASIGNADO", "ASIGNADO_VACANTE_ADMIN"}
     aliases = _TEAM_ALIASES.get(team, (team,))
     for alias in aliases:
-        data = honours.historical_manager_snapshot(conn, alias, closed_at)
-        raw_user_id = data.get("user_id")
-        if str(raw_user_id or "").isdigit():
-            return int(raw_user_id), str(data.get("username") or "DT no registrado").strip()
+        row = conn.execute(
+            """
+            SELECT user_id, action
+            FROM club_assignment_history
+            WHERE club=? COLLATE NOCASE AND created_at<=?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """,
+            (str(alias).strip(), str(closed_at)),
+        ).fetchone()
+        if row and str(row["action"] or "").strip().upper() in active_actions:
+            raw_user_id = row["user_id"]
+            if str(raw_user_id or "").isdigit():
+                return int(raw_user_id), "DT histórico"
+
     return None, "DT no registrado"
 
 
