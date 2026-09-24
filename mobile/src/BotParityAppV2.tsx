@@ -44,6 +44,7 @@ import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
+import VisualThemeEditor, { rgba, useVisualTheme } from './VisualTheme';
 
 type Screen =
   | 'home'
@@ -64,6 +65,7 @@ type Screen =
   | 'titles'
   | 'admin'
   | 'adminTools'
+  | 'appearance'
   | 'assignments'
   | 'resign'
   | 'profile';
@@ -107,6 +109,7 @@ function Button({
   kind?: 'blue' | 'green' | 'red' | 'ghost';
   disabled?: boolean;
 }) {
+  const { theme } = useVisualTheme();
   return (
     <Pressable
       disabled={disabled}
@@ -117,10 +120,15 @@ function Button({
         kind === 'red' && s.buttonRed,
         kind === 'ghost' && s.buttonGhost,
         disabled && s.disabled,
+        {
+          borderRadius: theme.button_radius,
+          backgroundColor: kind === 'green' ? theme.success : kind === 'red' ? theme.danger : kind === 'ghost' ? rgba(theme.panel_alt, 0.86) : theme.accent,
+          borderColor: kind === 'ghost' ? theme.border : undefined,
+        },
         pressed && !disabled && { opacity: 0.72 },
       ]}
     >
-      <Text style={s.buttonText}>{label}</Text>
+      <Text style={[s.buttonText, { color: theme.text }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -138,43 +146,56 @@ function MenuTile({
   onPress: () => void;
   danger?: boolean;
 }) {
+  const { theme } = useVisualTheme();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [s.menuTile, danger && s.menuDanger, pressed && { opacity: 0.72 }]}
+      style={({ pressed }) => [
+        s.menuTile,
+        danger && s.menuDanger,
+        {
+          backgroundColor: danger ? rgba(theme.danger, 0.14) : rgba(theme.panel, theme.panel_opacity),
+          borderColor: danger ? theme.danger : theme.border,
+          borderRadius: theme.card_radius,
+        },
+        pressed && { opacity: 0.72 },
+      ]}
     >
       <Text style={s.menuEmoji}>{emoji}</Text>
       <View style={s.flex}>
-        <Text style={[s.menuTitle, danger && { color: C.red }]}>{title}</Text>
-        {subtitle ? <Text style={s.menuSubtitle}>{subtitle}</Text> : null}
+        <Text style={[s.menuTitle, { color: danger ? theme.danger : theme.text }]}>{title}</Text>
+        {subtitle ? <Text style={[s.menuSubtitle, { color: theme.muted }]}>{subtitle}</Text> : null}
       </View>
-      <Text style={s.chevron}>›</Text>
+      <Text style={[s.chevron, { color: theme.accent_soft }]}>›</Text>
     </Pressable>
   );
 }
 
 function Title({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+  const { theme } = useVisualTheme();
   return (
     <View style={{ marginBottom: 6 }}>
-      <Text style={s.eyebrow}>{eyebrow}</Text>
-      <Text style={s.screenTitle}>{title}</Text>
-      {subtitle ? <Text style={s.muted}>{subtitle}</Text> : null}
+      <Text style={[s.eyebrow, { color: theme.accent }]}>{eyebrow}</Text>
+      <Text style={[s.screenTitle, { color: theme.text }]}>{title}</Text>
+      {subtitle ? <Text style={[s.muted, { color: theme.muted }]}>{subtitle}</Text> : null}
     </View>
   );
 }
 
 function PlayerCard({ player, actions }: { player: RosterPlayer; actions?: ReactNode }) {
+  const { theme } = useVisualTheme();
+  const themedCard = { backgroundColor: rgba(theme.panel, theme.panel_opacity), borderColor: theme.border, borderRadius: theme.card_radius };
   return (
-    <View style={s.card}>
+    <View style={[s.card, themedCard]}>
       <View style={s.playerRow}>
         <View style={s.ovrBox}>
           <Text style={s.ovrValue}>{player.ovr ?? '—'}</Text>
           <Text style={s.ovrLabel}>OVR</Text>
         </View>
         <View style={s.flex}>
-          <Text style={s.playerName}>{player.name}</Text>
-          <Text style={s.muted}>{player.position || 'Sin posición'} · {player.club}</Text>
-          <Text style={s.playerValue}>Valor AJPA {money(player.market_value)}</Text>
+          <Text style={[s.playerName, { color: theme.text }]}>{player.name}</Text>
+          <Text style={[s.muted, { color: theme.muted }]}>{player.position || 'Sin posición'} · {player.club}</Text>
+          <Text style={[s.playerValue, { color: theme.accent_soft }]}>Valor AJPA {money(player.market_value)}</Text>
         </View>
       </View>
       <PlayerPes6StatsButton player={player} />
@@ -184,21 +205,23 @@ function PlayerCard({ player, actions }: { player: RosterPlayer; actions?: React
 }
 
 function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }) {
+  const { theme } = useVisualTheme();
+  const themedCard = { backgroundColor: rgba(theme.panel, theme.panel_opacity), borderColor: theme.border, borderRadius: theme.card_radius };
   return (
-    <View style={s.card}>
+    <View style={[s.card, themedCard]}>
       <View style={s.playerRow}>
         <View style={s.ovrBox}>
           <Text style={s.ovrValue}>{item.ovr ?? '—'}</Text>
           <Text style={s.ovrLabel}>OVR</Text>
         </View>
         <View style={s.flex}>
-          <Text style={s.playerName}>{item.player}</Text>
-          <Text style={s.muted}>{item.position || '—'} · {item.club}</Text>
-          <Text style={s.playerValue}>{item.operation_type}</Text>
+          <Text style={[s.playerName, { color: theme.text }]}>{item.player}</Text>
+          <Text style={[s.muted, { color: theme.muted }]}>{item.position || '—'} · {item.club}</Text>
+          <Text style={[s.playerValue, { color: theme.accent_soft }]}>{item.operation_type}</Text>
         </View>
         <Text style={[s.price, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
       </View>
-      {item.detail ? <Text style={s.detail}>{item.detail}</Text> : null}
+      {item.detail ? <Text style={[s.detail, { color: theme.muted }]}>{item.detail}</Text> : null}
       <PlayerPes6StatsButton
         player={{
           id: item.player_id,
@@ -226,14 +249,16 @@ function OfferCard({
   onCounter?: () => void;
   onReject?: () => void;
 }) {
+  const { theme } = useVisualTheme();
+  const themedCard = { backgroundColor: rgba(theme.panel, theme.panel_opacity), borderColor: theme.border, borderRadius: theme.card_radius };
   const pending = offer.status.toUpperCase() === 'PENDIENTE';
   return (
-    <View style={s.card}>
-      <Text style={s.playerName}>{offer.player}</Text>
-      <Text style={s.muted}>{offer.from_club} → {offer.to_club}</Text>
-      <Text style={s.playerValue}>Propuesta: {offer.amount || '$0'} · {offer.operation_type}</Text>
-      {offer.offered_player ? <Text style={s.detail}>Jugador ofrecido: {offer.offered_player}</Text> : null}
-      {offer.message ? <Text style={s.detail}>{offer.message}</Text> : null}
+    <View style={[s.card, themedCard]}>
+      <Text style={[s.playerName, { color: theme.text }]}>{offer.player}</Text>
+      <Text style={[s.muted, { color: theme.muted }]}>{offer.from_club} → {offer.to_club}</Text>
+      <Text style={[s.playerValue, { color: theme.accent_soft }]}>Propuesta: {offer.amount || '$0'} · {offer.operation_type}</Text>
+      {offer.offered_player ? <Text style={[s.detail, { color: theme.muted }]}>Jugador ofrecido: {offer.offered_player}</Text> : null}
+      {offer.message ? <Text style={[s.detail, { color: theme.muted }]}>{offer.message}</Text> : null}
       <Text style={[s.statusTag, pending ? { color: C.orange } : { color: C.blueSoft }]}>{offer.status}</Text>
       {offer.incoming && pending && onAccept && onCounter && onReject ? (
         <View style={s.actionRow}>
@@ -247,6 +272,11 @@ function OfferCard({
 }
 
 export default function BotParityAppV2() {
+  const { theme } = useVisualTheme();
+  const themedCard = { backgroundColor: rgba(theme.panel, theme.panel_opacity), borderColor: theme.border, borderRadius: theme.card_radius };
+  const themedPanelAlt = { backgroundColor: rgba(theme.panel_alt, theme.panel_opacity), borderColor: theme.border, borderRadius: theme.card_radius };
+  const themedInput = { backgroundColor: rgba(theme.background, 0.74), borderColor: theme.border, color: theme.text, borderRadius: theme.button_radius };
+  const themedContent = { padding: theme.content_padding, gap: theme.compact ? 8 : 11 };
   const [screen, setScreen] = useState<Screen>('home');
   const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);
   const [latestHonours, setLatestHonours] = useState<LatestHonours | null>(null);
@@ -475,7 +505,7 @@ export default function BotParityAppV2() {
 
   if (!snapshot) {
     return (
-      <View style={[s.root, s.center]}>
+      <View style={[s.root, s.center, { backgroundColor: theme.background }]}>
         <Text style={s.screenTitle}>Sin conexión</Text>
         <Button label="REINTENTAR" onPress={() => loadAll()} />
       </View>
@@ -483,71 +513,71 @@ export default function BotParityAppV2() {
   }
 
   const placeholder = (title: string, text: string) => (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="AJPA MOBILE" title={title} subtitle={text} />
-      <View style={s.card}>
-        <Text style={s.playerName}>Opción reflejada desde Discord</Text>
-        <Text style={s.detail}>Esta sección mantiene el mismo lugar y permisos del bot. Las operaciones móviles se habilitan únicamente cuando existe su endpoint seguro en el backend.</Text>
+      <View style={[s.card, themedCard]}>
+        <Text style={[s.playerName, { color: theme.text }]}>Opción reflejada desde Discord</Text>
+        <Text style={[s.detail, { color: theme.muted }]}>Esta sección mantiene el mismo lugar y permisos del bot. Las operaciones móviles se habilitan únicamente cuando existe su endpoint seguro en el backend.</Text>
       </View>
     </ScrollView>
   );
 
   const home = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title
         eyebrow="AJPA TRANSFER MARKET"
         title={profile?.club ? profile.club.toUpperCase() : profile?.is_staff ? 'PANEL STAFF' : 'MENÚ PRINCIPAL'}
         subtitle="La misma jerarquía que el panel /mercado de Discord."
       />
       <View style={s.summaryRow}>
-        <View style={s.summaryCard}><Text style={s.summaryValue}>{money(profile?.balance)}</Text><Text style={s.summaryLabel}>PRESUPUESTO</Text></View>
-        <View style={s.summaryCard}><Text style={s.summaryValue}>{profile?.roster_count ?? 0}</Text><Text style={s.summaryLabel}>JUGADORES</Text></View>
+        <View style={[s.summaryCard, themedPanelAlt]}><Text style={[s.summaryValue, { color: theme.text }]}>{money(profile?.balance)}</Text><Text style={[s.summaryLabel, { color: theme.muted }]}>PRESUPUESTO</Text></View>
+        <View style={[s.summaryCard, themedPanelAlt]}><Text style={[s.summaryValue, { color: theme.text }]}>{profile?.roster_count ?? 0}</Text><Text style={[s.summaryLabel, { color: theme.muted }]}>JUGADORES</Text></View>
       </View>
       <View style={[s.marketState, snapshot.status.market_open ? s.marketOpen : s.marketClosed]}>
         <Text style={s.marketStateText}>{snapshot.status.market_open ? '🟢 MERCADO ABIERTO' : '🔒 MERCADO CERRADO'}</Text>
       </View>
 
       <View style={s.honoursWrap}>
-        <Text style={s.honoursHeading}>🏅 ÚLTIMOS LOGROS</Text>
+        <Text style={[s.honoursHeading, { color: theme.accent_soft }]}>🏅 ÚLTIMOS LOGROS</Text>
         <View style={s.honoursRow}>
-          <View style={s.honourCard}>
-            <Text style={s.honourLabel}>🏆 CAMPEÓN</Text>
+          <View style={[s.honourCard, themedPanelAlt]}>
+            <Text style={[s.honourLabel, { color: theme.accent_soft }]}>🏆 CAMPEÓN</Text>
             {latestHonours?.season_champion ? (
               <>
-                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.season_champion.team}</Text>
-                <Text numberOfLines={1} style={s.honourSecondary}>DT · {latestHonours.season_champion.manager.username}</Text>
-                <Text numberOfLines={1} style={s.honourMeta}>{latestHonours.season_champion.competition}</Text>
+                <Text numberOfLines={1} style={[s.honourPrimary, { color: theme.text }]}>{latestHonours.season_champion.team}</Text>
+                <Text numberOfLines={1} style={[s.honourSecondary, { color: theme.muted }]}>DT · {latestHonours.season_champion.manager.username}</Text>
+                <Text numberOfLines={1} style={[s.honourMeta, { color: theme.muted }]}>{latestHonours.season_champion.competition}</Text>
               </>
             ) : (
-              <Text style={s.honourEmpty}>Sin campeón registrado</Text>
+              <Text style={[s.honourEmpty, { color: theme.muted }]}>Sin campeón registrado</Text>
             )}
           </View>
 
-          <View style={s.honourCard}>
-            <Text style={s.honourLabel}>⚽ GOLEADOR</Text>
+          <View style={[s.honourCard, themedPanelAlt]}>
+            <Text style={[s.honourLabel, { color: theme.accent_soft }]}>⚽ GOLEADOR</Text>
             {latestHonours?.top_scorer ? (
               <>
-                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.top_scorer.player}</Text>
-                <Text numberOfLines={1} style={s.honourSecondary}>{latestHonours.top_scorer.goals} goles · {latestHonours.top_scorer.team}</Text>
-                <Text numberOfLines={1} style={s.honourMeta}>DT · {latestHonours.top_scorer.manager.username}</Text>
+                <Text numberOfLines={1} style={[s.honourPrimary, { color: theme.text }]}>{latestHonours.top_scorer.player}</Text>
+                <Text numberOfLines={1} style={[s.honourSecondary, { color: theme.muted }]}>{latestHonours.top_scorer.goals} goles · {latestHonours.top_scorer.team}</Text>
+                <Text numberOfLines={1} style={[s.honourMeta, { color: theme.muted }]}>DT · {latestHonours.top_scorer.manager.username}</Text>
               </>
             ) : (
-              <Text style={s.honourEmpty}>Sin goleador registrado</Text>
+              <Text style={[s.honourEmpty, { color: theme.muted }]}>Sin goleador registrado</Text>
             )}
           </View>
 
-          <View style={s.honourCard}>
-            <Text style={s.honourLabel}>🏆 COPA</Text>
+          <View style={[s.honourCard, themedPanelAlt]}>
+            <Text style={[s.honourLabel, { color: theme.accent_soft }]}>🏆 COPA</Text>
             {latestHonours?.cup_champion ? (
               <>
-                <Text numberOfLines={1} style={s.honourPrimary}>{latestHonours.cup_champion.team}</Text>
-                <Text numberOfLines={1} style={s.honourSecondary}>DT · {latestHonours.cup_champion.manager.username}</Text>
-                <Text numberOfLines={1} style={s.honourMeta}>{latestHonours.cup_champion.competition}</Text>
+                <Text numberOfLines={1} style={[s.honourPrimary, { color: theme.text }]}>{latestHonours.cup_champion.team}</Text>
+                <Text numberOfLines={1} style={[s.honourSecondary, { color: theme.muted }]}>DT · {latestHonours.cup_champion.manager.username}</Text>
+                <Text numberOfLines={1} style={[s.honourMeta, { color: theme.muted }]}>{latestHonours.cup_champion.competition}</Text>
               </>
             ) : (
               <>
-                <Text style={s.honourEmpty}>Sin campeón todavía</Text>
-                <Text style={s.honourMeta}>Aún no se jugó copa</Text>
+                <Text style={[s.honourEmpty, { color: theme.muted }]}>Sin campeón todavía</Text>
+                <Text style={[s.honourMeta, { color: theme.muted }]}>Aún no se jugó copa</Text>
               </>
             )}
           </View>
@@ -567,7 +597,7 @@ export default function BotParityAppV2() {
   );
 
   const clubMenu = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB" title={profile?.club ?? 'Mi Club'} subtitle="Mismas opciones que el submenú del bot." />
       <MenuTile emoji="👥" title="PLANTILLA" onPress={() => openScreen('roster')} />
       <MenuTile emoji="💰" title="ECONOMÍA" onPress={() => openScreen('economy')} />
@@ -577,7 +607,7 @@ export default function BotParityAppV2() {
   );
 
   const rosterScreen = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB · PLANTILLA" title="Plantilla" subtitle={`${roster.length} jugadores`} />
       {roster.map((player) => (
         <PlayerCard
@@ -605,42 +635,42 @@ export default function BotParityAppV2() {
   );
 
   const economy = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB · ECONOMÍA" title="Economía" />
-      <View style={s.statCard}><Text style={s.statLabel}>PRESUPUESTO DISPONIBLE</Text><Text style={s.statValue}>{money(myClubData?.balance ?? profile?.balance)}</Text></View>
-      <View style={s.statCard}><Text style={s.statLabel}>VALOR DE LA PLANTILLA</Text><Text style={s.statValue}>{money(squadValue)}</Text></View>
-      <View style={s.statCard}><Text style={s.statLabel}>JUGADORES</Text><Text style={s.statValue}>{roster.length}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>PRESUPUESTO DISPONIBLE</Text><Text style={[s.statValue, { color: theme.text }]}>{money(myClubData?.balance ?? profile?.balance)}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>VALOR DE LA PLANTILLA</Text><Text style={[s.statValue, { color: theme.text }]}>{money(squadValue)}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>JUGADORES</Text><Text style={[s.statValue, { color: theme.text }]}>{roster.length}</Text></View>
     </ScrollView>
   );
 
   const clubValue = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB · VALOR DEL CLUB" title="Valor del Club" />
-      <View style={s.statCard}><Text style={s.statLabel}>VALOR TOTAL</Text><Text style={s.statValue}>{money(squadValue)}</Text></View>
-      <View style={s.statCard}><Text style={s.statLabel}>PROMEDIO POR JUGADOR</Text><Text style={s.statValue}>{money(roster.length ? squadValue / roster.length : 0)}</Text></View>
-      <View style={s.statCard}><Text style={s.statLabel}>CANTIDAD DE JUGADORES</Text><Text style={s.statValue}>{roster.length}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>VALOR TOTAL</Text><Text style={[s.statValue, { color: theme.text }]}>{money(squadValue)}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>PROMEDIO POR JUGADOR</Text><Text style={[s.statValue, { color: theme.text }]}>{money(roster.length ? squadValue / roster.length : 0)}</Text></View>
+      <View style={[s.statCard, themedCard]}><Text style={[s.statLabel, { color: theme.accent_soft }]}>CANTIDAD DE JUGADORES</Text><Text style={[s.statValue, { color: theme.text }]}>{roster.length}</Text></View>
     </ScrollView>
   );
 
   const clubInfo = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB · INFORMACIÓN" title={profile?.club ?? 'Club'} />
-      <View style={s.card}>
-        <Text style={s.infoLabel}>CLUB</Text><Text style={s.infoValue}>{profile?.club ?? '—'}</Text>
+      <View style={[s.card, themedCard]}>
+        <Text style={[s.infoLabel, { color: theme.accent_soft }]}>CLUB</Text><Text style={[s.infoValue, { color: theme.text }]}>{profile?.club ?? '—'}</Text>
         <View style={s.separator} />
-        <Text style={s.infoLabel}>JUGADORES</Text><Text style={s.infoValue}>{roster.length}</Text>
+        <Text style={[s.infoLabel, { color: theme.accent_soft }]}>JUGADORES</Text><Text style={[s.infoValue, { color: theme.text }]}>{roster.length}</Text>
         <View style={s.separator} />
-        <Text style={s.infoLabel}>MERCADO</Text><Text style={s.infoValue}>{snapshot.status.market_open ? '🟢 ABIERTO' : '🔒 CERRADO'}</Text>
+        <Text style={[s.infoLabel, { color: theme.accent_soft }]}>MERCADO</Text><Text style={[s.infoValue, { color: theme.text }]}>{snapshot.status.market_open ? '🟢 ABIERTO' : '🔒 CERRADO'}</Text>
         <View style={s.separator} />
-        <Text style={s.infoLabel}>PRESUPUESTO</Text><Text style={s.infoValue}>{money(myClubData?.balance ?? profile?.balance)}</Text>
+        <Text style={[s.infoLabel, { color: theme.accent_soft }]}>PRESUPUESTO</Text><Text style={[s.infoValue, { color: theme.text }]}>{money(myClubData?.balance ?? profile?.balance)}</Text>
         <View style={s.separator} />
-        <Text style={s.infoLabel}>VALOR PLANTILLA</Text><Text style={s.infoValue}>{money(squadValue)}</Text>
+        <Text style={[s.infoLabel, { color: theme.accent_soft }]}>VALOR PLANTILLA</Text><Text style={[s.infoValue, { color: theme.text }]}>{money(squadValue)}</Text>
       </View>
     </ScrollView>
   );
 
   const marketMenu = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="MERCADO" title="Mercado de Pases" subtitle="Mismas tres opciones del bot." />
       <MenuTile emoji="📤" title="PUBLICAR" subtitle="Transferencia, préstamo o intercambio" onPress={() => requireClub('publish')} />
       <MenuTile emoji="📋" title="TRANSFERIBLES" subtitle="Jugadores publicados por otros equipos y tus publicaciones" onPress={() => openScreen('transferibles')} />
@@ -650,7 +680,7 @@ export default function BotParityAppV2() {
   );
 
   const publishScreen = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
       <Title eyebrow="MERCADO · PUBLICAR" title="Publicar jugador" subtitle="Transferencia, préstamo o intercambio." />
       {!publishTarget ? (
         roster.map((player) => (
@@ -659,10 +689,10 @@ export default function BotParityAppV2() {
           </Pressable>
         ))
       ) : (
-        <View style={s.editorCard}>
+        <View style={[s.editorCard, themedPanelAlt]}>
           <Text style={s.eyebrow}>JUGADOR</Text>
           <Text style={s.editorTitle}>{publishTarget.name}</Text>
-          <Text style={s.muted}>Valor AJPA {money(publishTarget.market_value)}</Text>
+          <Text style={[s.muted, { color: theme.muted }]}>Valor AJPA {money(publishTarget.market_value)}</Text>
 
           <Text style={s.inputLabel}>TIPO DE OPERACIÓN</Text>
           <View style={s.actionRow}>
@@ -672,12 +702,12 @@ export default function BotParityAppV2() {
           </View>
 
           <Text style={s.inputLabel}>{publishType === 'PRÉSTAMO' ? 'CARGO / PRECIO' : 'PRECIO PEDIDO'}</Text>
-          <TextInput style={s.input} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
+          <TextInput style={[s.input, themedInput]} keyboardType="numeric" value={publishPrice} onChangeText={setPublishPrice} placeholder="Ej: 5000000" placeholderTextColor="#657382" />
 
           {publishType === 'PRÉSTAMO' ? (
             <>
               <Text style={s.inputLabel}>DURACIÓN (TEMPORADAS)</Text>
-              <TextInput style={s.input} keyboardType="numeric" value={loanSeasons} onChangeText={setLoanSeasons} placeholder="1" placeholderTextColor="#657382" />
+              <TextInput style={[s.input, themedInput]} keyboardType="numeric" value={loanSeasons} onChangeText={setLoanSeasons} placeholder="1" placeholderTextColor="#657382" />
               <Text style={s.inputLabel}>OPCIÓN DE COMPRA</Text>
               <View style={s.actionRow}>
                 <Button label="SÍ" kind={purchaseOption ? 'blue' : 'ghost'} onPress={() => setPurchaseOption(true)} />
@@ -686,7 +716,7 @@ export default function BotParityAppV2() {
               {purchaseOption ? (
                 <>
                   <Text style={s.inputLabel}>VALOR OPCIÓN DE COMPRA</Text>
-                  <TextInput style={s.input} keyboardType="numeric" value={purchaseValue} onChangeText={setPurchaseValue} placeholder="Ej: 30000000" placeholderTextColor="#657382" />
+                  <TextInput style={[s.input, themedInput]} keyboardType="numeric" value={purchaseValue} onChangeText={setPurchaseValue} placeholder="Ej: 30000000" placeholderTextColor="#657382" />
                 </>
               ) : null}
             </>
@@ -704,20 +734,20 @@ export default function BotParityAppV2() {
   );
 
   const transferibles = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
       <Title eyebrow="MERCADO · TRANSFERIBLES" title="Jugadores transferibles" subtitle="Separados igual que en Discord." />
 
       {offerTarget ? (
-        <View style={s.editorCard}>
+        <View style={[s.editorCard, themedPanelAlt]}>
           <Text style={s.eyebrow}>HACER OFERTA</Text>
           <Text style={s.editorTitle}>{offerTarget.player}</Text>
-          <Text style={s.muted}>{offerTarget.club} · {offerTarget.price}</Text>
+          <Text style={[s.muted, { color: theme.muted }]}>{offerTarget.club} · {offerTarget.price}</Text>
           <Text style={s.inputLabel}>{offerTarget.operation_type === 'PRÉSTAMO' ? 'CARGO FIJO DEL PRÉSTAMO' : 'DINERO OFRECIDO'}</Text>
           {offerTarget.operation_type === 'PRÉSTAMO' ? (
-            <TextInput style={s.input} value="$1.000.000" editable={false} />
+            <TextInput style={[s.input, themedInput]} value="$1.000.000" editable={false} />
           ) : (
             <>
-              <TextInput style={s.input} keyboardType="numeric" value={offerAmount} onChangeText={setOfferAmount} placeholder="Puede ser 0 si ofrecés jugador" placeholderTextColor="#657382" />
+              <TextInput style={[s.input, themedInput]} keyboardType="numeric" value={offerAmount} onChangeText={setOfferAmount} placeholder="Puede ser 0 si ofrecés jugador" placeholderTextColor="#657382" />
               <Text style={s.inputLabel}>JUGADOR OFRECIDO (OPCIONAL)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.horizontalChoices}>
                 <Button label={offeredPlayerId ? 'SIN JUGADOR' : 'NINGUNO'} kind="ghost" onPress={() => setOfferedPlayerId(null)} />
@@ -736,8 +766,8 @@ export default function BotParityAppV2() {
         </View>
       ) : null}
 
-      <Text style={s.listHeading}>🌍 TRANSFERIBLES DE OTROS EQUIPOS · {otherPublications.length}</Text>
-      {otherPublications.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay publicaciones de otros equipos.</Text></View> : null}
+      <Text style={[s.listHeading, { color: theme.accent_soft }]}>🌍 TRANSFERIBLES DE OTROS EQUIPOS · {otherPublications.length}</Text>
+      {otherPublications.length === 0 ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No hay publicaciones de otros equipos.</Text></View> : null}
       {otherPublications.map((item) => (
         <MarketCard
           key={item.publication_id}
@@ -751,8 +781,8 @@ export default function BotParityAppV2() {
         />
       ))}
 
-      <Text style={s.listHeading}>📤 MIS TRANSFERIBLES · {myPublications.length}</Text>
-      {myPublications.length === 0 ? <View style={s.card}><Text style={s.muted}>No tenés publicaciones activas.</Text></View> : null}
+      <Text style={[s.listHeading, { color: theme.accent_soft }]}>📤 MIS TRANSFERIBLES · {myPublications.length}</Text>
+      {myPublications.length === 0 ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No tenés publicaciones activas.</Text></View> : null}
       {myPublications.map((item) => (
         <MarketCard
           key={item.publication_id}
@@ -768,10 +798,10 @@ export default function BotParityAppV2() {
   );
 
   const freeAgentsScreen = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
       <Title eyebrow="MERCADO · AGENTES LIBRES" title="Agentes libres" subtitle="Jugadores sin club disponibles para fichar." />
-      <Text style={s.listHeading}>🆓 DISPONIBLES · {freeAgents.length}</Text>
-      {freeAgents.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay agentes libres disponibles.</Text></View> : null}
+      <Text style={[s.listHeading, { color: theme.accent_soft }]}>🆓 DISPONIBLES · {freeAgents.length}</Text>
+      {freeAgents.length === 0 ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No hay agentes libres disponibles.</Text></View> : null}
       {freeAgents.map((item) => (
         <MarketCard
           key={item.publication_id}
@@ -786,10 +816,10 @@ export default function BotParityAppV2() {
   );
 
   const offersScreen = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="OFERTAS" title="Mis ofertas" subtitle="Aceptar, contraofertar o rechazar como en Discord." />
-      <Text style={s.listHeading}>📥 RECIBIDAS · {offers.incoming.length}</Text>
-      {offers.incoming.length === 0 ? <View style={s.card}><Text style={s.muted}>No tenés ofertas recibidas.</Text></View> : null}
+      <Text style={[s.listHeading, { color: theme.accent_soft }]}>📥 RECIBIDAS · {offers.incoming.length}</Text>
+      {offers.incoming.length === 0 ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No tenés ofertas recibidas.</Text></View> : null}
       {offers.incoming.map((offer) => (
         <OfferCard
           key={offer.id}
@@ -799,8 +829,8 @@ export default function BotParityAppV2() {
           onReject={() => mutate(() => rejectOffer(offer.id), `Oferta #${offer.id} rechazada.`)}
         />
       ))}
-      <Text style={s.listHeading}>📤 ENVIADAS · {offers.outgoing.length}</Text>
-      {offers.outgoing.length === 0 ? <View style={s.card}><Text style={s.muted}>No tenés ofertas enviadas.</Text></View> : null}
+      <Text style={[s.listHeading, { color: theme.accent_soft }]}>📤 ENVIADAS · {offers.outgoing.length}</Text>
+      {offers.outgoing.length === 0 ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No tenés ofertas enviadas.</Text></View> : null}
       {offers.outgoing.map((offer) => <OfferCard key={offer.id} offer={offer} />)}
     </ScrollView>
   );
@@ -810,39 +840,40 @@ export default function BotParityAppV2() {
     : [];
 
   const search = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
       <Title eyebrow="BUSCAR" title="Buscar jugador" subtitle="Busca en los planteles actuales." />
-      <TextInput style={s.input} value={searchText} onChangeText={setSearchText} placeholder="Nombre, club o posición" placeholderTextColor="#657382" />
+      <TextInput style={[s.input, themedInput]} value={searchText} onChangeText={setSearchText} placeholder="Nombre, club o posición" placeholderTextColor="#657382" />
       {busy && allPlayers.length === 0 ? <ActivityIndicator color={C.blue} /> : null}
       {filteredPlayers.slice(0, 60).map((player) => <PlayerCard key={`${player.club}-${player.id ?? player.name}`} player={player} />)}
-      {searchText.trim() && filteredPlayers.length === 0 && !busy ? <View style={s.card}><Text style={s.muted}>No encontré jugadores.</Text></View> : null}
+      {searchText.trim() && filteredPlayers.length === 0 && !busy ? <View style={[s.card, themedCard]}><Text style={[s.muted, { color: theme.muted }]}>No encontré jugadores.</Text></View> : null}
     </ScrollView>
   );
 
   const adminMenu = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl}>
       <Title eyebrow="STAFF" title="Administración" subtitle="Mismo submenú administrativo del bot." />
       <MenuTile emoji="⚙️" title="ADMINISTRACIÓN" subtitle="Herramientas de gestión" onPress={() => openScreen('adminTools')} />
+      <MenuTile emoji="🎨" title="DISEÑO DE LA APP" subtitle="Colores, tarjetas, fondos, espaciado y vista previa" onPress={() => openScreen('appearance')} />
       <MenuTile emoji="👥" title="ASIGNACIONES" subtitle="Gestión de clubes y usuarios" onPress={() => openScreen('assignments')} />
     </ScrollView>
   );
 
   const profileScreen = (
-    <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[s.content, themedContent]} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
       <Title eyebrow="CUENTA" title="Perfil" subtitle="Discord define club y permisos." />
       {profile ? (
-        <View style={s.card}>
-          <Text style={s.infoLabel}>DISCORD</Text><Text style={s.infoValue}>{profile.user.global_name || profile.user.username || profile.user.id}</Text>
+        <View style={[s.card, themedCard]}>
+          <Text style={[s.infoLabel, { color: theme.accent_soft }]}>DISCORD</Text><Text style={[s.infoValue, { color: theme.text }]}>{profile.user.global_name || profile.user.username || profile.user.id}</Text>
           <View style={s.separator} />
-          <Text style={s.infoLabel}>CLUB</Text><Text style={s.infoValue}>{profile.club ?? 'Staff / sin club'}</Text>
+          <Text style={[s.infoLabel, { color: theme.accent_soft }]}>CLUB</Text><Text style={[s.infoValue, { color: theme.text }]}>{profile.club ?? 'Staff / sin club'}</Text>
           <View style={s.separator} />
-          <Text style={s.infoLabel}>PERMISOS</Text><Text style={s.infoValue}>{profile.is_staff ? 'STAFF / ADMIN' : 'DT / USUARIO'}</Text>
+          <Text style={[s.infoLabel, { color: theme.accent_soft }]}>PERMISOS</Text><Text style={[s.infoValue, { color: theme.text }]}>{profile.is_staff ? 'STAFF / ADMIN' : 'DT / USUARIO'}</Text>
           <View style={{ marginTop: 16 }}><Button label="CERRAR SESIÓN" kind="ghost" onPress={logout} /></View>
         </View>
       ) : (
-        <View style={s.editorCard}>
-          <Text style={s.playerName}>Vincular Discord</Text>
-          <Text style={s.muted}>¿Cómo conseguirlo? En Discord, abrí el menú principal y tocá “📱 Vincular con la app”. El bot te dará un código privado de 8 caracteres; copialo y pegalo acá. También podés usar /app_codigo.</Text>
+        <View style={[s.editorCard, themedPanelAlt]}>
+          <Text style={[s.playerName, { color: theme.text }]}>Vincular Discord</Text>
+          <Text style={[s.muted, { color: theme.muted }]}>¿Cómo conseguirlo? En Discord, abrí el menú principal y tocá “📱 Vincular con la app”. El bot te dará un código privado de 8 caracteres; copialo y pegalo acá. También podés usar /app_codigo.</Text>
           <TextInput style={[s.input, s.codeInput]} value={pairCode} onChangeText={(value) => setPairCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))} maxLength={8} autoCapitalize="characters" placeholder="XXXXXXXX" placeholderTextColor="#657382" />
           <Button label={busy ? 'VINCULANDO…' : 'VINCULAR DISCORD'} onPress={pair} disabled={busy} />
         </View>
@@ -875,29 +906,30 @@ export default function BotParityAppV2() {
   else if (screen === 'league') body = placeholder('Liga', 'Tabla, goleadores y estado de la competencia.');
   else if (screen === 'admin') body = adminMenu;
   else if (screen === 'adminTools') body = placeholder('Administración', 'Herramientas de gestión exclusivas para Staff.');
+  else if (screen === 'appearance') body = <VisualThemeEditor />;
   else if (screen === 'assignments') body = placeholder('Asignaciones', 'Gestión de asignaciones de usuarios y clubes.');
   else if (screen === 'resign') body = placeholder('Renunciar al Club', 'Renuncia con la misma validación administrativa del bot.');
   else if (screen === 'profile') body = profileScreen;
 
   return (
-    <View style={s.root}>
+    <View style={[s.root, { backgroundColor: theme.background }]}>
       <SeasonCountdownBanner />
-      <View style={s.topBar}>
+      <View style={[s.topBar, { backgroundColor: rgba(theme.topbar, 0.94), borderBottomColor: theme.border }]}>
         {screen !== 'home' ? (
-          <Pressable onPress={() => setScreen('home')} style={s.topAction}><Text style={s.topActionText}>‹ MENÚ</Text></Pressable>
+          <Pressable onPress={() => setScreen('home')} style={s.topAction}><Text style={[s.topActionText, { color: theme.accent_soft }]}>‹ MENÚ</Text></Pressable>
         ) : (
-          <View><Text style={s.brand}>AJPA</Text><Text style={s.brandSub}>TRANSFER MARKET · MOBILE</Text></View>
+          <View><Text style={[s.brand, { color: theme.text }]}>AJPA</Text><Text style={[s.brandSub, { color: theme.accent }]}>TRANSFER MARKET · MOBILE</Text></View>
         )}
-        <Pressable onPress={() => setScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>MI PERFIL</Text></Pressable>
+        <Pressable onPress={() => setScreen('profile')} style={[s.profileButton, { borderColor: theme.border, backgroundColor: rgba(theme.panel, 0.86), borderRadius: theme.button_radius + 7 }]}><Text style={[s.profileButtonText, { color: theme.accent_soft }]}>MI PERFIL</Text></Pressable>
       </View>
       <View style={s.main}>
         <ImageBackground
           source={{ uri: screenBackground }}
           style={s.screenBackground}
-          imageStyle={s.screenBackgroundImage}
+          imageStyle={[s.screenBackgroundImage, { opacity: theme.image_opacity }]}
           resizeMode="cover"
         >
-          <View style={s.screenShade}>{body}</View>
+          <View style={[s.screenShade, { backgroundColor: rgba(theme.background, theme.shade_opacity) }]}>{body}</View>
         </ImageBackground>
       </View>
       {screen === 'titles' ? <TrophyCabinetScreen onClose={() => setScreen('home')} /> : null}
