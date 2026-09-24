@@ -25,12 +25,12 @@ if (ui.includes(oldImport)) {
   ui = ui.replace(marker, marker + '\n' + newImport);
 }
 
-const mainMarker = 'export default function BotParityAppV2() {';
-if (!ui.includes(mainMarker)) throw new Error('AJPA visual theme: no encontré BotParityAppV2');
+const screenState = "  const [screen, setScreen] = useState<Screen>('home');";
+if (!ui.includes(screenState)) throw new Error('AJPA visual theme: no encontré el estado principal de navegación');
 if (!ui.includes('useVisualTheme();\n  const [screen')) {
   ui = ui.replace(
-    mainMarker,
-    mainMarker + '\n  // Subscribe the full screen tree to global visual-theme changes.\n  useVisualTheme();',
+    screenState,
+    "  // Subscribe the full screen tree to global visual-theme changes.\n  useVisualTheme();\n" + screenState,
   );
 }
 
