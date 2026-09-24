@@ -186,7 +186,7 @@ export default function VisualThemeEditor() {
     borderRadius: draft.card_radius,
   }), [draft]);
 
-  const set = <K extends keyof VisualTheme>(key: K, value: VisualTheme[K]) => {
+  const set = <K extends keyof VisualTheme,>(key: K, value: VisualTheme[K]) => {
     setDraft(current => ({ ...current, [key]: value }));
   };
 
