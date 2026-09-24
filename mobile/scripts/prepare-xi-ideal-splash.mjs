@@ -5,10 +5,10 @@ import path from 'node:path';
 const chunkDir = path.resolve('assets/xi_ideal_splash_chunks');
 const outDir = path.resolve('assets/generated');
 const outPath = path.join(outDir, 'xi-ideal-splash.webp');
-const expectedSha = '8c40df5fbe20e517e5fdd4cb9dddec2b202c617c072785d508b70807d18b06ac';
-const expectedBytes = 158124;
+const expectedSha = 'f98954be575476bde612f4a9a780268e5f7378df4aa744c6582ccaa227089878';
+const expectedBytes = 122396;
 
-const names = Array.from({ length: 18 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
+const names = Array.from({ length: 17 }, (_, i) => `${String(i).padStart(2, '0')}.txt`);
 const base64 = names
   .map((name) => fs.readFileSync(path.join(chunkDir, name), 'utf8').replace(/\s+/g, ''))
   .join('');
