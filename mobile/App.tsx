@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { AppState, StatusBar } from 'react-native';
 import * as Updates from 'expo-updates';
 import {
@@ -10,7 +10,6 @@ import {
 import BotParityAppV2 from './src/BotParityAppV2';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
-import SeasonCountdownBanner from './src/SeasonCountdownBanner';
 import CupCenterFab from './src/CupCenterFab';
 
 const OTA_RETRY_DELAYS = [1800, 12000, 45000];
@@ -18,8 +17,6 @@ const OTA_RETRY_DELAYS = [1800, 12000, 45000];
 export default function App() {
   const otaRunning = useRef(false);
   const otaReloading = useRef(false);
-  const [menuReady, setMenuReady] = useState(false);
-  const handleMenuReady = useCallback(() => setMenuReady(true), []);
 
   const checkForOta = useCallback(async () => {
     if (__DEV__ || !Updates.isEnabled || otaRunning.current || otaReloading.current) return;
@@ -69,8 +66,7 @@ export default function App() {
           backgroundColor="#02060a"
           translucent={false}
         />
-        {menuReady ? <SeasonCountdownBanner /> : null}
-        <BotParityAppV2 onMenuReady={handleMenuReady} />
+        <BotParityAppV2 />
         <CupCenterFab />
         <SeasonHistoryFab />
         <CompetitionCycleAdminFab />
