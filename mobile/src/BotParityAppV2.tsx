@@ -43,6 +43,7 @@ import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
 import TrophyCabinetScreen from './TrophyCabinetFab';
+import SeasonCountdownBanner from './SeasonCountdownBanner';
 
 type Screen =
   | 'home'
@@ -245,7 +246,7 @@ function OfferCard({
   );
 }
 
-export default function BotParityAppV2({ onMenuReady }: { onMenuReady?: () => void }) {
+export default function BotParityAppV2() {
   const [screen, setScreen] = useState<Screen>('home');
   const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);
   const [latestHonours, setLatestHonours] = useState<LatestHonours | null>(null);
@@ -455,10 +456,6 @@ export default function BotParityAppV2({ onMenuReady }: { onMenuReady?: () => vo
       `Oferta enviada por ${offerTarget.player}.`,
     );
   };
-
-  useEffect(() => {
-    if (!loading && snapshot) onMenuReady?.();
-  }, [loading, snapshot, onMenuReady]);
 
   if (loading) {
     return (
@@ -884,6 +881,7 @@ export default function BotParityAppV2({ onMenuReady }: { onMenuReady?: () => vo
 
   return (
     <View style={s.root}>
+      <SeasonCountdownBanner />
       <View style={s.topBar}>
         {screen !== 'home' ? (
           <Pressable onPress={() => setScreen('home')} style={s.topAction}><Text style={s.topActionText}>‹ MENÚ</Text></Pressable>
