@@ -460,8 +460,8 @@ export default function BotParityAppV2() {
     return (
       <View style={{ flex: 1, backgroundColor: '#02060a' }}>
         <ImageBackground
-          source={require('../assets/generated/xi-ideal-splash.webp')}
-          resizeMode="contain"
+          source={require('../assets/xi-ideal-splash-hd.jpg')}
+          resizeMode="cover"
           style={{ flex: 1, backgroundColor: '#02060a', justifyContent: 'flex-end' }}
         >
           <View style={{ alignItems: 'center', paddingBottom: 24 }}>
