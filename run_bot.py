@@ -52,6 +52,7 @@ from market_usage_channel_patch import apply_market_usage_channel_patch
 from guild_isolation_patch import apply_guild_isolation_patch
 from mobile_pairing_patch import apply_mobile_pairing_patch
 from radio_pasillo_rate_limit_patch import apply_radio_pasillo_rate_limit_patch
+from radio_pasillo_season1_xi_patch import apply_radio_pasillo_season1_xi_patch
 from aston_villa_roster_patch_v2 import apply_aston_villa_json
 from benfica_roster_patch import apply_benfica_json
 from porto_roster_patch import apply_porto_json
@@ -169,6 +170,8 @@ apply_staff_review_runtime_fix(runtime, runtime.bot)
 apply_guild_isolation_patch(runtime, runtime.bot)
 # Hard cap for every post sent to the canonical Radio Pasillo channel.
 apply_radio_pasillo_rate_limit_patch(runtime, runtime.bot)
+# Publicación única del XI Ideal oficial de la Temporada 1.
+apply_radio_pasillo_season1_xi_patch(runtime, runtime.bot)
 # Vinculación segura entre la cuenta de Discord y la APK.
 apply_mobile_pairing_patch(runtime, runtime.bot)
 # Los selectores de búsqueda global reutilizan los mismos emojis manuales del club.
