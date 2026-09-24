@@ -77,6 +77,7 @@ jobs:
           node scripts/apply-profile-team-badges.mjs
           node scripts/apply-team-card-gradients.mjs
           node scripts/apply-club-player-card-colors.mjs
+          node scripts/apply-visual-theme-final.mjs
           grep -q "league-real-table applied" src/BotParityAppV2.tsx
           grep -q "s.leagueTableHeader" src/BotParityAppV2.tsx
           grep -q "<ClubBadge club={row.team} size={26}" src/BotParityAppV2.tsx
