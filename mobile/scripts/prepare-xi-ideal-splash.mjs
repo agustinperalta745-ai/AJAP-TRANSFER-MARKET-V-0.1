@@ -2,6 +2,16 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const hdPath = path.resolve('assets/xi-ideal-splash-hd.jpg');
+if (fs.existsSync(hdPath)) {
+  const stat = fs.statSync(hdPath);
+  if (stat.size < 150000) {
+    throw new Error(`XI Ideal HD splash too small: ${stat.size} bytes`);
+  }
+  console.log(`XI Ideal HD splash ready: ${hdPath} (${stat.size} bytes)`);
+  process.exit(0);
+}
+
 const chunkDir = path.resolve('assets/xi_ideal_splash_chunks');
 const outDir = path.resolve('assets/generated');
 const outPath = path.join(outDir, 'xi-ideal-splash.webp');
