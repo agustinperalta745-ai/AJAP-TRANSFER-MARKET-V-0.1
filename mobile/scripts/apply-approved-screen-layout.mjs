@@ -189,6 +189,7 @@ const adminMenu = String.raw`  const adminMenu = (
       <WideTile emoji="🛒" title="Mercado" subtitle="Estado, operaciones, clausulazos y reversión." onPress={() => openScreen('adminMarket')} />
       <WideTile emoji="👥" title="Planteles" subtitle="Altas, bajas, movimientos y consulta." onPress={() => openScreen('adminRosters')} />
       <WideTile emoji="💰" title="Economía" subtitle="Presupuestos, ingresos y egresos auditados." onPress={() => openScreen('adminEconomy')} />
+      <WideTile emoji="🎨" title="Diseño de la app" subtitle="Colores, tarjetas, fondos, espaciado y vista previa." onPress={() => openScreen('appearance')} />
       <WideTile emoji="⚙️" title="Gestión" subtitle="Asignaciones y configuración general." onPress={() => openScreen('adminManagement')} />
 
       <SectionLabel title="⚡ ACCIONES RÁPIDAS" />
