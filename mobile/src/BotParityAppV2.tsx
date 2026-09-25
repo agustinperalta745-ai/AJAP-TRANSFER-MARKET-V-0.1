@@ -44,7 +44,6 @@ import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
-import VisualThemeEditor from './VisualTheme';
 
 type Screen =
   | 'home'
@@ -65,7 +64,6 @@ type Screen =
   | 'titles'
   | 'admin'
   | 'adminTools'
-  | 'appearance'
   | 'assignments'
   | 'resign'
   | 'profile';
@@ -825,7 +823,6 @@ export default function BotParityAppV2() {
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
       <Title eyebrow="STAFF" title="Administración" subtitle="Mismo submenú administrativo del bot." />
       <MenuTile emoji="⚙️" title="ADMINISTRACIÓN" subtitle="Herramientas de gestión" onPress={() => openScreen('adminTools')} />
-      <MenuTile emoji="🎨" title="DISEÑO DE LA APP" subtitle="Colores, tarjetas, fondos, espaciado y vista previa" onPress={() => openScreen('appearance')} />
       <MenuTile emoji="👥" title="ASIGNACIONES" subtitle="Gestión de clubes y usuarios" onPress={() => openScreen('assignments')} />
     </ScrollView>
   );
@@ -878,7 +875,6 @@ export default function BotParityAppV2() {
   else if (screen === 'league') body = placeholder('Liga', 'Tabla, goleadores y estado de la competencia.');
   else if (screen === 'admin') body = adminMenu;
   else if (screen === 'adminTools') body = placeholder('Administración', 'Herramientas de gestión exclusivas para Staff.');
-  else if (screen === 'appearance') body = <VisualThemeEditor />;
   else if (screen === 'assignments') body = placeholder('Asignaciones', 'Gestión de asignaciones de usuarios y clubes.');
   else if (screen === 'resign') body = placeholder('Renunciar al Club', 'Renuncia con la misma validación administrativa del bot.');
   else if (screen === 'profile') body = profileScreen;
