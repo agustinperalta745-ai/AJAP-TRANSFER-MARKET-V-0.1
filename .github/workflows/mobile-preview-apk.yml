@@ -22,7 +22,7 @@ jobs:
       run:
         working-directory: mobile
     env:
-      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+      EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
     steps:
       - name: Checkout
@@ -231,7 +231,7 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+          EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Build standalone APK
         run: ./gradlew assembleRelease
@@ -239,7 +239,7 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+          EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Prepare APK
         run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-preview.apk
