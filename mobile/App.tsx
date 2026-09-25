@@ -231,8 +231,7 @@ export default function App() {
           <View style={s.heroShade} />
           <View style={s.heroContent}>
             <Text style={s.heroEyebrow}>{season.toUpperCase()}</Text>
-            <Text style={s.heroTitle}>La pasión{'
-'}sigue en <Text style={s.heroBlue}>AJPA</Text></Text>
+            <Text style={s.heroTitle}>La pasión{'\n'}sigue en <Text style={s.heroBlue}>AJPA</Text></Text>
 
             <View style={s.heroMetaRow}>
               <View style={s.heroMeta}>
