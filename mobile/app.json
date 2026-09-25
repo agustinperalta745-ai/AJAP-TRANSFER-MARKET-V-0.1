@@ -2,21 +2,16 @@
   "expo": {
     "name": "AJPA UI Lab",
     "slug": "ajpa-ui-lab",
-    "version": "0.2.1-preview",
+    "version": "0.2.2-preview",
     "runtimeVersion": "1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/ajpa-app-icon.png",
     "updates": {
       "enabled": false
     },
     "android": {
       "package": "com.ajpa.uilab",
-      "versionCode": 3,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/ajpa-app-icon.png",
-        "backgroundColor": "#000000"
-      }
+      "versionCode": 4
     },
     "ios": {
       "bundleIdentifier": "com.ajpa.uilab"
