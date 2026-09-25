@@ -6,21 +6,17 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import ConceptCUiLab from './src/ConceptCUiLab';
+import PremiumHomePreview from './src/PremiumHomePreview';
 
 export default function App() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#030914' }}
+        style={{ flex: 1, backgroundColor: '#06111B' }}
         edges={['top', 'bottom', 'left', 'right']}
       >
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="#030914"
-          translucent={false}
-        />
-        <ConceptCUiLab />
+        <StatusBar barStyle="light-content" backgroundColor="#06111B" translucent={false} />
+        <PremiumHomePreview />
       </SafeAreaView>
     </SafeAreaProvider>
   );
