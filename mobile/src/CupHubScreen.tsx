@@ -66,15 +66,7 @@ export default function CupHubScreen() {
         <CupCard competition="europa" onPress={() => setSelected('europa')} />
       </ScrollView>
 
-      {selected ? (
-        <CupCenterFab
-          key={selected}
-          hideTrigger
-          initialVisible
-          initialCompetition={selected}
-          onDismiss={() => setSelected(null)}
-        />
-      ) : null}
+      {selected ? <CupCenterFab key={selected} /> : null}
     </>
   );
 }
