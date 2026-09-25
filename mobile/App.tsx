@@ -114,7 +114,7 @@ const ALIASES: Record<string, string> = {
 const badgeFor = (team: string) => BADGES[ALIASES[normalize(team)] || ''];
 
 const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: string; tone: string }> = [
-  { key: 'Mercado', icon: 'market', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
+  { key: 'Mercado', icon: 'briefcase', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
   { key: 'Mi Club', icon: 'club', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#198F69' },
   { key: 'Liga', icon: 'league', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#355FB8' },
   { key: 'Copas', icon: 'cups', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#98711E' },
@@ -124,7 +124,7 @@ const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: s
 
 const BOTTOM: Array<{ key: Section; icon: AjpaIconName; label: string }> = [
   { key: 'Inicio', icon: 'home', label: 'Inicio' },
-  { key: 'Mercado', icon: 'market', label: 'Mercado' },
+  { key: 'Mercado', icon: 'briefcase', label: 'Mercado' },
   { key: 'Mi Club', icon: 'club', label: 'Mi Club' },
   { key: 'Liga', icon: 'league', label: 'Liga' },
   { key: 'Copas', icon: 'cups', label: 'Copas' },
@@ -235,7 +235,7 @@ export default function App() {
               </View>
               <View style={s.metaDivider} />
               <View style={s.heroMeta}>
-                <AjpaIcon name={marketOpen ? 'market' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
+                <AjpaIcon name={marketOpen ? 'briefcase' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
                 <View>
                   <Text style={s.metaSmall}>Mercado</Text>
                   <Text style={[s.metaStrong, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text>
@@ -248,9 +248,9 @@ export default function App() {
         <View style={s.quickStrip}>
           <View style={s.quickStat}><Text style={s.quickValue}>{clubs}</Text><Text style={s.quickLabel}>CLUBES</Text></View>
           <View style={s.quickDivider} />
-          <View style={s.quickStat}><Text style={s.quickValue}>{published}</Text><Text style={s.quickLabel}>PUBLICADOS</Text></View>
+          <View style={s.quickStat}><Text style={s.quickValue}>{published}</Text><Text style={s.quickLabel}>EN MERCADO</Text></View>
           <View style={s.quickDivider} />
-          <View style={s.quickStat}><Text style={[s.quickValue, { color: online ? P.green : P.red }]}>{online ? 'LIVE' : 'OFF'}</Text><Text style={s.quickLabel}>DATOS</Text></View>
+          <View style={s.quickStat}><Text style={[s.quickValue, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text><Text style={s.quickLabel}>ESTADO</Text></View>
         </View>
 
         <View style={s.menuGrid}>
