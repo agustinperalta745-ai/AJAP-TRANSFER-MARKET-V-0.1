@@ -214,8 +214,6 @@ fs.mkdirSync(outputDir, { recursive: true });
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 let written = 0;
 for (const name of expectedFiles) {
-  // Monaco conserva el PNG RGBA ya validado por apply-monaco-badge-test.mjs.
-  if (name === 'as_monaco.png') continue;
   const badge = files.get(name);
   if (!badge.subarray(0, 8).equals(pngSignature)) throw new Error(`HQ badges: ${name} no es PNG válido`);
   if (badge.length < 24 || badge.subarray(12, 16).toString('ascii') !== 'IHDR') {
@@ -231,5 +229,5 @@ for (const name of expectedFiles) {
 if (!fs.existsSync(zaragozaPath)) throw new Error('HQ badges: falta el escudo actual de Zaragoza');
 repairPngCrcs(zaragozaPath);
 
-if (written !== 22) throw new Error(`HQ badges: esperaba escribir 22 escudos y escribí ${written}`);
-console.log(`HQ badges listos: ${written} PNG 256x256 + Monaco HD preservado + Zaragoza existente preservado + Torino excluido.`);
+if (written !== 23) throw new Error(`HQ badges: esperaba escribir 23 escudos y escribí ${written}`);
+console.log(`HQ badges UI Lab listos: ${written} PNG 256x256 + Zaragoza existente preservado + Torino excluido.`);
