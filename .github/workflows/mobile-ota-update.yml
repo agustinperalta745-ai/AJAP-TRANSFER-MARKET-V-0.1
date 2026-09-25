@@ -23,7 +23,7 @@ jobs:
       run:
         working-directory: mobile
     env:
-      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+      EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
     steps:
       - name: Checkout main
