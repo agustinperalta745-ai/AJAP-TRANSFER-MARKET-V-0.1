@@ -53,6 +53,7 @@ import mobile_cup_result_safety_patch  # noqa: E402
 import mobile_cup_admin_reset_finalize_patch  # noqa: E402
 import migration_export_patch  # noqa: E402
 import migration_import_patch  # noqa: E402
+import cutover_freeze_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
@@ -98,6 +99,7 @@ migration_export_patch.apply_migration_export_patch()
 migration_import_patch.maybe_import_migration_data()
 # Transport stays last so its GET tunnel captures every authenticated mutation.
 mobile_transport_patch.apply_mobile_transport_patch()
+cutover_freeze_patch.apply_cutover_freeze_patch()
 start_mobile_read_api()
 
 _migration_target = os.getenv("AJPA_MIGRATION_TARGET", "").strip().lower() in {"1", "true", "yes", "on"}
