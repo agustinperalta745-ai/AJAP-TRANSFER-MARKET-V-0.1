@@ -104,8 +104,16 @@ start_mobile_read_api()
 
 _migration_target = os.getenv("AJPA_MIGRATION_TARGET", "").strip().lower() in {"1", "true", "yes", "on"}
 _cutover_freeze = os.getenv("AJPA_CUTOVER_FREEZE", "").strip().lower() in {"1", "true", "yes", "on"}
+_on_railway = bool((os.getenv("RAILWAY_PROJECT_ID") or "").strip())
 
-if _migration_target or _cutover_freeze:
+# Final host cutover: Northflank keeps AJPA_MIGRATION_TARGET=1 only so each
+# deployment refreshes /data from the frozen Railway source before startup.
+# Once the source is frozen, the non-Railway target becomes the sole Discord bot.
+_northflank_live = _migration_target and not _on_railway
+
+if _northflank_live:
+    print("AJPA NORTHFLANK CUTOVER LIVE: final snapshot restored; Discord enabled on new host")
+elif _migration_target or _cutover_freeze:
     import time
     mode = "migration target" if _migration_target else "cutover freeze"
     print(f"AJPA {mode} mode enabled: HTTP API alive, Discord disabled")
