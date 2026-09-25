@@ -55,6 +55,11 @@ jobs:
             | base64 --decode > assets/ajpa-app-icon.png
 
 
+      - name: Prepare HD team badges
+        run: |
+          node scripts/apply-monaco-badge-test.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
         env:
