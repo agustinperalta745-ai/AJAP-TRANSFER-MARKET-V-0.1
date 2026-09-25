@@ -206,6 +206,22 @@ elif budget_seeded is None:
 
 pes6_status = " • stats PES6 persistentes activas"
 
+@runtime.bot.listen("on_ready")
+async def _ajpa_runtime_ready_marker():
+    """Persist which host actually connected the Discord gateway."""
+    try:
+        db_path = Path(os.getenv("DB_PATH") or "/data/ajap_market.db")
+        marker = db_path.parent / ".ajpa_runtime_ready"
+        host = "railway" if (os.getenv("RAILWAY_PROJECT_ID") or "").strip() else "northflank"
+        marker.write_text(
+            f"host={host}\nuser={getattr(runtime.bot.user, 'id', '')}\n",
+            encoding="utf-8",
+        )
+        print(f"AJPA runtime ready marker: {host}")
+    except Exception as exc:
+        print(f"WARNING AJPA runtime ready marker: {type(exc).__name__}: {exc}")
+
+
 print(
     "AJAP startup OK: Lyon + Villarreal + Real Betis + Sevilla + Lazio + Tottenham Hotspur + Aston Villa + Benfica + Porto + Ajax + Celta de Vigo + Real Zaragoza + Atletico de Madrid + Galatasaray habilitados antes de conectar Discord"
     + (f" • {seeded} jugador(es) nuevos sembrados" if seeded else " • plantillas adicionales persistentes")
