@@ -192,10 +192,9 @@ export default function ConceptCUiLab() {
 
           <Text style={[s.heroEyebrow, { color: theme.accent }]}>TEMPORADA 2 · AJPA</Text>
           <Text style={s.heroTitle}>
-            {currentRound ? `Fecha ${currentRound}` : 'La temporada'}{'
-'}
-            <Text style={{ color: theme.accent }}>sigue en juego</Text>
+            {currentRound ? `Fecha ${currentRound}` : 'La temporada'}
           </Text>
+          <Text style={[s.heroTitle, { color: theme.accent, marginTop: 0 }]}>sigue en juego</Text>
           <Text style={s.heroClubLine}>{heroClub}</Text>
 
           <View style={s.heroStats}>
