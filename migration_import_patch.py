@@ -45,9 +45,13 @@ def maybe_import_migration_data() -> bool:
     target = Path("/data")
     target.mkdir(parents=True, exist_ok=True)
     marker = target / ".ajpa_migration_imported"
-    if marker.exists():
+    force = _truthy("AJPA_MIGRATION_FORCE_IMPORT")
+    if marker.exists() and not force:
         print("AJPA migration import already completed; skipping")
         return True
+    if force and marker.exists():
+        marker.unlink(missing_ok=True)
+        print("AJPA migration force import enabled: refreshing snapshot")
 
     url = source + ("&" if "?" in source else "?") + urllib.parse.urlencode({"key": key})
     print("AJPA migration import: downloading authenticated snapshot")
