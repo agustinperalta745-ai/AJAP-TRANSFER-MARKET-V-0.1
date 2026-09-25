@@ -114,7 +114,7 @@ const ALIASES: Record<string, string> = {
 const badgeFor = (team: string) => BADGES[ALIASES[normalize(team)] || ''];
 
 const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: string; tone: string }> = [
-  { key: 'Mercado', icon: 'briefcase', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
+  { key: 'Mercado', icon: 'market', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
   { key: 'Mi Club', icon: 'club', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#198F69' },
   { key: 'Liga', icon: 'league', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#355FB8' },
   { key: 'Copas', icon: 'cups', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#98711E' },
@@ -124,7 +124,7 @@ const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: s
 
 const BOTTOM: Array<{ key: Section; icon: AjpaIconName; label: string }> = [
   { key: 'Inicio', icon: 'home', label: 'Inicio' },
-  { key: 'Mercado', icon: 'briefcase', label: 'Mercado' },
+  { key: 'Mercado', icon: 'market', label: 'Mercado' },
   { key: 'Mi Club', icon: 'club', label: 'Mi Club' },
   { key: 'Liga', icon: 'league', label: 'Liga' },
   { key: 'Copas', icon: 'cups', label: 'Copas' },
@@ -173,8 +173,6 @@ export default function App() {
 
   const season = snapshot?.status?.season?.name || 'TEMPORADA 2';
   const marketOpen = Boolean(snapshot?.status?.market_open);
-  const clubs = snapshot?.clubs?.length || 24;
-  const published = snapshot?.market?.length || 0;
 
   const top = useMemo(
     () => standings.length ? standings : [
@@ -235,7 +233,7 @@ export default function App() {
               </View>
               <View style={s.metaDivider} />
               <View style={s.heroMeta}>
-                <AjpaIcon name={marketOpen ? 'briefcase' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
+                <AjpaIcon name={marketOpen ? 'market' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
                 <View>
                   <Text style={s.metaSmall}>Mercado</Text>
                   <Text style={[s.metaStrong, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text>
@@ -244,14 +242,6 @@ export default function App() {
             </View>
           </View>
         </ImageBackground>
-
-        <View style={s.quickStrip}>
-          <View style={s.quickStat}><Text style={s.quickValue}>{clubs}</Text><Text style={s.quickLabel}>CLUBES</Text></View>
-          <View style={s.quickDivider} />
-          <View style={s.quickStat}><Text style={s.quickValue}>{published}</Text><Text style={s.quickLabel}>EN MERCADO</Text></View>
-          <View style={s.quickDivider} />
-          <View style={s.quickStat}><Text style={[s.quickValue, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text><Text style={s.quickLabel}>ESTADO</Text></View>
-        </View>
 
         <View style={s.menuGrid}>
           {MENU.map((item, index) => (
@@ -320,8 +310,8 @@ export default function App() {
           </View>
           <View style={s.competitionRow}>
             <View style={s.compCard}><AjpaIconTile name="league" tone="#173C5B" size={16} tileSize={30} /><Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{season}</Text><Text style={s.compLive}>● En curso</Text></View>
-            <View style={s.compCard}><AjpaIconTile name="competitions" tone="#6D531D" size={16} tileSize={30} /><Text style={s.compTitle}>Copa Libertador</Text><Text style={s.compSub}>Principal</Text><Text style={s.compMuted}>● Próxima fase</Text></View>
-            <View style={s.compCard}><AjpaIconTile name="cups" tone="#42366A" size={16} tileSize={30} /><Text style={s.compTitle}>Copa Regional</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="competitions" tone="#6D531D" size={16} tileSize={30} /><Text style={s.compTitle}>Champions AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compMuted}>● Próxima fase</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="cups" tone="#42366A" size={16} tileSize={30} /><Text style={s.compTitle}>Europa AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text></View>
           </View>
         </View>
 
@@ -376,12 +366,6 @@ const s = StyleSheet.create({
     metaSmall: { color: '#C0CED8', fontSize: 8.5, marginLeft: 7 },
   metaStrong: { color: P.white, fontSize: 11.5, fontWeight: '800', marginTop: 1, marginLeft: 7 },
   metaDivider: { width: 1, height: 29, backgroundColor: 'rgba(255,255,255,0.22)', marginHorizontal: 12 },
-
-  quickStrip: { marginTop: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: P.border, backgroundColor: '#0A1D2C', paddingVertical: 8 },
-  quickStat: { flex: 1, alignItems: 'center' },
-  quickValue: { color: P.white, fontSize: 13, fontWeight: '800' },
-  quickLabel: { color: P.muted, fontSize: 7, fontWeight: '700', letterSpacing: 1, marginTop: 1 },
-  quickDivider: { width: 1, height: 22, backgroundColor: P.border },
 
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 9 },
   menuCard: { width: '48.5%', minHeight: 121, borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: P.panel, padding: 12, marginBottom: 8 },
