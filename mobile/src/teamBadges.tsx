@@ -11,7 +11,7 @@ export type ClubTheme = {
 
 const BADGES: Record<string, ImageSourcePropType> = {
   ajax: require('../assets/team_badge_hq256/ajax.png'),
-  as_monaco: require('../assets/team_badge_test/as_monaco_hd.png'),
+  as_monaco: require('../assets/team_badge_hq256/as_monaco.png'),
   aston_villa: require('../assets/team_badge_hq256/aston_villa.png'),
   atletico_madrid: require('../assets/team_badge_hq256/atletico_madrid.png'),
   benfica: require('../assets/team_badge_hq256/benfica.png'),
