@@ -177,9 +177,6 @@ jobs:
       - name: Place Copa directly below Liga in main menu
         run: node scripts/fix-cup-main-menu-placement.mjs
 
-      - name: Apply editable visual theme last
-        run: node scripts/apply-visual-theme-final.mjs
-
       - name: Validate free agents navigation
         run: |
           node <<'NODE'
