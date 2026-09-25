@@ -51,6 +51,7 @@ import mobile_player_stats_api_patch  # noqa: E402
 import mobile_cup_tournaments_api_patch  # noqa: E402
 import mobile_cup_result_safety_patch  # noqa: E402
 import mobile_cup_admin_reset_finalize_patch  # noqa: E402
+import migration_export_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
@@ -92,8 +93,15 @@ mobile_player_stats_api_patch.apply_mobile_player_stats_api_patch()
 mobile_cup_tournaments_api_patch.apply_mobile_cup_tournaments_api_patch()
 mobile_cup_result_safety_patch.apply_mobile_cup_result_safety_patch()
 mobile_cup_admin_reset_finalize_patch.apply_mobile_cup_admin_reset_finalize_patch()
+migration_export_patch.apply_migration_export_patch()
 # Transport stays last so its GET tunnel captures every authenticated mutation.
 mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
+
+if (os.getenv("AJPA_MIGRATION_TARGET", "").strip().lower() in {"1", "true", "yes", "on"}):
+    import time
+    print("AJPA migration target mode enabled: HTTP API alive, Discord disabled")
+    while True:
+        time.sleep(3600)
 
 import bot  # noqa: F401,E402
