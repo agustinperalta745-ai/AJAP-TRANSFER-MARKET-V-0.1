@@ -139,7 +139,7 @@ export default function PremiumHomePreview() {
         </ImageBackground>
 
         <View style={s.menuGrid}>
-          {menuItems.map(item => <MenuCard key={item.key} {...item} onPress={() => setSelected(item.key)} />)}
+          {menuItems.map(item => <MenuCard key={item.key} icon={item.icon} title={item.title} subtitle={item.subtitle} tone={item.tone} onPress={() => setSelected(item.key)} />)}
         </View>
 
         <View style={s.dualRow}>
