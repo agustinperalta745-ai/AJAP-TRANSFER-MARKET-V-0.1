@@ -44,6 +44,16 @@ def maybe_import_migration_data() -> bool:
 
     target = Path("/data")
     target.mkdir(parents=True, exist_ok=True)
+
+    # Once this volume has successfully connected Discord from Northflank, it is
+    # production data. Never overwrite it again from the frozen Railway source.
+    runtime_marker = target / ".ajpa_runtime_ready"
+    if runtime_marker.exists():
+        ready = runtime_marker.read_text(encoding="utf-8", errors="replace")
+        if "host=northflank" in ready:
+            print("AJPA migration finalized on Northflank: source import permanently skipped")
+            return True
+
     marker = target / ".ajpa_migration_imported"
     force = _truthy("AJPA_MIGRATION_FORCE_IMPORT")
     if marker.exists() and not force:
