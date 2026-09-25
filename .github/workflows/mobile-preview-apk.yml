@@ -11,9 +11,6 @@ on:
       - ui-redesign
     paths:
       - 'mobile/**'
-      - 'bot_mobile.py'
-      - 'mobile_*api*.py'
-      - 'mobile_transport_patch.py'
       - '.github/workflows/mobile-preview-apk.yml'
 
 jobs:
@@ -62,167 +59,6 @@ jobs:
             icon_chunks/03e.txt \
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
-          python - <<'PY'
-          from pathlib import Path
-          icon = Path('assets/ajpa-app-icon.png')
-          data = icon.read_bytes()
-          if not data.startswith(b'\x89PNG\r\n\x1a\n'):
-              raise SystemExit('AJPA launcher icon is not a valid PNG')
-          print(f'AJPA launcher icon ready: {len(data)} bytes')
-          PY
-
-      - name: Verify live AJPA API and mutation tunnel
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-
-          base = os.environ['EXPO_PUBLIC_API_URL'].rstrip('/')
-          health = base + '/health'
-          profiles = base + '/api/v1/clubs/profiles'
-          mutations = [
-              (base + '/api/v1/publications', '%7B%7D', 'market mutation'),
-              (
-                  base + '/api/v1/admin/economy/adjust',
-                  '%7B%22club%22%3A%22probe%22%2C%22amount%22%3A1%2C%22mode%22%3A%22ADD%22%7D',
-                  'Staff economy mutation',
-              ),
-              (
-                  base + '/api/v1/my/classic/request',
-                  '%7B%22target_club%22%3A%22probe%22%7D',
-                  'classic rival mutation',
-              ),
-          ]
-          last = None
-
-          for attempt in range(36):
-              try:
-                  with urllib.request.urlopen(health, timeout=10) as response:
-                      if not (200 <= response.status < 300):
-                          raise RuntimeError(f'health HTTP {response.status}')
-
-                  with urllib.request.urlopen(profiles, timeout=12) as response:
-                      if response.status != 200:
-                          raise RuntimeError(f'club profiles HTTP {response.status}')
-                      payload = json.loads(response.read().decode('utf-8'))
-                      if not isinstance(payload.get('clubs'), list):
-                          raise RuntimeError('club profiles payload missing clubs')
-                      for club in payload['clubs']:
-                          name = str((club.get('manager') or {}).get('name') or '')
-                          if name.startswith('Discord · '):
-                              raise RuntimeError(f'club profile still exposes Discord ID: {club.get("club")}')
-                      print(f'AJPA club profiles OK: {len(payload["clubs"])} clubs; no visible Discord IDs')
-
-                  for mutation, body_header, label in mutations:
-                      req = urllib.request.Request(
-                          mutation,
-                          method='GET',
-                          headers={
-                              'X-AJPA-Method': 'POST',
-                              'X-AJPA-Body': body_header,
-                          },
-                      )
-                      try:
-                          urllib.request.urlopen(req, timeout=10)
-                          raise RuntimeError(f'{label} accepted an unauthenticated request')
-                      except urllib.error.HTTPError as exc:
-                          body = exc.read().decode('utf-8', errors='replace')
-                          if exc.code != 401:
-                              raise RuntimeError(f'{label} HTTP {exc.code}: {body}') from exc
-                          print(f'AJPA {label} OK: HTTP 401 as expected | {body}')
-                  break
-              except Exception as exc:
-                  last = exc
-
-              print(f'Waiting for corrected Railway API ({attempt + 1}/36): {last}')
-              if attempt < 35:
-                  time.sleep(10)
-          else:
-              raise SystemExit(f'AJPA API not ready: {last}')
-          PY
-
-      - name: Apply Discord menu parity
-        run: node scripts/apply-discord-menu-parity.mjs
-
-      - name: Team badges controlled test
-        run: echo 'AJPA Mobile usa PNG HQ transparentes embebidos + Monaco vector + Atletico EPS'
-
-      - name: Apply operational Clausulazo
-        run: node scripts/apply-clausulazo-mobile.mjs
-
-      - name: Apply operational Staff market
-        run: node scripts/apply-staff-mobile.mjs
-
-      - name: Apply operational Staff economy
-        run: node scripts/apply-staff-economy-mobile.mjs
-
-      - name: Apply operational club resignation
-        run: node scripts/apply-resignation-mobile.mjs
-
-      - name: Apply organized menus and panel style
-        run: node scripts/apply-organized-menu-style.mjs
-
-      - name: Apply premium navigation and glass effects
-        run: node scripts/apply-premium-navigation-style.mjs
-
-      - name: Apply approved personalized layout
-        run: node scripts/apply-approved-screen-layout.mjs
-
-      - name: Preserve Clausulazo screen after layout
-        run: node scripts/restore-clausulazo-screen.mjs
-
-      - name: Apply runtime crash and visual fixes
-        run: node scripts/apply-runtime-visual-fixes.mjs
-
-      - name: Prepare polished visuals
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const uiPath = 'src/LiveAppBackgrounds.tsx';
-          let ui = fs.readFileSync(uiPath, 'utf8');
-          if (!ui.includes('blurRadius={6}')) {
-            ui = ui.replace(
-              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" />',
-              '<Image source={{ uri: BG[tab] }} style={s.background} resizeMode="cover" blurRadius={6} />'
-            );
-          }
-          fs.writeFileSync(uiPath, ui);
-          NODE
-
-      - name: Apply club profiles, treasury and awards
-        run: node scripts/apply-club-profiles-awards.mjs
-
-      - name: Apply classic rival system
-        run: node scripts/apply-classic-rival-mobile.mjs
-
-      - name: Prepare local Liga and Mercado backgrounds
-        run: node scripts/prepare-local-section-backgrounds.mjs
-
-      - name: Apply premium depth v2 and Liga background
-        run: node scripts/apply-premium-depth-v2.mjs
-
-      - name: Apply and validate Monaco HD badge
-        run: node scripts/apply-monaco-badge-test.mjs
-
-      - name: Restore approved embedded badges and profile bindings
-        run: |
-          node scripts/apply-all-hq-team-badges.mjs
-          node scripts/apply-profile-team-badges.mjs
-
-      - name: Apply team colors and soft card gradients
-        run: node scripts/apply-team-card-gradients.mjs
-
-      - name: Apply club and player card colors
-        run: node scripts/apply-club-player-card-colors.mjs
-
-      - name: Keep PES6 player stats in player cards
-        run: node scripts/apply-player-pes6-stats.mjs
-
-      - name: Add contextual market actions to player search
-        run: node scripts/apply-search-player-market-actions.mjs
 
       - name: TypeScript check
         run: npx tsc --noEmit
@@ -232,7 +68,6 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Build standalone APK
         run: ./gradlew assembleRelease
@@ -240,14 +75,13 @@ jobs:
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
-          EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-preview.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-Transfer-Market-preview
-          path: mobile/AJPA-Transfer-Market-preview.apk
+          name: AJPA-UI-Lab-v1
+          path: mobile/AJPA-UI-Lab-v1.apk
           if-no-files-found: error
