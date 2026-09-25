@@ -19,8 +19,6 @@ jobs:
     defaults:
       run:
         working-directory: mobile
-    env:
-      EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
     steps:
       - name: Checkout
@@ -45,29 +43,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Prepare AJPA launcher icon
-        run: |
-          mkdir -p assets
-          cat \
-            icon_chunks/00.txt \
-            icon_chunks/01.txt \
-            icon_chunks/02.txt \
-            icon_chunks/03a.txt \
-            icon_chunks/03b.txt \
-            icon_chunks/03c.txt \
-            icon_chunks/03d.txt \
-            icon_chunks/03e.txt \
-            | tr -d '\n\r' \
-            | base64 --decode > assets/ajpa-app-icon.png
-
-      - name: Prepare embedded HQ club badges
-        run: |
-          node scripts/prepare-ui-lab-badges.mjs
-          node scripts/apply-all-hq-team-badges.mjs
-
-      - name: Prepare neutral UI Lab hero
-        run: node scripts/prepare-ui-lab-hero.mjs
-
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -85,11 +60,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v1.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-safe.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v1
-          path: mobile/AJPA-UI-Lab-v1.apk
+          name: AJPA-UI-Lab-safe
+          path: mobile/AJPA-UI-Lab-safe.apk
           if-no-files-found: error
