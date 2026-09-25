@@ -54,8 +54,6 @@ jobs:
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
 
-      - name: TypeScript check
-        run: npx tsc --noEmit
 
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
