@@ -1,0 +1,30 @@
+name: Verify SERA Stats
+
+on:
+  push:
+    branches:
+      - stats-excel
+    paths:
+      - 'sera_stats_authority_patch.py'
+      - 'data/official_pes6_sera_stats.b64'
+      - 'scripts/verify_sera_stats.py'
+      - '.github/workflows/verify-sera-stats.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile importer
+        run: python -m py_compile sera_stats_authority_patch.py
+
+      - name: Verify all 617 AJPA mappings
+        run: python scripts/verify_sera_stats.py
