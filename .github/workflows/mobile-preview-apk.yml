@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/mobile-app-foundation
+      - feature/ajpa-ui-lab
       - fix/mobile-clausulazo-badges
       - fix/team-card-gradients
     paths:
@@ -242,11 +243,11 @@ jobs:
           EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-Transfer-Market-preview.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-preview.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-Transfer-Market-preview
-          path: mobile/AJPA-Transfer-Market-preview.apk
+          name: AJPA-UI-Lab-preview
+          path: mobile/AJPA-UI-Lab-preview.apk
           if-no-files-found: error
