@@ -201,8 +201,8 @@ export default function AJPAConceptCPreview() {
           <View style={s.heroShade} />
           <View style={s.heroContent}>
             <Text style={s.eyebrow}>{seasonName.toUpperCase()}</Text>
-            <Text style={s.heroTitle}>La temporada{'
-'}se vive en <Text style={s.heroBlue}>AJPA</Text></Text>
+            <Text style={s.heroTitle}>La temporada</Text>
+            <Text style={[s.heroTitle, s.heroBlue]}>se vive en AJPA</Text>
             <View style={s.heroMeta}>
               <View style={s.heroMetaBlock}>
                 <Text style={s.heroMetaIcon}>◫</Text>
