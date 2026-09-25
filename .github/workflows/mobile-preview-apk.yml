@@ -60,6 +60,11 @@ jobs:
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
 
+      - name: Prepare embedded HQ club badges
+        run: |
+          node scripts/apply-monaco-badge-test.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
