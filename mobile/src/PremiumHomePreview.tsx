@@ -8,7 +8,6 @@ import { LeagueData, LeagueSnapshot, fetchLeague, fetchSnapshot } from './api';
 import { BG_INICIO } from './bg_inicio';
 import { ClubBadge } from './teamBadges';
 import { AjpaIcon, AjpaIconName, AjpaIconTile } from './AjpaIcon';
-import { HERO_NEUTRAL } from './heroNeutral';
 
 type MenuKey = 'home' | 'market' | 'club' | 'league' | 'cups' | 'profile' | 'admin';
 
@@ -69,6 +68,9 @@ export default function PremiumHomePreview() {
       ]);
       setSnapshot(result[0]);
       setLeague(result[1]);
+    } catch {
+      setSnapshot(null);
+      setLeague({ standings: [], scorers: [] } as LeagueData);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,7 +123,7 @@ export default function PremiumHomePreview() {
           </View>
         </View>
 
-        <ImageBackground source={{ uri: HERO_NEUTRAL }} style={s.hero} imageStyle={s.heroImage} resizeMode="cover">
+        <ImageBackground source={require('../assets/ajpa-hero-neutral.jpg')} style={s.hero} imageStyle={s.heroImage} resizeMode="cover">
           <View style={s.heroShade} />
           <View style={s.heroContent}>
             <Text style={s.heroEyebrow}>{seasonName.toUpperCase()}</Text>
