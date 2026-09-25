@@ -1,0 +1,59 @@
+name: Northflank Cutover Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'bot_mobile.py'
+      - 'migration_export_patch.py'
+      - 'run_bot.py'
+      - '.github/workflows/northflank-cutover-smoke.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Northflank final deployment
+        env:
+          BASE_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.request
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          last = None
+          for attempt in range(48):
+              try:
+                  with urllib.request.urlopen(base + "/health", timeout=12) as r:
+                      health_status = r.status
+                      health_body = r.read().decode("utf-8", errors="replace")
+                  if health_status != 200:
+                      raise RuntimeError(f"health={health_status} {health_body[:300]}")
+
+                  with urllib.request.urlopen(base + "/api/v1/migration/status", timeout=12) as r:
+                      status = json.loads(r.read().decode("utf-8"))
+                  if not status.get("db_exists"):
+                      raise RuntimeError(f"db missing: {status}")
+                  if not status.get("import_marker"):
+                      raise RuntimeError(f"migration marker missing: {status}")
+                  if int(status.get("roster_players") or 0) < 600:
+                      raise RuntimeError(f"roster unexpectedly small: {status}")
+                  ready = str(status.get("runtime_ready") or "")
+                  if "host=northflank" not in ready:
+                      raise RuntimeError(f"Discord runtime not confirmed on Northflank yet: {status}")
+
+                  print("NORTHFLANK_CUTOVER_OK")
+                  print(json.dumps(status, ensure_ascii=False, sort_keys=True))
+                  break
+              except Exception as exc:
+                  last = exc
+                  print(f"Waiting for Northflank ({attempt + 1}/48): {exc}")
+                  if attempt < 47:
+                      time.sleep(10)
+          else:
+              raise SystemExit(f"Northflank cutover verification failed: {last}")
+          PY
