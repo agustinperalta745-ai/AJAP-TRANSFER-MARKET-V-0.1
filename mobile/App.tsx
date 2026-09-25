@@ -16,6 +16,7 @@ import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
+type Scorer = { player: string; team: string; goals: number };
 type Snapshot = {
   status?: { market_open?: boolean; season?: { name?: string } | null };
   clubs?: Array<{ name: string }>;
@@ -147,6 +148,9 @@ export default function App() {
   const [selected, setSelected] = useState<Section>('Inicio');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [scorers, setScorers] = useState<Scorer[]>([]);
+  const [newsWidth, setNewsWidth] = useState(0);
+  const [statsWidth, setStatsWidth] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [online, setOnline] = useState(false);
@@ -156,10 +160,11 @@ export default function App() {
     try {
       const [snap, league] = await Promise.all([
         fetchJson('/api/v1/snapshot'),
-        fetchJson('/api/v1/league').catch(() => ({ standings: [] })),
+        fetchJson('/api/v1/league').catch(() => ({ standings: [], scorers: [] })),
       ]);
       setSnapshot(snap as Snapshot);
       setStandings(Array.isArray(league?.standings) ? league.standings.slice(0, 5) : []);
+      setScorers(Array.isArray(league?.scorers) ? [...league.scorers].sort((a: Scorer, b: Scorer) => b.goals - a.goals || a.player.localeCompare(b.player)).slice(0, 5) : []);
       setOnline(true);
     } catch {
       setOnline(false);
@@ -184,6 +189,29 @@ export default function App() {
     ],
     [standings],
   );
+
+  const newsItems = useMemo(() => [
+    {
+      badge: 'AJPA',
+      mark: 'PES 6',
+      title: 'Nueva etapa, misma competencia',
+      text: 'Mercado, Liga y Copas en una experiencia más clara y moderna.',
+    },
+    {
+      badge: 'MERCADO',
+      mark: marketOpen ? 'ABIERTO' : 'CERRADO',
+      title: marketOpen ? 'El mercado está abierto' : 'El mercado está cerrado',
+      text: marketOpen
+        ? 'Los DT pueden publicar jugadores, negociar y seguir los movimientos desde AJPA.'
+        : 'Las operaciones quedan pausadas hasta la próxima apertura oficial.',
+    },
+    {
+      badge: 'COMPETENCIAS',
+      mark: 'AJPA',
+      title: 'Liga, Champions y Europa',
+      text: 'Seguí desde la app las tres competencias oficiales de la temporada.',
+    },
+  ], [marketOpen]);
 
   return (
     <View style={s.root}>
@@ -259,47 +287,121 @@ export default function App() {
         </View>
 
         <View style={s.dualRow}>
-          <View style={s.newsCard}>
+          <View
+            style={s.newsCard}
+            onLayout={(event) => setNewsWidth(Math.round(event.nativeEvent.layout.width - 22))}
+          >
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Noticias AJPA</Text>
-              <Text style={s.link}>Ver todas ›</Text>
+              <Text style={s.link}>Deslizá ›</Text>
             </View>
-            <View style={s.newsVisual}>
-              <View style={s.newsGlow} />
-              <Text style={s.newsBadge}>AJPA</Text>
-              <Text style={s.newsVisualMark}>PES 6</Text>
-            </View>
-            <Text style={s.newsTitle}>Nueva etapa, misma competencia</Text>
-            <Text style={s.newsText}>Mercado, Liga y Copas en una experiencia más clara y moderna.</Text>
-            <Text style={s.newsTime}>○ Ahora</Text>
+
+            <ScrollView
+              horizontal
+              pagingEnabled
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              style={s.innerCarousel}
+            >
+              {newsItems.map((item, index) => (
+                <View key={item.title} style={[s.newsPage, newsWidth > 0 && { width: newsWidth }]}>
+                  <View style={s.newsVisual}>
+                    <View style={s.newsGlow} />
+                    <Text style={s.newsBadge}>{item.badge}</Text>
+                    <Text numberOfLines={1} style={s.newsVisualMark}>{item.mark}</Text>
+                  </View>
+                  <Text style={s.newsTitle}>{item.title}</Text>
+                  <Text style={s.newsText}>{item.text}</Text>
+                  <View style={s.carouselDots}>
+                    {newsItems.map((_dot, dotIndex) => (
+                      <View key={dotIndex} style={[s.carouselDot, dotIndex === index && s.carouselDotActive]} />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
 
-          <View style={s.tableCard}>
+          <View
+            style={s.tableCard}
+            onLayout={(event) => setStatsWidth(Math.round(event.nativeEvent.layout.width - 22))}
+          >
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Tabla</Text>
-              <Text style={s.link}>Ver tabla ›</Text>
-            </View>
-            <View style={s.tableHead}>
-              <Text style={[s.th, { width: 18 }]}>#</Text>
-              <Text style={[s.th, { flex: 1 }]}>Club</Text>
-              <Text style={[s.th, { width: 22, textAlign: 'right' }]}>PJ</Text>
-              <Text style={[s.th, { width: 30, textAlign: 'right' }]}>PTS</Text>
+              <Text style={s.link}>Deslizá ›</Text>
             </View>
 
-            {top.map((row, index) => {
-              const source = badgeFor(row.team);
-              return (
-                <View key={row.team + index} style={s.tableRow}>
-                  <Text style={[s.rank, { width: 18 }]}>{index + 1}</Text>
-                  <View style={s.clubCell}>
-                    {source ? <Image source={source} style={s.badge} resizeMode="contain" /> : <View style={s.badgeFallback}><Text style={s.badgeFallbackText}>{row.team.slice(0, 1)}</Text></View>}
-                    <Text numberOfLines={1} style={s.clubName}>{row.team}</Text>
-                  </View>
-                  <Text style={s.stat}>{row.pj}</Text>
-                  <Text style={[s.stat, s.points]}>{row.pts}</Text>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              style={s.innerCarousel}
+            >
+              <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
+                <View style={s.tableHead}>
+                  <Text style={[s.th, { width: 18 }]}>#</Text>
+                  <Text style={[s.th, { flex: 1 }]}>Club</Text>
+                  <Text style={[s.th, { width: 22, textAlign: 'right' }]}>PJ</Text>
+                  <Text style={[s.th, { width: 30, textAlign: 'right' }]}>PTS</Text>
                 </View>
-              );
-            })}
+
+                {top.map((row, index) => {
+                  const source = badgeFor(row.team);
+                  return (
+                    <View key={row.team + index} style={s.tableRow}>
+                      <Text style={[s.rank, { width: 18 }]}>{index + 1}</Text>
+                      <View style={s.clubCell}>
+                        {source ? <Image source={source} style={s.badge} resizeMode="contain" /> : <View style={s.badgeFallback}><Text style={s.badgeFallbackText}>{row.team.slice(0, 1)}</Text></View>}
+                        <Text numberOfLines={1} style={s.clubName}>{row.team}</Text>
+                      </View>
+                      <Text style={s.stat}>{row.pj}</Text>
+                      <Text style={[s.stat, s.points]}>{row.pts}</Text>
+                    </View>
+                  );
+                })}
+                <View style={s.carouselDots}>
+                  <View style={[s.carouselDot, s.carouselDotActive]} />
+                  <View style={s.carouselDot} />
+                </View>
+              </View>
+
+              <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
+                <Text style={s.scorersTitle}>Top 5 goleadores</Text>
+                <View style={s.tableHead}>
+                  <Text style={[s.th, { width: 18 }]}>#</Text>
+                  <Text style={[s.th, { flex: 1 }]}>Jugador</Text>
+                  <Text style={[s.th, { width: 28, textAlign: 'right' }]}>G</Text>
+                </View>
+
+                {scorers.length > 0 ? scorers.map((row, index) => {
+                  const source = badgeFor(row.team);
+                  return (
+                    <View key={row.player + row.team + index} style={s.scorerRow}>
+                      <Text style={[s.rank, { width: 18 }]}>{index + 1}</Text>
+                      <View style={s.scorerCell}>
+                        {source ? <Image source={source} style={s.badge} resizeMode="contain" /> : <View style={s.badgeFallback}><Text style={s.badgeFallbackText}>{row.team.slice(0, 1)}</Text></View>}
+                        <View style={s.scorerCopy}>
+                          <Text numberOfLines={1} style={s.scorerName}>{row.player}</Text>
+                          <Text numberOfLines={1} style={s.scorerTeam}>{row.team}</Text>
+                        </View>
+                      </View>
+                      <Text style={s.goals}>{row.goals}</Text>
+                    </View>
+                  );
+                }) : (
+                  <View style={s.emptyScorers}>
+                    <Text style={s.emptyScorersText}>Todavía no hay goleadores cargados.</Text>
+                  </View>
+                )}
+                <View style={s.carouselDots}>
+                  <View style={s.carouselDot} />
+                  <View style={[s.carouselDot, s.carouselDotActive]} />
+                </View>
+              </View>
+            </ScrollView>
           </View>
         </View>
 
@@ -376,12 +478,15 @@ const s = StyleSheet.create({
   menuChevron: { position: 'absolute', right: 11, top: 58, color: P.blue, fontSize: 20, fontWeight: '800' },
 
   dualRow: { flexDirection: 'row', marginTop: 2 },
-  newsCard: { flex: 1, minHeight: 250, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5 },
-  tableCard: { flex: 1, minHeight: 250, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginLeft: 5 },
+  newsCard: { flex: 1, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5, overflow: 'hidden' },
+  tableCard: { flex: 1, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginLeft: 5, overflow: 'hidden' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   sectionTitle: { color: P.white, fontSize: 12.5, fontWeight: '800' },
   link: { color: P.blue2, fontSize: 8.5, fontWeight: '800' },
 
+  innerCarousel: { flexGrow: 0 },
+  newsPage: { minHeight: 204, paddingRight: 1 },
+  statsPage: { minHeight: 204, paddingRight: 1 },
   newsVisual: { height: 78, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'center', alignItems: 'center' },
   newsGlow: { position: 'absolute', width: 150, height: 150, borderRadius: 90, backgroundColor: 'rgba(38,145,220,0.18)' },
   newsBadge: { position: 'absolute', left: 8, top: 8, color: P.blue2, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.3 },
@@ -389,6 +494,9 @@ const s = StyleSheet.create({
   newsTitle: { color: P.white, fontSize: 11.5, lineHeight: 14.5, fontWeight: '800' },
   newsText: { color: P.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
   newsTime: { color: P.muted, fontSize: 8.5, marginTop: 8 },
+  carouselDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 },
+  carouselDot: { width: 4, height: 4, borderRadius: 4, backgroundColor: '#425B6C' },
+  carouselDotActive: { width: 11, backgroundColor: P.blue },
 
   tableHead: { flexDirection: 'row', paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#1F3B50' },
   th: { color: '#71899A', fontSize: 7.5, fontWeight: '800' },
@@ -401,6 +509,15 @@ const s = StyleSheet.create({
   clubName: { color: '#D8E4EC', fontSize: 8.8, flex: 1 },
   stat: { color: '#B4C3CE', fontSize: 8.5, width: 22, textAlign: 'right' },
   points: { color: P.white, fontWeight: '900', width: 30 },
+  scorersTitle: { color: P.white, fontSize: 10.5, fontWeight: '800', marginBottom: 6 },
+  scorerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 34, borderBottomWidth: 1, borderBottomColor: '#183247' },
+  scorerCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  scorerCopy: { flex: 1, minWidth: 0 },
+  scorerName: { color: '#E4EDF3', fontSize: 8.7, fontWeight: '800' },
+  scorerTeam: { color: P.muted, fontSize: 7.2, marginTop: 1 },
+  goals: { color: P.white, fontSize: 10.5, fontWeight: '900', width: 28, textAlign: 'right' },
+  emptyScorers: { minHeight: 150, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  emptyScorersText: { color: P.muted, fontSize: 9, lineHeight: 13, textAlign: 'center' },
 
   competitions: { marginTop: 8, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11 },
   competitionRow: { flexDirection: 'row' },
