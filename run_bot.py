@@ -62,6 +62,7 @@ from zaragoza_roster_patch import apply_zaragoza_json
 from atletico_madrid_roster_patch import apply_atletico_json
 from galatasaray_roster_patch import apply_galatasaray_json
 from json_stats_authority_patch import apply_json_stats_authority
+from excel_stats_authority_patch import apply_excel_stats_authority
 
 
 # Compatibilidad con nombres de variable usados en hosts/bots anteriores.
@@ -193,8 +194,9 @@ apply_zaragoza_json(runtime)
 apply_atletico_json(runtime)
 # Galatasaray usa el mismo esquema: JSON completo, OVR AJPA y sincronización por servidor.
 apply_galatasaray_json(runtime)
-# Fuente única para estadísticas PES6: los JSON del usuario pisan cualquier legado/importador.
+# Los JSON mantienen habilidades/compatibilidad histórica; SERA.xlsx pisa las stats al final.
 apply_json_stats_authority(runtime)
+apply_excel_stats_authority(runtime)
 
 budget_status = ""
 if budget_seeded is True:
