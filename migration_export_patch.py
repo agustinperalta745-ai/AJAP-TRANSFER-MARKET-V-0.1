@@ -85,6 +85,7 @@ def apply_migration_export_patch() -> None:
             data_dir = _data_dir()
             db_path = Path(os.getenv("DB_PATH") or (data_dir / "ajap_market.db"))
             marker = data_dir / ".ajpa_migration_imported"
+            runtime_marker = data_dir / ".ajpa_runtime_ready"
             payload = {
                 "target_mode": (os.getenv("AJPA_MIGRATION_TARGET") or "").strip().lower() in {"1","true","yes","on"},
                 "data_dir": str(data_dir),
@@ -92,6 +93,7 @@ def apply_migration_export_patch() -> None:
                 "db_exists": db_path.exists(),
                 "db_size": db_path.stat().st_size if db_path.exists() else 0,
                 "import_marker": marker.exists(),
+                "runtime_ready": runtime_marker.read_text(encoding="utf-8").strip() if runtime_marker.exists() else "",
             }
             try:
                 if db_path.exists():
