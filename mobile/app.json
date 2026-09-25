@@ -1,28 +1,25 @@
 {
   "expo": {
-    "name": "AJPA Transfer Market",
-    "slug": "ajpa-transfer-market",
-    "version": "0.1.2",
+    "name": "AJPA UI Lab",
+    "slug": "ajpa-ui-lab",
+    "version": "0.1.0",
     "runtimeVersion": "1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/ajpa-app-icon.png",
     "updates": {
-      "enabled": true,
-      "url": "https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run/api/v1/ota/manifest",
-      "checkAutomatically": "NEVER",
-      "fallbackToCacheTimeout": 0
+      "enabled": false
     },
     "android": {
-      "package": "com.ajpa.transfermarket",
-      "versionCode": 3,
+      "package": "com.ajpa.uilab",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/ajpa-app-icon.png",
         "backgroundColor": "#000000"
       }
     },
     "ios": {
-      "bundleIdentifier": "com.ajpa.transfermarket"
+      "bundleIdentifier": "com.ajpa.uilab"
     }
   }
 }
