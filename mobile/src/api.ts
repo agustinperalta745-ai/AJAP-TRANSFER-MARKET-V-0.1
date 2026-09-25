@@ -176,33 +176,6 @@ export type MobileProfile = {
   roster_count: number;
 };
 
-export type VisualTheme = {
-  accent: string;
-  accent_soft: string;
-  background: string;
-  panel: string;
-  panel_alt: string;
-  border: string;
-  text: string;
-  muted: string;
-  success: string;
-  danger: string;
-  warning: string;
-  topbar: string;
-  card_radius: number;
-  button_radius: number;
-  content_padding: number;
-  panel_opacity: number;
-  image_opacity: number;
-  shade_opacity: number;
-  compact: boolean;
-};
-
-export type VisualThemeResponse = {
-  theme: VisualTheme;
-  updated_at?: string | null;
-};
-
 export type OfferItem = {
   id: number;
   publication_id: number;
@@ -328,24 +301,6 @@ export async function fetchLeague(): Promise<LeagueData> {
 
 export function fetchLatestHonours(): Promise<LatestHonours> {
   return apiRequest<LatestHonours>('/api/v1/league/latest-honours');
-}
-
-export function fetchVisualTheme(): Promise<VisualThemeResponse> {
-  return apiRequest<VisualThemeResponse>('/api/v1/theme');
-}
-
-export function saveVisualTheme(theme: VisualTheme): Promise<VisualThemeResponse & { ok: boolean }> {
-  return apiRequest<VisualThemeResponse & { ok: boolean }>('/api/v1/admin/theme', {
-    method: 'POST',
-    body: JSON.stringify({ theme }),
-  });
-}
-
-export function resetVisualTheme(): Promise<VisualThemeResponse & { ok: boolean }> {
-  return apiRequest<VisualThemeResponse & { ok: boolean }>('/api/v1/admin/theme/reset', {
-    method: 'POST',
-    body: '{}',
-  });
 }
 
 export async function fetchHistory(): Promise<TransferHistoryItem[]> {
