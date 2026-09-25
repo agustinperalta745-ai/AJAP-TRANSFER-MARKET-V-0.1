@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 
+import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
+
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
 type Snapshot = {
@@ -111,22 +113,22 @@ const ALIASES: Record<string, string> = {
 
 const badgeFor = (team: string) => BADGES[ALIASES[normalize(team)] || ''];
 
-const MENU: Array<{ key: Section; glyph: string; title: string; subtitle: string; tone: string }> = [
-  { key: 'Mercado', glyph: '↔', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
-  { key: 'Mi Club', glyph: '◇', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#198F69' },
-  { key: 'Liga', glyph: '≡', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#355FB8' },
-  { key: 'Copas', glyph: '⌑', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#98711E' },
-  { key: 'Más', glyph: '○', title: 'Perfil', subtitle: 'Historial, logros\ny rendimiento', tone: '#6046A2' },
-  { key: 'Más', glyph: '••', title: 'Staff / Admin', subtitle: 'Gestión de liga\ny herramientas', tone: '#526577' },
+const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: string; tone: string }> = [
+  { key: 'Mercado', icon: 'market', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#1F7FD0' },
+  { key: 'Mi Club', icon: 'club', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#198F69' },
+  { key: 'Liga', icon: 'league', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#355FB8' },
+  { key: 'Copas', icon: 'cups', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#98711E' },
+  { key: 'Más', icon: 'profile', title: 'Perfil', subtitle: 'Historial, logros\ny rendimiento', tone: '#6046A2' },
+  { key: 'Más', icon: 'admin', title: 'Staff / Admin', subtitle: 'Gestión de liga\ny herramientas', tone: '#526577' },
 ];
 
-const BOTTOM: Array<{ key: Section; glyph: string; label: string }> = [
-  { key: 'Inicio', glyph: '⌂', label: 'Inicio' },
-  { key: 'Mercado', glyph: '↔', label: 'Mercado' },
-  { key: 'Mi Club', glyph: '◇', label: 'Mi Club' },
-  { key: 'Liga', glyph: '≡', label: 'Liga' },
-  { key: 'Copas', glyph: '⌑', label: 'Copas' },
-  { key: 'Más', glyph: '••', label: 'Más' },
+const BOTTOM: Array<{ key: Section; icon: AjpaIconName; label: string }> = [
+  { key: 'Inicio', icon: 'home', label: 'Inicio' },
+  { key: 'Mercado', icon: 'market', label: 'Mercado' },
+  { key: 'Mi Club', icon: 'club', label: 'Mi Club' },
+  { key: 'Liga', icon: 'league', label: 'Liga' },
+  { key: 'Copas', icon: 'cups', label: 'Copas' },
+  { key: 'Más', icon: 'more', label: 'Más' },
 ];
 
 async function fetchJson(path: string) {
@@ -139,14 +141,6 @@ async function fetchJson(path: string) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-function IconTile({ glyph, tone, small = false }: { glyph: string; tone: string; small?: boolean }) {
-  return (
-    <View style={[s.iconTile, small && s.iconTileSmall, { backgroundColor: tone }]}>
-      <Text style={[s.iconGlyph, small && s.iconGlyphSmall]}>{glyph}</Text>
-    </View>
-  );
 }
 
 export default function App() {
@@ -233,7 +227,7 @@ export default function App() {
 
             <View style={s.heroMetaRow}>
               <View style={s.heroMeta}>
-                <Text style={s.metaSymbol}>□</Text>
+                <AjpaIcon name="season" size={21} color={P.white} />
                 <View>
                   <Text style={s.metaSmall}>Temporada oficial</Text>
                   <Text style={s.metaStrong}>En curso</Text>
@@ -241,7 +235,7 @@ export default function App() {
               </View>
               <View style={s.metaDivider} />
               <View style={s.heroMeta}>
-                <Text style={[s.metaSymbol, { color: marketOpen ? P.green : P.red }]}>↔</Text>
+                <AjpaIcon name={marketOpen ? 'market' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
                 <View>
                   <Text style={s.metaSmall}>Mercado</Text>
                   <Text style={[s.metaStrong, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text>
@@ -266,7 +260,7 @@ export default function App() {
               onPress={() => setSelected(item.key)}
               style={({ pressed }) => [s.menuCard, pressed && s.pressed, selected === item.key && s.menuCardActive]}
             >
-              <IconTile glyph={item.glyph} tone={item.tone} />
+              <AjpaIconTile name={item.icon} tone={item.tone} size={21} tileSize={42} />
               <Text style={s.menuTitle}>{item.title}</Text>
               <Text style={s.menuSubtitle}>{item.subtitle}</Text>
               <Text style={s.menuChevron}>›</Text>
@@ -325,9 +319,9 @@ export default function App() {
             <Text style={s.link}>Ver todas ›</Text>
           </View>
           <View style={s.competitionRow}>
-            <View style={s.compCard}><IconTile glyph="≡" tone="#173C5B" small /><Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{season}</Text><Text style={s.compLive}>● En curso</Text></View>
-            <View style={s.compCard}><IconTile glyph="⌑" tone="#6D531D" small /><Text style={s.compTitle}>Copa Libertador</Text><Text style={s.compSub}>Principal</Text><Text style={s.compMuted}>● Próxima fase</Text></View>
-            <View style={s.compCard}><IconTile glyph="◇" tone="#42366A" small /><Text style={s.compTitle}>Copa Regional</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="league" tone="#173C5B" size={16} tileSize={30} /><Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{season}</Text><Text style={s.compLive}>● En curso</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="competitions" tone="#6D531D" size={16} tileSize={30} /><Text style={s.compTitle}>Copa Libertador</Text><Text style={s.compSub}>Principal</Text><Text style={s.compMuted}>● Próxima fase</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="cups" tone="#42366A" size={16} tileSize={30} /><Text style={s.compTitle}>Copa Regional</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text></View>
           </View>
         </View>
 
@@ -342,7 +336,7 @@ export default function App() {
           const active = selected === item.key;
           return (
             <Pressable key={item.label} onPress={() => setSelected(item.key)} style={s.bottomItem}>
-              <Text style={[s.bottomGlyph, active && s.bottomActive]}>{item.glyph}</Text>
+              <AjpaIcon name={item.icon} size={19} color={active ? P.blue : '#788D9C'} />
               <Text style={[s.bottomLabel, active && s.bottomActive]}>{item.label}</Text>
             </Pressable>
           );
@@ -355,95 +349,89 @@ export default function App() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: P.bg },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 106 },
+  content: { paddingHorizontal: 14, paddingTop: 7, paddingBottom: 86 },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  brandMark: { width: 60, height: 60, borderRadius: 20, borderWidth: 1.5, borderColor: P.blue, backgroundColor: '#0A1B29', alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: P.white, fontSize: 21, fontWeight: '900', letterSpacing: 1 },
-  brandCopy: { flex: 1, marginLeft: 12 },
-  brand: { color: P.white, fontSize: 33, lineHeight: 35, fontWeight: '900', letterSpacing: 1.2 },
-  brandSub: { color: P.blue2, fontSize: 7.7, fontWeight: '800', letterSpacing: 1.8, marginTop: 3 },
-  liveDot: { width: 8, height: 8, borderRadius: 8, marginLeft: 8 },
+  brandMark: { width: 48, height: 48, borderRadius: 16, borderWidth: 1.25, borderColor: P.blue, backgroundColor: '#0A1B29', alignItems: 'center', justifyContent: 'center' },
+  brandMarkText: { color: P.white, fontSize: 18, fontWeight: '800', letterSpacing: 0.8 },
+  brandCopy: { flex: 1, marginLeft: 10 },
+  brand: { color: P.white, fontSize: 28, lineHeight: 30, fontWeight: '800', letterSpacing: 1 },
+  brandSub: { color: P.blue2, fontSize: 7.1, fontWeight: '700', letterSpacing: 1.55, marginTop: 2 },
+  liveDot: { width: 7, height: 7, borderRadius: 7, marginLeft: 6 },
 
-  helloRow: { alignSelf: 'flex-end', minWidth: 148, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0A1D2C', borderWidth: 1, borderColor: P.border, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 11, marginBottom: 12 },
-  hello: { color: P.white, fontSize: 12, fontWeight: '800' },
-  helloSub: { color: P.muted, fontSize: 9.5, marginTop: 1 },
-  chevronTop: { color: P.blue, fontSize: 21 },
+  helloRow: { alignSelf: 'flex-end', minWidth: 132, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0A1D2C', borderWidth: 1, borderColor: P.border, borderRadius: 12, paddingVertical: 6, paddingHorizontal: 9, marginBottom: 9 },
+  hello: { color: P.white, fontSize: 11, fontWeight: '700' },
+  helloSub: { color: P.muted, fontSize: 8.5, marginTop: 1 },
+  chevronTop: { color: P.blue, fontSize: 18 },
 
-  hero: { minHeight: 245, borderRadius: 21, overflow: 'hidden', borderWidth: 1, borderColor: '#2B5B79', justifyContent: 'flex-end', backgroundColor: '#0A1925' },
-  heroImage: { borderRadius: 21 },
+  hero: { minHeight: 205, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: '#2B5B79', justifyContent: 'flex-end', backgroundColor: '#0A1925' },
+  heroImage: { borderRadius: 18 },
   heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,10,17,0.52)' },
-  heroContent: { paddingHorizontal: 19, paddingVertical: 18 },
-  heroEyebrow: { color: P.blue2, fontSize: 10, fontWeight: '900', letterSpacing: 2.2, marginBottom: 7 },
-  heroTitle: { color: P.white, fontSize: 31, lineHeight: 33, fontWeight: '900', letterSpacing: -0.5 },
+  heroContent: { paddingHorizontal: 16, paddingVertical: 14 },
+  heroEyebrow: { color: P.blue2, fontSize: 9, fontWeight: '800', letterSpacing: 1.9, marginBottom: 6 },
+  heroTitle: { color: P.white, fontSize: 27, lineHeight: 29, fontWeight: '800', letterSpacing: -0.35 },
   heroBlue: { color: P.blue },
-  heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
+  heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   heroMeta: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  metaSymbol: { color: P.white, fontSize: 25, fontWeight: '900', marginRight: 9 },
-  metaSmall: { color: '#C0CED8', fontSize: 9.5 },
-  metaStrong: { color: P.white, fontSize: 12.5, fontWeight: '900', marginTop: 2 },
-  metaDivider: { width: 1, height: 34, backgroundColor: 'rgba(255,255,255,0.22)', marginHorizontal: 12 },
+    metaSmall: { color: '#C0CED8', fontSize: 8.5, marginLeft: 7 },
+  metaStrong: { color: P.white, fontSize: 11.5, fontWeight: '800', marginTop: 1, marginLeft: 7 },
+  metaDivider: { width: 1, height: 29, backgroundColor: 'rgba(255,255,255,0.22)', marginHorizontal: 12 },
 
-  quickStrip: { marginTop: 10, flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: '#0A1D2C', paddingVertical: 10 },
+  quickStrip: { marginTop: 8, flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, borderColor: P.border, backgroundColor: '#0A1D2C', paddingVertical: 8 },
   quickStat: { flex: 1, alignItems: 'center' },
-  quickValue: { color: P.white, fontSize: 14, fontWeight: '900' },
-  quickLabel: { color: P.muted, fontSize: 7.5, fontWeight: '800', letterSpacing: 1.1, marginTop: 2 },
-  quickDivider: { width: 1, height: 26, backgroundColor: P.border },
+  quickValue: { color: P.white, fontSize: 13, fontWeight: '800' },
+  quickLabel: { color: P.muted, fontSize: 7, fontWeight: '700', letterSpacing: 1, marginTop: 1 },
+  quickDivider: { width: 1, height: 22, backgroundColor: P.border },
 
-  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 12 },
-  menuCard: { width: '48.5%', minHeight: 146, borderRadius: 19, borderWidth: 1, borderColor: P.border, backgroundColor: P.panel, padding: 14, marginBottom: 10 },
+  menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 9 },
+  menuCard: { width: '48.5%', minHeight: 121, borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: P.panel, padding: 12, marginBottom: 8 },
   menuCardActive: { borderColor: '#2C8FD3' },
   pressed: { opacity: 0.75 },
-  iconTile: { width: 49, height: 49, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  iconTileSmall: { width: 34, height: 34, borderRadius: 10, marginBottom: 7 },
-  iconGlyph: { color: P.white, fontSize: 23, fontWeight: '900' },
-  iconGlyphSmall: { fontSize: 17 },
-  menuTitle: { color: P.white, fontSize: 17, fontWeight: '900', marginTop: 11 },
-  menuSubtitle: { color: P.muted, fontSize: 10.5, lineHeight: 15, marginTop: 4, paddingRight: 12 },
-  menuChevron: { position: 'absolute', right: 12, top: 72, color: P.blue, fontSize: 23, fontWeight: '900' },
+    menuTitle: { color: P.white, fontSize: 15.5, fontWeight: '800', marginTop: 8 },
+  menuSubtitle: { color: P.muted, fontSize: 9.4, lineHeight: 13, marginTop: 3, paddingRight: 11 },
+  menuChevron: { position: 'absolute', right: 11, top: 58, color: P.blue, fontSize: 20, fontWeight: '800' },
 
   dualRow: { flexDirection: 'row', marginTop: 2 },
-  newsCard: { flex: 1, minHeight: 280, borderRadius: 18, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5 },
-  tableCard: { flex: 1, minHeight: 280, borderRadius: 18, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginLeft: 5 },
+  newsCard: { flex: 1, minHeight: 250, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5 },
+  tableCard: { flex: 1, minHeight: 250, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginLeft: 5 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
-  sectionTitle: { color: P.white, fontSize: 13.5, fontWeight: '900' },
+  sectionTitle: { color: P.white, fontSize: 12.5, fontWeight: '800' },
   link: { color: P.blue2, fontSize: 8.5, fontWeight: '800' },
 
-  newsVisual: { height: 92, borderRadius: 13, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'center', alignItems: 'center' },
+  newsVisual: { height: 78, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'center', alignItems: 'center' },
   newsGlow: { position: 'absolute', width: 150, height: 150, borderRadius: 90, backgroundColor: 'rgba(38,145,220,0.18)' },
   newsBadge: { position: 'absolute', left: 8, top: 8, color: P.blue2, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.3 },
   newsVisualMark: { color: P.white, fontSize: 22, fontWeight: '900', letterSpacing: 1.5 },
-  newsTitle: { color: P.white, fontSize: 12.5, lineHeight: 16, fontWeight: '900' },
+  newsTitle: { color: P.white, fontSize: 11.5, lineHeight: 14.5, fontWeight: '800' },
   newsText: { color: P.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
   newsTime: { color: P.muted, fontSize: 8.5, marginTop: 8 },
 
   tableHead: { flexDirection: 'row', paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#1F3B50' },
   th: { color: '#71899A', fontSize: 7.5, fontWeight: '800' },
-  tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 36, borderBottomWidth: 1, borderBottomColor: '#183247' },
+  tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 31, borderBottomWidth: 1, borderBottomColor: '#183247' },
   rank: { color: P.white, fontSize: 9.5, fontWeight: '800' },
   clubCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  badge: { width: 19, height: 19, marginRight: 5 },
-  badgeFallback: { width: 19, height: 19, borderRadius: 7, backgroundColor: '#173C56', alignItems: 'center', justifyContent: 'center', marginRight: 5 },
+  badge: { width: 17, height: 17, marginRight: 5 },
+  badgeFallback: { width: 17, height: 17, borderRadius: 7, backgroundColor: '#173C56', alignItems: 'center', justifyContent: 'center', marginRight: 5 },
   badgeFallbackText: { color: P.blue2, fontSize: 8, fontWeight: '900' },
   clubName: { color: '#D8E4EC', fontSize: 8.8, flex: 1 },
   stat: { color: '#B4C3CE', fontSize: 8.5, width: 22, textAlign: 'right' },
   points: { color: P.white, fontWeight: '900', width: 30 },
 
-  competitions: { marginTop: 10, borderRadius: 18, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11 },
+  competitions: { marginTop: 8, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11 },
   competitionRow: { flexDirection: 'row' },
-  compCard: { flex: 1, minHeight: 116, padding: 9, borderRadius: 14, backgroundColor: P.panel2, borderWidth: 1, borderColor: '#1D4056', marginHorizontal: 3 },
-  compTitle: { color: P.white, fontSize: 10, fontWeight: '900' },
+  compCard: { flex: 1, minHeight: 100, padding: 8, borderRadius: 12, backgroundColor: P.panel2, borderWidth: 1, borderColor: '#1D4056', marginHorizontal: 3 },
+  compTitle: { color: P.white, fontSize: 9.3, fontWeight: '800' },
   compSub: { color: P.muted, fontSize: 8, lineHeight: 11, marginTop: 3 },
   compLive: { color: P.blue2, fontSize: 7.5, marginTop: 6, fontWeight: '800' },
   compMuted: { color: '#8C9EAB', fontSize: 7.5, marginTop: 6, fontWeight: '800' },
 
-  previewNote: { marginTop: 10, padding: 13, borderRadius: 16, backgroundColor: '#0A1E2D', borderWidth: 1, borderColor: '#1D4D6C' },
+  previewNote: { marginTop: 8, padding: 11, borderRadius: 14, backgroundColor: '#0A1E2D', borderWidth: 1, borderColor: '#1D4D6C' },
   previewNoteTitle: { color: P.blue2, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.4 },
   previewNoteText: { color: '#B1C2CE', fontSize: 9.5, lineHeight: 14, marginTop: 5 },
 
-  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, flexDirection: 'row', alignItems: 'center', backgroundColor: '#07141F', borderTopWidth: 1, borderTopColor: '#19384D', paddingBottom: 6 },
+  bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 64, flexDirection: 'row', alignItems: 'center', backgroundColor: '#07141F', borderTopWidth: 1, borderTopColor: '#19384D', paddingBottom: 6 },
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bottomGlyph: { color: '#788D9C', fontSize: 19, fontWeight: '900' },
-  bottomLabel: { color: '#788D9C', fontSize: 8, fontWeight: '700', marginTop: 3 },
+    bottomLabel: { color: '#788D9C', fontSize: 7.3, fontWeight: '700', marginTop: 2 },
   bottomActive: { color: P.blue },
 });
