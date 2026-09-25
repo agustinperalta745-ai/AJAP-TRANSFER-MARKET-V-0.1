@@ -43,6 +43,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare neutral AJPA hero
+        run: node scripts/prepare-ui-lab-hero.mjs
 
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean
@@ -58,11 +60,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-safe.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-safe
-          path: mobile/AJPA-UI-Lab-safe.apk
+          name: AJPA-UI-Lab-v0.3
+          path: mobile/AJPA-UI-Lab-v0.3.apk
           if-no-files-found: error
