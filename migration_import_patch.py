@@ -14,6 +14,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+CUTOVER_FLAG = Path(__file__).resolve().parent / "northflank_cutover_live.flag"
+
 
 def _truthy(name: str) -> bool:
     return (os.getenv(name) or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -55,7 +57,15 @@ def maybe_import_migration_data() -> bool:
             return True
 
     marker = target / ".ajpa_migration_imported"
-    force = _truthy("AJPA_MIGRATION_FORCE_IMPORT")
+    final_marker = target / ".ajpa_cutover_final_imported"
+    is_railway = bool((os.getenv("RAILWAY_PROJECT_ID") or "").strip())
+    cutover_live = CUTOVER_FLAG.exists() and not is_railway
+
+    if cutover_live and final_marker.exists():
+        print("AJPA cutover final import already completed; preserving Northflank data")
+        return True
+
+    force = _truthy("AJPA_MIGRATION_FORCE_IMPORT") or cutover_live
     if marker.exists() and not force:
         print("AJPA migration import already completed; skipping")
         return True
@@ -96,5 +106,8 @@ def maybe_import_migration_data() -> bool:
             restored += 1
 
     marker.write_text(f"restored_files={restored}\n", encoding="utf-8")
+    if cutover_live:
+        final_marker.write_text(f"restored_files={restored}\n", encoding="utf-8")
+        print("AJPA migration final cutover snapshot locked on Northflank")
     print(f"AJPA migration import completed: restored_files={restored}")
     return True
