@@ -223,7 +223,6 @@ const adminMenu = String.raw`  const adminMenu = (
       <SectionLabel title="ACCESOS STAFF" badge="SOLO ADMIN" />
       <View style={s.featureGrid}>
         <FeatureTile emoji="⚙️" title="Panel administrativo" subtitle="Mercado, planteles, economía y gestión" onPress={() => openScreen('adminTools')} />
-        <FeatureTile emoji="🎨" title="Diseño de la app" subtitle="Colores, tarjetas, fondos y espaciado" onPress={() => openScreen('appearance')} />
         <FeatureTile emoji="👥" title="Asignaciones" subtitle="Clubes vinculados a usuarios" onPress={() => openScreen('assignments')} />
       </View>
       <SectionLabel title="PENDIENTES" />
