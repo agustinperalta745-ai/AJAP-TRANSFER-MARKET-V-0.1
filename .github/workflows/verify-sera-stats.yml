@@ -27,4 +27,4 @@ jobs:
         run: python -m py_compile sera_stats_authority_patch.py
 
       - name: Verify all 617 AJPA mappings
-        run: python scripts/verify_sera_stats.py
+        run: PYTHONPATH=. python scripts/verify_sera_stats.py
