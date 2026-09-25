@@ -1,66 +1,9 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export type AjpaIconName =
   | 'home' | 'market' | 'club' | 'league' | 'cups' | 'more'
-  | 'profile' | 'settings' | 'admin' | 'notifications'
-  | 'transferibles' | 'free-agents' | 'publish-player' | 'offers' | 'negotiations' | 'history'
-  | 'squad' | 'tactics' | 'stats' | 'stadium' | 'staff' | 'injuries'
-  | 'standings' | 'matches' | 'results' | 'scorers' | 'xi-ideal'
-  | 'competitions' | 'bracket' | 'champions'
-  | 'news' | 'radio' | 'chat' | 'dice' | 'polls' | 'rivalry'
-  | 'objectives' | 'achievements' | 'ranking' | 'favorites' | 'help' | 'logout'
-  | 'season' | 'available' | 'closed' | 'recovery';
-
-const ICONS: Record<AjpaIconName, string> = {
-  home: 'home-outline',
-  market: 'swap-horizontal',
-  club: 'shield-account-outline',
-  league: 'chart-box-outline',
-  cups: 'trophy-outline',
-  more: 'dots-horizontal',
-  profile: 'account-outline',
-  settings: 'cog-outline',
-  admin: 'account-group-outline',
-  notifications: 'bell-outline',
-  transferibles: 'swap-horizontal-bold',
-  'free-agents': 'account-plus-outline',
-  'publish-player': 'file-document-plus-outline',
-  offers: 'gavel',
-  negotiations: 'handshake-outline',
-  history: 'clipboard-text-clock-outline',
-  squad: 'shield-account-outline',
-  tactics: 'soccer-field',
-  stats: 'chart-line',
-  stadium: 'stadium-variant',
-  staff: 'account-group-outline',
-  injuries: 'medical-bag',
-  standings: 'format-list-numbered',
-  matches: 'calendar-month-outline',
-  results: 'whistle-outline',
-  scorers: 'soccer',
-  'xi-ideal': 'star-outline',
-  competitions: 'trophy-variant-outline',
-  bracket: 'tournament',
-  champions: 'crown-outline',
-  news: 'newspaper-variant-outline',
-  radio: 'bullhorn-outline',
-  chat: 'chat-outline',
-  dice: 'dice-5-outline',
-  polls: 'poll',
-  rivalry: 'target-account',
-  objectives: 'bullseye-arrow',
-  achievements: 'medal-outline',
-  ranking: 'crown-outline',
-  favorites: 'bookmark-outline',
-  help: 'help-circle-outline',
-  logout: 'logout-variant',
-  season: 'calendar-check-outline',
-  available: 'check-circle-outline',
-  closed: 'close-circle-outline',
-  recovery: 'bed-outline',
-};
+  | 'profile' | 'admin' | 'season' | 'closed' | 'competitions';
 
 export const AJPA_ICON_TONES: Record<AjpaIconName, string> = {
   home: '#248EF2',
@@ -70,99 +13,101 @@ export const AJPA_ICON_TONES: Record<AjpaIconName, string> = {
   cups: '#C08A21',
   more: '#405469',
   profile: '#7652C5',
-  settings: '#65798C',
   admin: '#65798C',
-  notifications: '#C74155',
-  transferibles: '#248EF2',
-  'free-agents': '#20A77D',
-  'publish-player': '#7652C5',
-  offers: '#C08A21',
-  negotiations: '#405469',
-  history: '#65798C',
-  squad: '#18B471',
-  tactics: '#3F6D9D',
-  stats: '#7455C7',
-  stadium: '#248EF2',
-  staff: '#65798C',
-  injuries: '#C74155',
-  standings: '#248EF2',
-  matches: '#20A77D',
-  results: '#7652C5',
-  scorers: '#C74155',
-  'xi-ideal': '#65798C',
-  competitions: '#C08A21',
-  bracket: '#248EF2',
-  champions: '#7652C5',
-  news: '#248EF2',
-  radio: '#C08A21',
-  chat: '#7652C5',
-  dice: '#20A77D',
-  polls: '#65798C',
-  rivalry: '#C74155',
-  objectives: '#248EF2',
-  achievements: '#C08A21',
-  ranking: '#7652C5',
-  favorites: '#20A77D',
-  help: '#65798C',
-  logout: '#C74155',
   season: '#F3F7FA',
-  available: '#35D579',
   closed: '#F35C65',
-  recovery: '#74BDF8',
+  competitions: '#C08A21',
 };
 
-export function AjpaIcon({
-  name,
-  size = 24,
-  color = '#F5FAFE',
-}: {
-  name: AjpaIconName;
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <MaterialCommunityIcons
-      name={ICONS[name] as any}
-      size={size}
-      color={color}
-    />
-  );
+function Dot({ color, size }: { color: string; size: number }) {
+  return <View style={{ width: size, height: size, borderRadius: size, backgroundColor: color }} />;
 }
 
-export function AjpaIconTile({
-  name,
-  size = 25,
-  tileSize = 50,
-  tone,
-}: {
-  name: AjpaIconName;
-  size?: number;
-  tileSize?: number;
-  tone?: string;
-}) {
-  const backgroundColor = tone || AJPA_ICON_TONES[name];
-  return (
-    <View
-      style={[
-        styles.tile,
-        {
-          width: tileSize,
-          height: tileSize,
-          borderRadius: Math.round(tileSize * 0.27),
-          backgroundColor,
-        },
-      ]}
-    >
-      <AjpaIcon name={name} size={size} />
-    </View>
-  );
+export function AjpaIcon({ name, size = 24, color = '#F5FAFE' }: { name: AjpaIconName; size?: number; color?: string }) {
+  const w = size;
+  const thin = Math.max(1.5, size * 0.075);
+
+  if (name === 'more') {
+    return <View style={[styles.row, { width: w, height: w, gap: size * 0.13 }]}><Dot color={color} size={size * 0.18}/><Dot color={color} size={size * 0.18}/><Dot color={color} size={size * 0.18}/></View>;
+  }
+
+  if (name === 'league') {
+    return <View style={{ width: w, height: w, justifyContent: 'center', gap: size * 0.16 }}>
+      {[0,1,2].map(i => <View key={i} style={{ height: thin, width: i === 1 ? w * 0.72 : w * 0.9, alignSelf: 'center', borderRadius: thin, backgroundColor: color }} />)}
+    </View>;
+  }
+
+  if (name === 'market') {
+    return <View style={{ width: w, height: w, justifyContent: 'center' }}>
+      <View style={{ position:'absolute', top:w*0.28, left:w*0.12, width:w*0.72, height:thin, backgroundColor:color, borderRadius:thin }} />
+      <View style={{ position:'absolute', top:w*0.18, right:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'45deg'}] }} />
+      <View style={{ position:'absolute', top:w*0.36, right:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'-45deg'}] }} />
+      <View style={{ position:'absolute', bottom:w*0.28, right:w*0.12, width:w*0.72, height:thin, backgroundColor:color, borderRadius:thin }} />
+      <View style={{ position:'absolute', bottom:w*0.18, left:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'-45deg'}] }} />
+      <View style={{ position:'absolute', bottom:w*0.36, left:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'45deg'}] }} />
+    </View>;
+  }
+
+  if (name === 'home') {
+    return <View style={{ width:w, height:w }}>
+      <View style={{ position:'absolute', left:w*0.21, top:w*0.31, width:w*0.58, height:w*0.48, borderWidth:thin, borderColor:color, borderTopWidth:0, borderRadius:w*0.07 }} />
+      <View style={{ position:'absolute', left:w*0.19, top:w*0.16, width:w*0.46, height:w*0.46, borderLeftWidth:thin, borderTopWidth:thin, borderColor:color, transform:[{rotate:'45deg'}], borderTopLeftRadius:w*0.05 }} />
+    </View>;
+  }
+
+  if (name === 'club') {
+    return <View style={{ width:w, height:w, alignItems:'center', justifyContent:'center' }}>
+      <View style={{ width:w*0.62, height:w*0.72, borderWidth:thin, borderColor:color, borderRadius:w*0.18, transform:[{rotate:'45deg'}] }} />
+      <View style={{ position:'absolute', width:w*0.18, height:w*0.18, borderRadius:w, backgroundColor:color }} />
+    </View>;
+  }
+
+  if (name === 'cups' || name === 'competitions') {
+    return <View style={{ width:w, height:w, alignItems:'center' }}>
+      <View style={{ marginTop:w*0.15, width:w*0.48, height:w*0.36, borderWidth:thin, borderColor:color, borderBottomLeftRadius:w*0.18, borderBottomRightRadius:w*0.18 }} />
+      <View style={{ width:thin, height:w*0.2, backgroundColor:color }} />
+      <View style={{ width:w*0.38, height:thin, backgroundColor:color, borderRadius:thin }} />
+      <View style={{ position:'absolute', top:w*0.19, left:w*0.08, width:w*0.2, height:w*0.2, borderWidth:thin, borderColor:color, borderRightWidth:0, borderRadius:w*0.1 }} />
+      <View style={{ position:'absolute', top:w*0.19, right:w*0.08, width:w*0.2, height:w*0.2, borderWidth:thin, borderColor:color, borderLeftWidth:0, borderRadius:w*0.1 }} />
+    </View>;
+  }
+
+  if (name === 'profile') {
+    return <View style={{ width:w, height:w, alignItems:'center' }}>
+      <View style={{ width:w*0.3, height:w*0.3, borderRadius:w, borderWidth:thin, borderColor:color, marginTop:w*0.12 }} />
+      <View style={{ width:w*0.62, height:w*0.32, borderTopLeftRadius:w, borderTopRightRadius:w, borderWidth:thin, borderColor:color, borderBottomWidth:0, marginTop:w*0.08 }} />
+    </View>;
+  }
+
+  if (name === 'admin') {
+    return <View style={{ width:w, height:w, alignItems:'center', justifyContent:'center' }}>
+      <View style={{ position:'absolute', top:w*0.18, left:w*0.18, width:w*0.24, height:w*0.24, borderRadius:w, borderWidth:thin, borderColor:color }} />
+      <View style={{ position:'absolute', top:w*0.18, right:w*0.18, width:w*0.24, height:w*0.24, borderRadius:w, borderWidth:thin, borderColor:color }} />
+      <View style={{ position:'absolute', bottom:w*0.16, width:w*0.72, height:w*0.28, borderTopLeftRadius:w, borderTopRightRadius:w, borderWidth:thin, borderColor:color, borderBottomWidth:0 }} />
+    </View>;
+  }
+
+  if (name === 'season') {
+    return <View style={{ width:w, height:w, alignItems:'center', justifyContent:'center' }}>
+      <View style={{ width:w*0.72, height:w*0.62, borderWidth:thin, borderColor:color, borderRadius:w*0.1 }} />
+      <View style={{ position:'absolute', top:w*0.3, width:w*0.72, height:thin, backgroundColor:color }} />
+    </View>;
+  }
+
+  return <View style={{ width:w, height:w, alignItems:'center', justifyContent:'center' }}>
+    <View style={{ width:w*0.72, height:w*0.72, borderRadius:w, borderWidth:thin, borderColor:color }} />
+    <View style={{ position:'absolute', width:w*0.52, height:thin, backgroundColor:color, transform:[{rotate:'45deg'}] }} />
+    <View style={{ position:'absolute', width:w*0.52, height:thin, backgroundColor:color, transform:[{rotate:'-45deg'}] }} />
+  </View>;
+}
+
+export function AjpaIconTile({ name, size = 22, tileSize = 42, tone }: { name: AjpaIconName; size?: number; tileSize?: number; tone?: string }) {
+  return <View style={[styles.tile, { width:tileSize, height:tileSize, borderRadius:Math.round(tileSize*0.27), backgroundColor:tone || AJPA_ICON_TONES[name] }]}>
+    <AjpaIcon name={name} size={size} />
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  tile: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
+  row: { flexDirection:'row', alignItems:'center', justifyContent:'center' },
+  tile: { alignItems:'center', justifyContent:'center', borderWidth:1, borderColor:'rgba(255,255,255,0.07)' },
 });
