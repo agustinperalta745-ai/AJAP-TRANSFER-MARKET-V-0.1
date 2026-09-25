@@ -243,7 +243,7 @@ export default function ConceptCPreview() {
           </ScrollView>
 
           <View style={s.bottomNav}>
-            {[
+            {([
               ['home', '⌂', 'Inicio'],
               ['market', '⇄', 'Mercado'],
               ['club', '◇', 'Mi Club'],
