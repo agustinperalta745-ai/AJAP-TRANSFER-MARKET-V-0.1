@@ -1,75 +1,22 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { AppState, StatusBar } from 'react-native';
-import * as Updates from 'expo-updates';
+import React from 'react';
+import { StatusBar } from 'react-native';
 import {
   SafeAreaProvider,
   SafeAreaView,
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import BotParityAppV2 from './src/BotParityAppV2';
-import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
-import SeasonHistoryFab from './src/SeasonHistoryFab';
-import CupCenterFab from './src/CupCenterFab';
-
-const OTA_RETRY_DELAYS = [1800, 12000, 45000];
+import ConceptCPreview from './src/ConceptCPreview';
 
 export default function App() {
-  const otaRunning = useRef(false);
-  const otaReloading = useRef(false);
-
-  const checkForOta = useCallback(async () => {
-    if (__DEV__ || !Updates.isEnabled || otaRunning.current || otaReloading.current) return;
-    otaRunning.current = true;
-    try {
-      const check = await Updates.checkForUpdateAsync();
-      if (!check.isAvailable) return;
-
-      const fetched = await Updates.fetchUpdateAsync();
-      if (!fetched.isNew) return;
-
-      otaReloading.current = true;
-      await Updates.reloadAsync();
-    } catch (error) {
-      console.warn('AJPA OTA update check failed', error);
-    } finally {
-      otaRunning.current = false;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (__DEV__ || !Updates.isEnabled) return undefined;
-
-    const timers = OTA_RETRY_DELAYS.map(delay =>
-      setTimeout(() => { void checkForOta(); }, delay),
-    );
-    const sub = AppState.addEventListener('change', state => {
-      if (state === 'active') {
-        setTimeout(() => { void checkForOta(); }, 900);
-      }
-    });
-
-    return () => {
-      timers.forEach(clearTimeout);
-      sub.remove();
-    };
-  }, [checkForOta]);
-
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#02060a' }}
+        style={{ flex: 1, backgroundColor: '#06111d' }}
         edges={['top', 'bottom', 'left', 'right']}
       >
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor="#02060a"
-          translucent={false}
-        />
-        <BotParityAppV2 />
-        <CupCenterFab />
-        <SeasonHistoryFab />
-        <CompetitionCycleAdminFab />
+        <StatusBar barStyle="light-content" backgroundColor="#06111d" translucent={false} />
+        <ConceptCPreview />
       </SafeAreaView>
     </SafeAreaProvider>
   );
