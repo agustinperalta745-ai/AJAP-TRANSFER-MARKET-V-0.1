@@ -172,7 +172,10 @@ export default function ConceptCPreview() {
               {MENU.map(item => (
                 <MenuCard
                   key={item.key}
-                  {...item}
+                  icon={item.icon}
+                  title={item.title}
+                  sub={item.sub}
+                  tone={item.tone}
                   onPress={() => setActive(item.key)}
                 />
               ))}
@@ -247,7 +250,7 @@ export default function ConceptCPreview() {
               ['league', '▥', 'Liga'],
               ['cups', '♕', 'Copas'],
               ['more', '•••', 'Más'],
-            ].map(([key, icon, label]) => {
+            ] as const).map(([key, icon, label]) => {
               const on = active === key || (key === 'more' && ['profile', 'staff'].includes(active));
               return (
                 <Pressable key={key} onPress={() => setActive(key)} style={s.navItem}>
