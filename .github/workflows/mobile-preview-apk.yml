@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare standard UI icons
+        run: node scripts/prepare-ui-lab-icons.mjs
+
       - name: Prepare embedded HQ club badges
         run: |
           node scripts/prepare-ui-lab-badges.mjs
@@ -65,11 +68,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.3.2.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.4.2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.3.3
-          path: mobile/AJPA-UI-Lab-v0.3.3.2.apk
+          name: AJPA-UI-Lab-v0.3.4
+          path: mobile/AJPA-UI-Lab-v0.3.4.2.apk
           if-no-files-found: error
