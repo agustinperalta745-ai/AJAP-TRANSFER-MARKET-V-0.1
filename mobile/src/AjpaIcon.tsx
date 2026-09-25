@@ -2,12 +2,13 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export type AjpaIconName =
-  | 'home' | 'market' | 'club' | 'league' | 'cups' | 'more'
+  | 'home' | 'market' | 'briefcase' | 'club' | 'league' | 'cups' | 'more'
   | 'profile' | 'admin' | 'season' | 'closed' | 'competitions';
 
 export const AJPA_ICON_TONES: Record<AjpaIconName, string> = {
   home: '#248EF2',
   market: '#3C67D7',
+  briefcase: '#3C67D7',
   club: '#25A974',
   league: '#3976DD',
   cups: '#C08A21',
@@ -37,14 +38,44 @@ export function AjpaIcon({ name, size = 24, color = '#F5FAFE' }: { name: AjpaIco
     </View>;
   }
 
-  if (name === 'market') {
-    return <View style={{ width: w, height: w, justifyContent: 'center' }}>
-      <View style={{ position:'absolute', top:w*0.28, left:w*0.12, width:w*0.72, height:thin, backgroundColor:color, borderRadius:thin }} />
-      <View style={{ position:'absolute', top:w*0.18, right:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'45deg'}] }} />
-      <View style={{ position:'absolute', top:w*0.36, right:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'-45deg'}] }} />
-      <View style={{ position:'absolute', bottom:w*0.28, right:w*0.12, width:w*0.72, height:thin, backgroundColor:color, borderRadius:thin }} />
-      <View style={{ position:'absolute', bottom:w*0.18, left:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'-45deg'}] }} />
-      <View style={{ position:'absolute', bottom:w*0.36, left:w*0.08, width:w*0.22, height:thin, backgroundColor:color, transform:[{rotate:'45deg'}] }} />
+  if (name === 'market' || name === 'briefcase') {
+    return <View style={{ width:w, height:w, alignItems:'center', justifyContent:'center' }}>
+      <View style={{
+        width:w*0.72,
+        height:w*0.48,
+        borderWidth:thin,
+        borderColor:color,
+        borderRadius:w*0.08,
+        marginTop:w*0.12,
+      }} />
+      <View style={{
+        position:'absolute',
+        top:w*0.14,
+        width:w*0.28,
+        height:w*0.15,
+        borderWidth:thin,
+        borderColor:color,
+        borderBottomWidth:0,
+        borderTopLeftRadius:w*0.07,
+        borderTopRightRadius:w*0.07,
+      }} />
+      <View style={{
+        position:'absolute',
+        top:w*0.49,
+        width:w*0.72,
+        height:thin,
+        backgroundColor:color,
+      }} />
+      <View style={{
+        position:'absolute',
+        top:w*0.45,
+        width:w*0.12,
+        height:w*0.08,
+        borderWidth:thin,
+        borderColor:color,
+        borderRadius:w*0.03,
+        backgroundColor:'transparent',
+      }} />
     </View>;
   }
 
