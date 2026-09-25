@@ -11,7 +11,6 @@ import BotParityAppV2 from './src/BotParityAppV2';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
 import CupCenterFab from './src/CupCenterFab';
-import { VisualThemeProvider } from './src/VisualTheme';
 
 const OTA_RETRY_DELAYS = [1800, 12000, 45000];
 
@@ -67,12 +66,10 @@ export default function App() {
           backgroundColor="#02060a"
           translucent={false}
         />
-        <VisualThemeProvider>
-          <BotParityAppV2 />
-          <CupCenterFab />
-          <SeasonHistoryFab />
-          <CompetitionCycleAdminFab />
-        </VisualThemeProvider>
+        <BotParityAppV2 />
+        <CupCenterFab />
+        <SeasonHistoryFab />
+        <CompetitionCycleAdminFab />
       </SafeAreaView>
     </SafeAreaProvider>
   );
