@@ -7,6 +7,8 @@ import {
 import { LeagueData, LeagueSnapshot, fetchLeague, fetchSnapshot } from './api';
 import { BG_INICIO } from './bg_inicio';
 import { ClubBadge } from './teamBadges';
+import { AjpaIcon, AjpaIconName, AjpaIconTile } from './AjpaIcon';
+import { HERO_NEUTRAL } from './heroNeutral';
 
 type MenuKey = 'home' | 'market' | 'club' | 'league' | 'cups' | 'profile' | 'admin';
 
@@ -16,30 +18,34 @@ const P = {
   blue: '#36A7FF', blue2: '#79C8FF', green: '#42D97F', red: '#F0626E',
 };
 
-const menuItems = [
-  { key: 'market' as MenuKey, icon: '⇄', title: 'Mercado', subtitle: 'Fichajes, ofertas\\ny negociaciones', tone: '#2F8BEF' },
-  { key: 'club' as MenuKey, icon: '◈', title: 'Mi Club', subtitle: 'Plantel, tácticas\\ny gestión', tone: '#2FA46C' },
-  { key: 'league' as MenuKey, icon: '▮▮▮', title: 'Liga', subtitle: 'Tabla, partidos\\ny estadísticas', tone: '#3E73D9' },
-  { key: 'cups' as MenuKey, icon: '🏆', title: 'Copas', subtitle: 'Torneos nacionales\\ne internacionales', tone: '#AF812E' },
-  { key: 'profile' as MenuKey, icon: '●', title: 'Perfil', subtitle: 'Historial, logros\\ny rendimiento', tone: '#7355BF' },
-  { key: 'admin' as MenuKey, icon: '⚙', title: 'Staff / Admin', subtitle: 'Gestión de liga\\ny herramientas', tone: '#66798A' },
+const menuItems: Array<{
+  key: MenuKey;
+  icon: AjpaIconName;
+  title: string;
+  subtitle: string;
+  tone: string;
+}> = [
+  { key: 'market', icon: 'market', title: 'Mercado', subtitle: 'Fichajes, ofertas\ny negociaciones', tone: '#248EF2' },
+  { key: 'club', icon: 'club', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#20A77D' },
+  { key: 'league', icon: 'league', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#3976DD' },
+  { key: 'cups', icon: 'cups', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#C08A21' },
+  { key: 'profile', icon: 'profile', title: 'Perfil', subtitle: 'Historial, logros\ny rendimiento', tone: '#7652C5' },
+  { key: 'admin', icon: 'admin', title: 'Staff / Admin', subtitle: 'Gestión de liga\ny herramientas', tone: '#65798C' },
 ];
 
-const bottomItems = [
-  { key: 'home' as MenuKey, icon: '⌂', label: 'Inicio' },
-  { key: 'market' as MenuKey, icon: '⇄', label: 'Mercado' },
-  { key: 'club' as MenuKey, icon: '◈', label: 'Mi Club' },
-  { key: 'league' as MenuKey, icon: '▮▮▮', label: 'Liga' },
-  { key: 'cups' as MenuKey, icon: '🏆', label: 'Copas' },
-  { key: 'profile' as MenuKey, icon: '•••', label: 'Más' },
+const bottomItems: Array<{ key: MenuKey; icon: AjpaIconName; label: string }> = [
+  { key: 'home', icon: 'home', label: 'Inicio' },
+  { key: 'market', icon: 'market', label: 'Mercado' },
+  { key: 'club', icon: 'club', label: 'Mi Club' },
+  { key: 'league', icon: 'league', label: 'Liga' },
+  { key: 'cups', icon: 'cups', label: 'Copas' },
+  { key: 'profile', icon: 'more', label: 'Más' },
 ];
 
-function MenuCard(props: { icon: string; title: string; subtitle: string; tone: string; onPress: () => void }) {
+function MenuCard(props: { icon: AjpaIconName; title: string; subtitle: string; tone: string; onPress: () => void }) {
   return (
     <Pressable onPress={props.onPress} style={({ pressed }) => [s.menuCard, pressed && s.pressed]}>
-      <View style={[s.iconBox, { backgroundColor: props.tone }]}>
-        <Text style={s.iconText}>{props.icon}</Text>
-      </View>
+      <AjpaIconTile name={props.icon} tone={props.tone} size={25} tileSize={50} />
       <Text style={s.menuTitle}>{props.title}</Text>
       <Text style={s.menuSubtitle}>{props.subtitle}</Text>
       <Text style={s.menuChevron}>›</Text>
@@ -115,19 +121,19 @@ export default function PremiumHomePreview() {
           </View>
         </View>
 
-        <ImageBackground source={{ uri: BG_INICIO }} style={s.hero} imageStyle={s.heroImage}>
+        <ImageBackground source={{ uri: HERO_NEUTRAL }} style={s.hero} imageStyle={s.heroImage} resizeMode="cover">
           <View style={s.heroShade} />
           <View style={s.heroContent}>
             <Text style={s.heroEyebrow}>{seasonName.toUpperCase()}</Text>
             <Text style={s.heroTitle}>La pasión{'\n'}sigue en <Text style={s.heroBlue}>AJPA</Text></Text>
             <View style={s.heroMetaRow}>
               <View style={s.heroMeta}>
-                <Text style={s.metaIcon}>◫</Text>
+                <AjpaIcon name="season" size={25} color={P.white} />
                 <View><Text style={s.metaSmall}>Temporada oficial</Text><Text style={s.metaStrong}>En curso</Text></View>
               </View>
               <View style={s.metaDivider} />
               <View style={s.heroMeta}>
-                <Text style={[s.metaIcon, { color: marketOpen ? P.green : P.red }]}>⇄</Text>
+                <AjpaIcon name={marketOpen ? 'market' : 'closed'} size={25} color={marketOpen ? P.green : P.red} />
                 <View>
                   <Text style={s.metaSmall}>Mercado</Text>
                   <Text style={[s.metaStrong, { color: marketOpen ? P.green : P.red }]}>{marketOpen ? 'ABIERTO' : 'CERRADO'}</Text>
@@ -174,15 +180,15 @@ export default function PremiumHomePreview() {
           <View style={s.sectionHeader}><Text style={s.sectionTitle}>Competencias</Text><Text style={s.link}>Ver todas ›</Text></View>
           <View style={s.competitionRow}>
             <View style={s.competitionCard}>
-              <View style={[s.compIcon, { backgroundColor: '#173C5B' }]}><Text style={s.compIconText}>AJ</Text></View>
+              <AjpaIconTile name="league" size={18} tileSize={34} tone="#173C5B" />
               <Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{seasonName}</Text><Text style={s.compLive}>● En curso</Text>
             </View>
             <View style={s.competitionCard}>
-              <View style={[s.compIcon, { backgroundColor: '#6D531D' }]}><Text style={s.compIconText}>🏆</Text></View>
+              <AjpaIconTile name="competitions" size={18} tileSize={34} tone="#6D531D" />
               <Text style={s.compTitle}>Copa Libertador</Text><Text style={s.compSub}>Competencia principal</Text><Text style={s.compMuted}>● Próxima fase</Text>
             </View>
             <View style={s.competitionCard}>
-              <View style={[s.compIcon, { backgroundColor: '#42366A' }]}><Text style={s.compIconText}>🏆</Text></View>
+              <AjpaIconTile name="cups" size={18} tileSize={34} tone="#42366A" />
               <Text style={s.compTitle}>Copa Regional</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text>
             </View>
           </View>
@@ -199,7 +205,7 @@ export default function PremiumHomePreview() {
           const active = selected === item.key || (selected === 'admin' && item.key === 'profile');
           return (
             <Pressable key={item.key} onPress={() => setSelected(item.key)} style={s.bottomItem}>
-              <Text style={[s.bottomIcon, active && s.bottomActive]}>{item.icon}</Text>
+              <AjpaIcon name={item.icon} size={22} color={active ? P.blue : '#8294A2'} />
               <Text style={[s.bottomLabel, active && s.bottomActive]}>{item.label}</Text>
             </Pressable>
           );
@@ -223,17 +229,17 @@ const s = StyleSheet.create({
   previewDot: { width: 7, height: 7, borderRadius: 7, backgroundColor: P.blue }, hello: { color: P.white, fontSize: 12, fontWeight: '800' },
   helloSub: { color: P.muted, fontSize: 10, marginTop: 1 }, headerChevron: { color: P.blue, fontSize: 21, marginLeft: 5 },
   hero: { minHeight: 245, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(125,190,226,0.24)', backgroundColor: '#0A1925', justifyContent: 'flex-end' },
-  heroImage: { borderRadius: 20 }, heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,10,17,0.47)' }, heroContent: { paddingHorizontal: 19, paddingVertical: 18 },
+  heroImage: { borderRadius: 20 }, heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,10,17,0.52)' }, heroContent: { paddingHorizontal: 19, paddingVertical: 18 },
   heroEyebrow: { color: P.blue2, fontSize: 10, fontWeight: '900', letterSpacing: 2.4, marginBottom: 7 },
   heroTitle: { color: P.white, fontSize: 31, lineHeight: 33, fontWeight: '900', letterSpacing: -0.6 }, heroBlue: { color: P.blue },
   heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 }, heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 },
-  metaIcon: { color: P.white, fontSize: 25, fontWeight: '800' }, metaSmall: { color: '#C4D0DA', fontSize: 10 }, metaStrong: { color: P.white, fontSize: 13, fontWeight: '900', marginTop: 2 },
+metaSmall: { color: '#C4D0DA', fontSize: 10 }, metaStrong: { color: P.white, fontSize: 13, fontWeight: '900', marginTop: 2 },
   metaDivider: { width: 1, height: 34, backgroundColor: 'rgba(255,255,255,0.25)', marginHorizontal: 13 },
   dots: { flexDirection: 'row', gap: 7, marginTop: 16 }, dot: { width: 7, height: 7, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.25)' }, dotActive: { width: 16, backgroundColor: P.blue },
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   menuCard: { width: '48.6%', minHeight: 146, borderRadius: 18, padding: 14, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 16, elevation: 4 },
-  pressed: { opacity: 0.74, transform: [{ scale: 0.985 }] }, iconBox: { width: 47, height: 47, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 11 },
-  iconText: { color: 'white', fontSize: 22, fontWeight: '900' }, menuTitle: { color: P.white, fontSize: 17, fontWeight: '900' }, menuSubtitle: { color: P.muted, fontSize: 11, lineHeight: 15, marginTop: 4 },
+  pressed: { opacity: 0.74, transform: [{ scale: 0.985 }] },
+  menuTitle: { color: P.white, fontSize: 17, fontWeight: '900', marginTop: 11 }, menuSubtitle: { color: P.muted, fontSize: 11, lineHeight: 15, marginTop: 4 },
   menuChevron: { color: P.blue, fontSize: 22, position: 'absolute', right: 12, top: 72 },
   dualRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   newsCard: { flex: 1, minHeight: 278, borderRadius: 18, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 12 },
@@ -249,12 +255,11 @@ const s = StyleSheet.create({
   stat: { color: '#B4C3CE', fontSize: 9, width: 22, textAlign: 'right' }, points: { color: P.white, fontWeight: '900', width: 34 }, empty: { color: P.muted, fontSize: 10, lineHeight: 14, marginTop: 16 },
   competitions: { marginTop: 12, borderRadius: 18, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 12 }, competitionRow: { flexDirection: 'row', gap: 8 },
   competitionCard: { flex: 1, minHeight: 112, padding: 10, borderRadius: 14, backgroundColor: P.panel2, borderWidth: 1, borderColor: 'rgba(120,165,192,0.15)' },
-  compIcon: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginBottom: 7 }, compIconText: { color: 'white', fontSize: 12, fontWeight: '900' },
   compTitle: { color: P.white, fontSize: 10.5, fontWeight: '900' }, compSub: { color: P.muted, fontSize: 8.5, lineHeight: 11, marginTop: 3 },
   compLive: { color: P.blue2, fontSize: 8, marginTop: 6, fontWeight: '800' }, compMuted: { color: '#8C9EAB', fontSize: 8, marginTop: 6, fontWeight: '800' },
   previewNote: { marginTop: 12, padding: 14, borderRadius: 16, backgroundColor: 'rgba(16,48,70,0.72)', borderWidth: 1, borderColor: 'rgba(64,164,225,0.28)' },
   previewNoteTitle: { color: P.blue2, fontSize: 9, fontWeight: '900', letterSpacing: 1.6 }, previewNoteText: { color: '#B6C8D4', fontSize: 10.5, lineHeight: 15, marginTop: 5 },
   bottomNav: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 78, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: 'rgba(5,16,25,0.98)', borderTopWidth: 1, borderTopColor: 'rgba(104,160,193,0.22)', paddingBottom: 6 },
-  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }, bottomIcon: { color: '#8294A2', fontSize: 20, fontWeight: '900' },
+  bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
   bottomLabel: { color: '#8294A2', fontSize: 8.5, fontWeight: '700' }, bottomActive: { color: P.blue },
 });
