@@ -37,31 +37,31 @@ const P = {
 };
 
 const BADGES: Record<string, any> = {
-  ajax: require('../assets/teams/ajax.png'),
-  as_monaco: require('../assets/teams/as_monaco.png'),
-  aston_villa: require('../assets/teams/aston_villa.png'),
-  atletico_madrid: require('../assets/teams/atletico_madrid.png'),
-  benfica: require('../assets/teams/benfica.png'),
-  bolton_wanderers: require('../assets/teams/bolton_wanderers.png'),
-  everton: require('../assets/teams/everton.png'),
-  feyenoord: require('../assets/teams/feyenoord.png'),
-  fiorentina: require('../assets/teams/fiorentina.png'),
-  fulham: require('../assets/teams/fulham.png'),
-  galatasaray: require('../assets/teams/galatasaray.png'),
-  lazio: require('../assets/teams/lazio.png'),
-  manchester_city: require('../assets/teams/manchester_city.png'),
-  middlesbrough: require('../assets/teams/middlesbrough.png'),
-  olympique_lyon: require('../assets/teams/olympique_lyon.png'),
-  olympique_marseille: require('../assets/teams/olympique_marseille.png'),
-  porto: require('../assets/teams/porto.png'),
-  psg: require('../assets/teams/psg.png'),
-  real_betis: require('../assets/teams/real_betis.png'),
-  sevilla: require('../assets/teams/sevilla.png'),
-  torino: require('../assets/teams/torino.png'),
-  tottenham_hotspur: require('../assets/teams/tottenham_hotspur.png'),
-  villarreal: require('../assets/teams/villarreal.png'),
-  west_ham_united: require('../assets/teams/west_ham_united.png'),
-  zaragoza: require('../assets/teams/zaragoza.png'),
+  ajax: require('./assets/teams/ajax.png'),
+  as_monaco: require('./assets/teams/as_monaco.png'),
+  aston_villa: require('./assets/teams/aston_villa.png'),
+  atletico_madrid: require('./assets/teams/atletico_madrid.png'),
+  benfica: require('./assets/teams/benfica.png'),
+  bolton_wanderers: require('./assets/teams/bolton_wanderers.png'),
+  everton: require('./assets/teams/everton.png'),
+  feyenoord: require('./assets/teams/feyenoord.png'),
+  fiorentina: require('./assets/teams/fiorentina.png'),
+  fulham: require('./assets/teams/fulham.png'),
+  galatasaray: require('./assets/teams/galatasaray.png'),
+  lazio: require('./assets/teams/lazio.png'),
+  manchester_city: require('./assets/teams/manchester_city.png'),
+  middlesbrough: require('./assets/teams/middlesbrough.png'),
+  olympique_lyon: require('./assets/teams/olympique_lyon.png'),
+  olympique_marseille: require('./assets/teams/olympique_marseille.png'),
+  porto: require('./assets/teams/porto.png'),
+  psg: require('./assets/teams/psg.png'),
+  real_betis: require('./assets/teams/real_betis.png'),
+  sevilla: require('./assets/teams/sevilla.png'),
+  torino: require('./assets/teams/torino.png'),
+  tottenham_hotspur: require('./assets/teams/tottenham_hotspur.png'),
+  villarreal: require('./assets/teams/villarreal.png'),
+  west_ham_united: require('./assets/teams/west_ham_united.png'),
+  zaragoza: require('./assets/teams/zaragoza.png'),
 };
 
 const normalize = (value: string) =>
@@ -223,7 +223,7 @@ export default function App() {
         </View>
 
         <ImageBackground
-          source={require('../assets/ajpa-hero-neutral.jpg')}
+          source={require('./assets/ajpa-hero-neutral.jpg')}
           resizeMode="cover"
           style={s.hero}
           imageStyle={s.heroImage}
