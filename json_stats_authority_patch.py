@@ -114,7 +114,7 @@ def _ensure_schema(runtime, conn):
 
 
 def _db_player_index(conn):
-    rows = conn.execute("SELECT id, name FROM roster_players ORDER BY id").fetchall()
+    rows = conn.execute("SELECT id, name, club FROM roster_players ORDER BY id").fetchall()
     exact = {}
     normalized = {}
     for row in rows:
@@ -192,8 +192,8 @@ def _sync_connection(runtime, conn):
     synced = 0
     verified = 0
     unmatched = []
-    ambiguous_or_duplicate_json = []
-    seen_player_ids = {}
+    duplicate_resolutions = []
+    candidates_by_player = {}
 
     for source_label, payload in _json_sources():
         team = str(payload.get("equipo") or "").strip()
@@ -211,24 +211,58 @@ def _sync_connection(runtime, conn):
                 continue
 
             player_id = int(row["id"])
-            previous = seen_player_ids.get(player_id)
-            if previous and previous != f"{team}: {name}":
-                ambiguous_or_duplicate_json.append(f"{previous} / {team}: {name}")
-                continue
-            seen_player_ids[player_id] = f"{team}: {name}"
+            candidates_by_player.setdefault(player_id, []).append(
+                (row, team, source_label, item)
+            )
 
-            stats = item.get("stats") or {}
-            abilities = item.get("habilidades_especiales") or []
-            source = f"AJPA JSON autoritativo • {source_label}"
-            _upsert_exact(conn, player_id, stats, abilities, source)
-            synced += 1
-            if _verify_one(conn, player_id, stats, abilities):
-                verified += 1
+    def _club_key(value):
+        key = _norm(value)
+        aliases = {
+            "sevillafc": "sevilla",
+            "sevilla": "sevilla",
+            "olympiquedemarsella": "olympiquedemarsella",
+            "marsella": "olympiquedemarsella",
+            "villarrealcf": "villarreal",
+            "villarealcf": "villarreal",
+            "villareal": "villarreal",
+            "villarreal": "villarreal",
+        }
+        return aliases.get(key, key)
 
-    if ambiguous_or_duplicate_json:
+    for player_id, candidates in candidates_by_player.items():
+        chosen = candidates[0]
+        if len(candidates) > 1:
+            current_club = str(candidates[0][0]["club"] or "")
+            club_matches = [
+                candidate for candidate in candidates
+                if _club_key(candidate[1]) == _club_key(current_club)
+            ]
+            if len(club_matches) == 1:
+                chosen = club_matches[0]
+                reason = "club_actual"
+            else:
+                # The historical schema has UNIQUE(name), so two JSON players with
+                # exactly the same display name cannot coexist as separate rows yet.
+                # Never blend their stats: keep one complete JSON record atomically.
+                reason = "sin_match_unico"
+            duplicate_resolutions.append(
+                f"{chosen[3].get('nombre')} -> {chosen[1]} "
+                f"(club DB={current_club or '-'}, {reason})"
+            )
+
+        row, team, source_label, item = chosen
+        stats = item.get("stats") or {}
+        abilities = item.get("habilidades_especiales") or []
+        source = f"AJPA JSON autoritativo • {source_label}"
+        _upsert_exact(conn, player_id, stats, abilities, source)
+        synced += 1
+        if _verify_one(conn, player_id, stats, abilities):
+            verified += 1
+
+    if duplicate_resolutions:
         print(
-            "WARNING AJPA JSON stats: duplicados/ambiguos omitidos -> "
-            + " | ".join(ambiguous_or_duplicate_json[:20])
+            "AJPA JSON stats: nombres duplicados resueltos sin mezclar stats -> "
+            + " | ".join(duplicate_resolutions[:20])
         )
     if unmatched:
         print(
@@ -243,7 +277,7 @@ def _sync_connection(runtime, conn):
 
     print(
         f"AJPA JSON STATS AUTORITATIVAS OK: synced={synced} verified={verified} "
-        f"unmatched={len(unmatched)} duplicates={len(ambiguous_or_duplicate_json)}"
+        f"unmatched={len(unmatched)} duplicate_names={len(duplicate_resolutions)}"
     )
     return synced
 
