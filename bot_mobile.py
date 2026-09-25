@@ -52,6 +52,7 @@ import mobile_cup_tournaments_api_patch  # noqa: E402
 import mobile_cup_result_safety_patch  # noqa: E402
 import mobile_cup_admin_reset_finalize_patch  # noqa: E402
 import migration_export_patch  # noqa: E402
+import migration_import_patch  # noqa: E402
 import league_team_catalog_patch  # noqa: E402
 import mobile_pairing_bootstrap_patch  # noqa: F401,E402
 from mobile_read_api import start_mobile_read_api  # noqa: E402
@@ -94,6 +95,7 @@ mobile_cup_tournaments_api_patch.apply_mobile_cup_tournaments_api_patch()
 mobile_cup_result_safety_patch.apply_mobile_cup_result_safety_patch()
 mobile_cup_admin_reset_finalize_patch.apply_mobile_cup_admin_reset_finalize_patch()
 migration_export_patch.apply_migration_export_patch()
+migration_import_patch.maybe_import_migration_data()
 # Transport stays last so its GET tunnel captures every authenticated mutation.
 mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
