@@ -79,7 +79,33 @@ def apply_migration_export_patch() -> None:
 
     def migration_get(self):
         parsed = urlparse(self.path)
-        if parsed.path.rstrip("/") != "/api/v1/migration/export":
+        path = parsed.path.rstrip("/") or "/"
+
+        if path == "/api/v1/migration/status":
+            data_dir = _data_dir()
+            db_path = Path(os.getenv("DB_PATH") or (data_dir / "ajap_market.db"))
+            marker = data_dir / ".ajpa_migration_imported"
+            payload = {
+                "target_mode": (os.getenv("AJPA_MIGRATION_TARGET") or "").strip().lower() in {"1","true","yes","on"},
+                "data_dir": str(data_dir),
+                "db_path": str(db_path),
+                "db_exists": db_path.exists(),
+                "db_size": db_path.stat().st_size if db_path.exists() else 0,
+                "import_marker": marker.exists(),
+            }
+            try:
+                if db_path.exists():
+                    with sqlite3.connect(str(db_path)) as conn:
+                        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                        for table in ("roster_players","publications","offers","transfers","clubs"):
+                            if table in tables:
+                                payload[table] = int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            except Exception as exc:
+                payload["db_error"] = f"{type(exc).__name__}: {exc}"
+            self._json(payload)
+            return
+
+        if path != "/api/v1/migration/export":
             return original_get(self)
 
         key = _enabled_key()
