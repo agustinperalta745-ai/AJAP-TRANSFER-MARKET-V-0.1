@@ -29,8 +29,8 @@ mustReplace(
 );
 
 mustReplace(
-  `  | 'adminTools'\n  | 'appearance'\n  | 'assignments'`,
-  `  | 'adminTools'\n  | 'appearance'\n  | 'adminMarket'\n  | 'adminRosters'\n  | 'adminEconomy'\n  | 'adminManagement'\n  | 'assignments'`,
+  `  | 'adminTools'\n  | 'assignments'`,
+  `  | 'adminTools'\n  | 'adminMarket'\n  | 'adminRosters'\n  | 'adminEconomy'\n  | 'adminManagement'\n  | 'assignments'`,
   'las pantallas Staff',
 );
 
@@ -246,8 +246,8 @@ const parityScreens = String.raw`  const leagueScreen = (
 ui = ui.replace(marker, parityScreens + marker);
 
 mustReplace(
-  `  else if (screen === 'history') body = placeholder('Historial', 'Movimientos y operaciones cerradas del mercado.');\n  else if (screen === 'league') body = placeholder('Liga', 'Tabla, goleadores y estado de la competencia.');\n  else if (screen === 'admin') body = adminMenu;\n  else if (screen === 'adminTools') body = placeholder('Administración', 'Herramientas de gestión exclusivas para Staff.');\n  else if (screen === 'appearance') body = <VisualThemeEditor />;\n  else if (screen === 'assignments') body = placeholder('Asignaciones', 'Gestión de asignaciones de usuarios y clubes.');`,
-  `  else if (screen === 'history') body = historyScreen;\n  else if (screen === 'league') body = leagueScreen;\n  else if (screen === 'admin') body = adminMenu;\n  else if (screen === 'adminTools') body = adminToolsScreen;\n  else if (screen === 'appearance') body = <VisualThemeEditor />;\n  else if (screen === 'adminMarket') body = adminMarketScreen;\n  else if (screen === 'adminRosters') body = adminRostersScreen;\n  else if (screen === 'adminEconomy') body = adminEconomyScreen;\n  else if (screen === 'adminManagement') body = adminManagementScreen;\n  else if (screen === 'assignments') body = assignmentsScreen;`,
+  `  else if (screen === 'history') body = placeholder('Historial', 'Movimientos y operaciones cerradas del mercado.');\n  else if (screen === 'league') body = placeholder('Liga', 'Tabla, goleadores y estado de la competencia.');\n  else if (screen === 'admin') body = adminMenu;\n  else if (screen === 'adminTools') body = placeholder('Administración', 'Herramientas de gestión exclusivas para Staff.');\n  else if (screen === 'assignments') body = placeholder('Asignaciones', 'Gestión de asignaciones de usuarios y clubes.');`,
+  `  else if (screen === 'history') body = historyScreen;\n  else if (screen === 'league') body = leagueScreen;\n  else if (screen === 'admin') body = adminMenu;\n  else if (screen === 'adminTools') body = adminToolsScreen;\n  else if (screen === 'adminMarket') body = adminMarketScreen;\n  else if (screen === 'adminRosters') body = adminRostersScreen;\n  else if (screen === 'adminEconomy') body = adminEconomyScreen;\n  else if (screen === 'adminManagement') body = adminManagementScreen;\n  else if (screen === 'assignments') body = assignmentsScreen;`,
   'el despacho de Liga/Historial/Administración',
 );
 
