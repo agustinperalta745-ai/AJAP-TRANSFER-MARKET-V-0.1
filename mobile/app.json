@@ -2,7 +2,7 @@
   "expo": {
     "name": "AJPA UI Lab",
     "slug": "ajpa-ui-lab",
-    "version": "0.1.0",
+    "version": "0.1.0-preview",
     "runtimeVersion": "1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
