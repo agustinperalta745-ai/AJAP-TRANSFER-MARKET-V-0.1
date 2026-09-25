@@ -62,7 +62,7 @@ jobs:
 
       - name: Prepare embedded HQ club badges
         run: |
-          node scripts/apply-monaco-badge-test.mjs
+          node scripts/prepare-ui-lab-badges.mjs
           node scripts/apply-all-hq-team-badges.mjs
 
       - name: TypeScript check
