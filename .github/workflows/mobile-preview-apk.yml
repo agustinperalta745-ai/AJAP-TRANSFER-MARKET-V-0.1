@@ -65,11 +65,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.2.2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.3
-          path: mobile/AJPA-UI-Lab-v0.3.apk
+          name: AJPA-UI-Lab-v0.3.2
+          path: mobile/AJPA-UI-Lab-v0.3.2.2.apk
           if-no-files-found: error
