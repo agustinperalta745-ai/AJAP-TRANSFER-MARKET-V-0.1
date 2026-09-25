@@ -43,6 +43,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Prepare embedded HQ club badges
+        run: |
+          node scripts/prepare-ui-lab-badges.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+
       - name: Prepare neutral AJPA hero
         run: node scripts/prepare-ui-lab-hero.mjs
 
