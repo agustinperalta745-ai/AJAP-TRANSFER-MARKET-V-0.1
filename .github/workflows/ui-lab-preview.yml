@@ -1,0 +1,81 @@
+name: AJPA UI Lab Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ajpa-ui-lab
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/ui-lab-preview.yml'
+
+jobs:
+  build-ui-lab:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout UI Lab
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare AJPA launcher icon
+        run: |
+          mkdir -p assets
+          cat \
+            icon_chunks/00.txt \
+            icon_chunks/01.txt \
+            icon_chunks/02.txt \
+            icon_chunks/03a.txt \
+            icon_chunks/03b.txt \
+            icon_chunks/03c.txt \
+            icon_chunks/03d.txt \
+            icon_chunks/03e.txt \
+            | tr -d '\n\r' \
+            | base64 --decode > assets/ajpa-app-icon.png
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Build UI Lab APK
+        run: ./gradlew assembleRelease
+        working-directory: mobile/android
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+
+      - name: Prepare APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v1.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AJPA-UI-Lab-v1
+          path: mobile/AJPA-UI-Lab-v1.apk
+          if-no-files-found: error
