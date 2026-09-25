@@ -9,7 +9,7 @@
     "icon": "./assets/ajpa-app-icon.png",
     "updates": {
       "enabled": true,
-      "url": "https://ajap-transfer-market-v-01-production.up.railway.app/api/v1/ota/manifest",
+      "url": "https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run/api/v1/ota/manifest",
       "checkAutomatically": "NEVER",
       "fallbackToCacheTimeout": 0
     },
