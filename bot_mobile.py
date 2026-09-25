@@ -100,9 +100,13 @@ migration_import_patch.maybe_import_migration_data()
 mobile_transport_patch.apply_mobile_transport_patch()
 start_mobile_read_api()
 
-if (os.getenv("AJPA_MIGRATION_TARGET", "").strip().lower() in {"1", "true", "yes", "on"}):
+_migration_target = os.getenv("AJPA_MIGRATION_TARGET", "").strip().lower() in {"1", "true", "yes", "on"}
+_cutover_freeze = os.getenv("AJPA_CUTOVER_FREEZE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+if _migration_target or _cutover_freeze:
     import time
-    print("AJPA migration target mode enabled: HTTP API alive, Discord disabled")
+    mode = "migration target" if _migration_target else "cutover freeze"
+    print(f"AJPA {mode} mode enabled: HTTP API alive, Discord disabled")
     while True:
         time.sleep(3600)
 
