@@ -20,9 +20,21 @@ for (const [name, base64] of Object.entries(icons)) {
 }
 console.log('UI Lab: Font Awesome icon assets prepared.');
 
-const brandingSource = fs.readFileSync('src/branding.ts', 'utf8');
-const logoMatch = brandingSource.match(/data:image\/jpeg;base64,([^']+)/);
-if (!logoMatch?.[1]) throw new Error('UI Lab: no pude reconstruir el escudo oficial AJPA');
-fs.writeFileSync('assets/ajpa-league-logo.jpg', Buffer.from(logoMatch[1], 'base64'));
-console.log('UI Lab: escudo oficial AJPA preparado como asset local.');
+const logoParts = [
+  'icon_chunks/00.txt',
+  'icon_chunks/01.txt',
+  'icon_chunks/02.txt',
+  'icon_chunks/03a.txt',
+  'icon_chunks/03b.txt',
+  'icon_chunks/03c.txt',
+  'icon_chunks/03d.txt',
+  'icon_chunks/03e.txt',
+];
+const logoBase64 = logoParts.map(name => fs.readFileSync(name, 'utf8').trim()).join('').replace(/\s+/g, '');
+const logoBytes = Buffer.from(logoBase64, 'base64');
+if (logoBytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+  throw new Error('UI Lab: escudo AJPA reconstruido no es un PNG válido');
+}
+fs.writeFileSync('assets/ajpa-league-logo.png', logoBytes);
+console.log('UI Lab: escudo oficial AJPA preparado como PNG local.');
 
