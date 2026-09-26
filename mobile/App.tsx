@@ -260,7 +260,7 @@ export default function App() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={P.blue} colors={[P.blue]} />}
       >
         <View style={s.header}>
-          <Image source={require('./assets/ajpa-league-logo.jpg')} style={s.brandLogo} resizeMode="contain" />
+          <Image source={require('./assets/ajpa-league-logo.png')} style={s.brandLogo} resizeMode="contain" />
           <View style={s.brandCopy}>
             <Text style={s.brand}>AJPA</Text>
             <Text style={s.brandSub}>ASOCIACIÓN DE JUGADORES DE PES ARGENTINA</Text>
