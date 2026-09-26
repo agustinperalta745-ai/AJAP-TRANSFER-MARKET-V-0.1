@@ -13,10 +13,19 @@ import {
 } from 'react-native';
 
 import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
+import { AJPA_LOGO_DATA_URI } from './src/branding';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
 type Scorer = { player: string; team: string; goals: number };
+type SeasonCountdown = {
+  configured?: boolean;
+  deadline_utc?: number | null;
+  deadline_local?: string | null;
+  date?: string;
+  time?: string;
+  closed?: boolean;
+};
 type Snapshot = {
   status?: { market_open?: boolean; season?: { name?: string } | null };
   clubs?: Array<{ name: string }>;
@@ -154,17 +163,22 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [online, setOnline] = useState(false);
+  const [seasonCountdown, setSeasonCountdown] = useState<SeasonCountdown | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   const load = async (manual = false) => {
     manual ? setRefreshing(true) : setLoading(true);
     try {
-      const [snap, league] = await Promise.all([
+      const [snap, league, countdown] = await Promise.all([
         fetchJson('/api/v1/snapshot'),
         fetchJson('/api/v1/league').catch(() => ({ standings: [], scorers: [] })),
+        fetchJson('/api/v1/season-countdown').catch(() => null),
       ]);
       setSnapshot(snap as Snapshot);
       setStandings(Array.isArray(league?.standings) ? league.standings.slice(0, 5) : []);
       setScorers(Array.isArray(league?.scorers) ? [...league.scorers].sort((a: Scorer, b: Scorer) => b.goals - a.goals || a.player.localeCompare(b.player)).slice(0, 5) : []);
+      setSeasonCountdown(countdown as SeasonCountdown | null);
+      setNow(Date.now());
       setOnline(true);
     } catch {
       setOnline(false);
@@ -175,9 +189,32 @@ export default function App() {
   };
 
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const season = snapshot?.status?.season?.name || 'TEMPORADA 2';
   const marketOpen = Boolean(snapshot?.status?.market_open);
+  const countdownText = useMemo(() => {
+    if (!seasonCountdown?.configured || !seasonCountdown.deadline_utc) return null;
+    const remaining = Math.max(0, Math.ceil((seasonCountdown.deadline_utc * 1000 - now) / 1000));
+    const dateLabel = [seasonCountdown.date, seasonCountdown.time].filter(Boolean).join(' ');
+    if (remaining <= 0) return dateLabel ? `Finalizó · ${dateLabel}` : 'Temporada finalizada';
+    const days = Math.floor(remaining / 86400);
+    const hours = Math.floor((remaining % 86400) / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    const left = days > 0 ? `${days}d ${hours}h ${String(minutes).padStart(2, '0')}m` : `${hours}h ${String(minutes).padStart(2, '0')}m`;
+    return dateLabel ? `${left} · ${dateLabel}` : left;
+  }, [seasonCountdown, now]);
+
+  const demoClub = 'Olympique Marseille';
+  const demoClubDisplay = 'Olympique de Marsella';
+  const demoClubRank = useMemo(() => {
+    const index = standings.findIndex(row => normalize(row.team) === normalize(demoClub));
+    return index >= 0 ? index + 1 : null;
+  }, [standings]);
+  const demoClubBadge = badgeFor(demoClub);
 
   const top = useMemo(
     () => standings.length ? standings : [
@@ -224,7 +261,7 @@ export default function App() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={P.blue} colors={[P.blue]} />}
       >
         <View style={s.header}>
-          <View style={s.brandMark}><Text style={s.brandMarkText}>AJ</Text></View>
+          <Image source={{ uri: AJPA_LOGO_DATA_URI }} style={s.brandLogo} resizeMode="cover" />
           <View style={s.brandCopy}>
             <Text style={s.brand}>AJPA</Text>
             <Text style={s.brandSub}>ASOCIACIÓN DE JUGADORES DE PES ARGENTINA</Text>
@@ -252,15 +289,16 @@ export default function App() {
             <Text style={s.heroTitle}>La pasión{'\n'}sigue en <Text style={s.heroBlue}>AJPA</Text></Text>
 
             <View style={s.heroMetaRow}>
-              <View style={s.heroMeta}>
+              <View style={[s.heroMeta, s.heroMetaSeason]}>
                 <AjpaIcon name="season" size={21} color={P.white} />
                 <View>
                   <Text style={s.metaSmall}>Temporada oficial</Text>
                   <Text style={s.metaStrong}>En curso</Text>
+                  {countdownText ? <Text numberOfLines={1} style={s.metaTimer}>{countdownText}</Text> : null}
                 </View>
               </View>
               <View style={s.metaDivider} />
-              <View style={s.heroMeta}>
+              <View style={[s.heroMeta, s.heroMetaMarket]}>
                 <AjpaIcon name={marketOpen ? 'market' : 'closed'} size={21} color={marketOpen ? P.green : P.red} />
                 <View>
                   <Text style={s.metaSmall}>Mercado</Text>
@@ -270,6 +308,27 @@ export default function App() {
             </View>
           </View>
         </ImageBackground>
+
+        <View style={s.clubIdentityCard}>
+          {demoClubBadge ? (
+            <Image source={demoClubBadge} style={s.clubIdentityBadge} resizeMode="contain" />
+          ) : (
+            <View style={s.clubIdentityBadgeFallback}><Text style={s.clubIdentityBadgeLetter}>O</Text></View>
+          )}
+          <View style={s.clubIdentityCopy}>
+            <Text style={s.clubIdentityEyebrow}>TU CLUB</Text>
+            <Text numberOfLines={1} style={s.clubIdentityName}>{demoClubDisplay}</Text>
+            <View style={s.clubIdentityMetaRow}>
+              <Text numberOfLines={1} style={s.clubIdentityManager}>DT: ElLokoSantooss</Text>
+              <View style={s.linkedPill}><View style={s.linkedDot} /><Text style={s.linkedText}>Vinculado</Text></View>
+            </View>
+          </View>
+          <View style={s.clubIdentityDivider} />
+          <View style={s.clubIdentityPosition}>
+            <Text style={s.clubIdentityPosLabel}>Pos</Text>
+            <Text style={s.clubIdentityPosValue}>{demoClubRank ?? '—'}</Text>
+          </View>
+        </View>
 
         <View style={s.menuGrid}>
           {MENU.map((item, index) => (
@@ -441,11 +500,10 @@ export default function App() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: P.bg },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 14, paddingTop: 7, paddingBottom: 86 },
+  content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 86 },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  brandMark: { width: 48, height: 48, borderRadius: 16, borderWidth: 1.25, borderColor: P.blue, backgroundColor: '#0A1B29', alignItems: 'center', justifyContent: 'center' },
-  brandMarkText: { color: P.white, fontSize: 18, fontWeight: '800', letterSpacing: 0.8 },
+  brandLogo: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: '#2D6A8E', backgroundColor: '#02070B' },
   brandCopy: { flex: 1, marginLeft: 10 },
   brand: { color: P.white, fontSize: 28, lineHeight: 30, fontWeight: '800', letterSpacing: 1 },
   brandSub: { color: P.blue2, fontSize: 7.1, fontWeight: '700', letterSpacing: 1.55, marginTop: 2 },
@@ -464,10 +522,30 @@ const s = StyleSheet.create({
   heroTitle: { color: P.white, fontSize: 27, lineHeight: 29, fontWeight: '800', letterSpacing: -0.35 },
   heroBlue: { color: P.blue },
   heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  heroMeta: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-    metaSmall: { color: '#C0CED8', fontSize: 8.5, marginLeft: 7 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center' },
+  heroMetaSeason: { width: 154 },
+  heroMetaMarket: { width: 112 },
+  metaSmall: { color: '#C0CED8', fontSize: 8.5, marginLeft: 7 },
   metaStrong: { color: P.white, fontSize: 11.5, fontWeight: '800', marginTop: 1, marginLeft: 7 },
-  metaDivider: { width: 1, height: 29, backgroundColor: 'rgba(255,255,255,0.22)', marginHorizontal: 12 },
+  metaTimer: { color: '#93A9B8', fontSize: 6.9, fontWeight: '700', marginTop: 2, marginLeft: 7, maxWidth: 125 },
+  metaDivider: { width: 1, height: 35, backgroundColor: 'rgba(255,255,255,0.82)', marginHorizontal: 10 },
+
+  clubIdentityCard: { minHeight: 76, marginTop: 9, borderRadius: 16, borderWidth: 1, borderColor: '#23618A', backgroundColor: '#0A2233', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9 },
+  clubIdentityBadge: { width: 52, height: 52, marginRight: 10 },
+  clubIdentityBadgeFallback: { width: 52, height: 52, borderRadius: 16, marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#12354B' },
+  clubIdentityBadgeLetter: { color: P.blue2, fontSize: 22, fontWeight: '900' },
+  clubIdentityCopy: { flex: 1, minWidth: 0 },
+  clubIdentityEyebrow: { color: P.blue2, fontSize: 7.8, fontWeight: '900', letterSpacing: 1.35 },
+  clubIdentityName: { color: P.white, fontSize: 14.5, fontWeight: '900', marginTop: 2 },
+  clubIdentityMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  clubIdentityManager: { color: P.muted, fontSize: 8.5, marginRight: 8, maxWidth: 122 },
+  linkedPill: { height: 20, paddingHorizontal: 7, borderRadius: 10, borderWidth: 1, borderColor: '#15784B', backgroundColor: 'rgba(8,76,46,0.34)', flexDirection: 'row', alignItems: 'center' },
+  linkedDot: { width: 5, height: 5, borderRadius: 5, backgroundColor: P.green, marginRight: 4 },
+  linkedText: { color: P.green, fontSize: 7.2, fontWeight: '800' },
+  clubIdentityDivider: { width: 1, height: 46, marginHorizontal: 11, backgroundColor: '#2B5874' },
+  clubIdentityPosition: { minWidth: 48, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end' },
+  clubIdentityPosLabel: { color: P.blue2, fontSize: 9.5, fontWeight: '800', marginRight: 5 },
+  clubIdentityPosValue: { color: P.white, fontSize: 20, fontWeight: '900' },
 
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 9 },
   menuCard: { width: '48.5%', minHeight: 121, borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: P.panel, padding: 12, marginBottom: 8 },
