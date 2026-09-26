@@ -12,22 +12,29 @@ if (!/^export type Screen =/m.test(ui)) {
   ui = ui.replace(/^type Screen =/m, 'export type Screen =');
 }
 
-const signatureRe = /export default function BotParityAppV2\([^)]*\)\s*\{/;
-if (!signatureRe.test(ui)) throw new Error('AJPA redesign shell: no encontré firma del componente');
-ui = ui.replace(
-  signatureRe,
-  `export type BotParityAppV2Props = {
+const organizedSignature = `export default function BotParityAppV2({ onOpenMatchSearch }: { onOpenMatchSearch?: () => void } = {}) {`;
+const plainSignature = `export default function BotParityAppV2() {`;
+const replacementSignature = `export type BotParityAppV2Props = {
   initialScreen?: Screen;
   embedded?: boolean;
   onExit?: () => void;
+  onOpenMatchSearch?: () => void;
 };
 
 export default function BotParityAppV2({
   initialScreen = 'home',
   embedded = false,
   onExit,
-}: BotParityAppV2Props) {`,
-);
+  onOpenMatchSearch,
+}: BotParityAppV2Props = {}) {`;
+
+if (ui.includes(organizedSignature)) {
+  ui = ui.replace(organizedSignature, replacementSignature);
+} else if (ui.includes(plainSignature)) {
+  ui = ui.replace(plainSignature, replacementSignature);
+} else {
+  throw new Error('AJPA redesign shell: no encontré firma del componente');
+}
 
 mustReplace(
   "  const [screen, setScreen] = useState<Screen>('home');",
