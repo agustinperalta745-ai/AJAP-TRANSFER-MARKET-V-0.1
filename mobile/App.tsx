@@ -12,9 +12,14 @@ import {
   View,
 } from 'react-native';
 
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
+import BotParityAppV2, { Screen as FunctionalScreen } from './src/BotParityAppV2';
+import CupCenterFab from './src/CupCenterFab';
+import SeasonHistoryFab from './src/SeasonHistoryFab';
+import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
 
-type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Más';
+type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 'Staff' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
 type Scorer = { player: string; team: string; goals: number };
 type SeasonCountdown = {
@@ -127,8 +132,8 @@ const MENU: Array<{ key: Section; icon: AjpaIconName; title: string; subtitle: s
   { key: 'Mi Club', icon: 'club', title: 'Mi Club', subtitle: 'Plantel, tácticas\ny gestión', tone: '#198F69' },
   { key: 'Liga', icon: 'league', title: 'Liga', subtitle: 'Tabla, partidos\ny estadísticas', tone: '#355FB8' },
   { key: 'Copas', icon: 'cups', title: 'Copas', subtitle: 'Torneos nacionales\ne internacionales', tone: '#98711E' },
-  { key: 'Más', icon: 'profile', title: 'Perfil', subtitle: 'Historial, logros\ny rendimiento', tone: '#6046A2' },
-  { key: 'Más', icon: 'admin', title: 'Staff / Admin', subtitle: 'Gestión de liga\ny herramientas', tone: '#526577' },
+  { key: 'Perfil', icon: 'profile', title: 'Perfil', subtitle: 'Historial, logros\ny rendimiento', tone: '#6046A2' },
+  { key: 'Staff', icon: 'admin', title: 'Staff / Admin', subtitle: 'Gestión de liga\ny herramientas', tone: '#526577' },
 ];
 
 const BOTTOM: Array<{ key: Section; icon: AjpaIconName; label: string }> = [
@@ -226,6 +231,19 @@ export default function App() {
     [standings],
   );
 
+  const functionalScreen: FunctionalScreen | null = selected === 'Mercado' ? 'market'
+    : selected === 'Mi Club' ? 'club'
+      : selected === 'Liga' ? 'league'
+        : selected === 'Copas' ? 'titles'
+          : selected === 'Perfil' || selected === 'Más' ? 'profile'
+            : selected === 'Staff' ? 'admin'
+              : null;
+
+  const functionalTitle = selected === 'Mi Club' ? 'Mi Club'
+    : selected === 'Staff' ? 'Staff / Admin'
+      : selected === 'Más' ? 'Perfil'
+        : selected;
+
   const newsItems = useMemo(() => [
     {
       badge: 'AJPA',
@@ -249,10 +267,26 @@ export default function App() {
     },
   ], [marketOpen]);
 
-  return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={P.bg} translucent={false} />
-
+  const mainContent = functionalScreen ? (
+    <View style={s.functionalRoot}>
+      <View style={s.functionalHeader}>
+        <Pressable onPress={() => setSelected('Inicio')} style={({ pressed }) => [s.functionalBack, pressed && s.pressed]}>
+          <Text style={s.functionalBackText}>‹</Text>
+        </Pressable>
+        <View style={s.functionalHeaderCopy}>
+          <Text style={s.functionalEyebrow}>AJPA</Text>
+          <Text style={s.functionalTitle}>{functionalTitle}</Text>
+        </View>
+        <Image source={require('./assets/ajpa-league-logo.png')} style={s.functionalLogo} resizeMode="contain" />
+      </View>
+      <View style={s.functionalBody}>
+        <BotParityAppV2 key={selected} initialScreen={functionalScreen} embedded />
+        {selected === 'Copas' ? <CupCenterFab /> : null}
+        {selected === 'Liga' ? <SeasonHistoryFab /> : null}
+        {selected === 'Staff' ? <CompetitionCycleAdminFab /> : null}
+      </View>
+    </View>
+  ) : (
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.content}
@@ -477,27 +511,49 @@ export default function App() {
 
         <View style={s.previewNote}>
           <Text style={s.previewNoteTitle}>UI LAB · BASE ESTABLE</Text>
-          <Text style={s.previewNoteText}>Diseño completo reconstruido sobre la APK que sí abrió. La capa nativa segura se mantiene sin OTA, Secure Store, Safe Area ni New Architecture.</Text>
+          <Text style={s.previewNoteText}>Diseño visual renovado sobre la base estable. Las funciones originales se integran dentro de la nueva navegación de AJPA.</Text>
         </View>
       </ScrollView>
+  );
+
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <SafeAreaView style={s.safeRoot} edges={['top', 'bottom', 'left', 'right']}>
+        <StatusBar barStyle="light-content" backgroundColor={P.bg} translucent={false} />
+        <View style={s.root}>
+          {mainContent}
 
       <View style={s.bottomNav}>
         {BOTTOM.map(item => {
-          const active = selected === item.key;
+          const active = item.key === 'Más'
+            ? selected === 'Más' || selected === 'Perfil' || selected === 'Staff'
+            : selected === item.key;
           return (
-            <Pressable key={item.label} onPress={() => setSelected(item.key)} style={s.bottomItem}>
+            <Pressable key={item.label} onPress={() => setSelected(item.key === 'Más' ? 'Perfil' : item.key)} style={s.bottomItem}>
               <AjpaIcon name={item.icon} size={19} color={active ? P.blue : '#788D9C'} />
               <Text style={[s.bottomLabel, active && s.bottomActive]}>{item.label}</Text>
             </Pressable>
           );
         })}
       </View>
-    </View>
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
 const s = StyleSheet.create({
+  safeRoot: { flex: 1, backgroundColor: P.bg },
   root: { flex: 1, backgroundColor: P.bg },
+  functionalRoot: { flex: 1, backgroundColor: P.bg },
+  functionalHeader: { height: 62, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: P.border, backgroundColor: '#081927' },
+  functionalBack: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#24465F', backgroundColor: '#0C2232' },
+  functionalBackText: { color: P.blue2, fontSize: 28, lineHeight: 30, fontWeight: '700', marginTop: -2 },
+  functionalHeaderCopy: { flex: 1, minWidth: 0, marginLeft: 10 },
+  functionalEyebrow: { color: P.blue2, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.4 },
+  functionalTitle: { color: P.white, fontSize: 17, fontWeight: '900', marginTop: 1 },
+  functionalLogo: { width: 38, height: 38, borderRadius: 19 },
+  functionalBody: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 86 },
 
