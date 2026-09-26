@@ -18,6 +18,8 @@ import BotParityAppV2, { Screen as FunctionalScreen } from './src/BotParityAppV2
 import CupCenterFab from './src/CupCenterFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
+import { MobileProfile, fetchMe, setSessionToken } from './src/api';
+import { loadStoredSession } from './src/session';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 'Staff' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
@@ -168,6 +170,7 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [online, setOnline] = useState(false);
   const [seasonCountdown, setSeasonCountdown] = useState<SeasonCountdown | null>(null);
+  const [profile, setProfile] = useState<MobileProfile | null>(null);
   const [now, setNow] = useState(Date.now());
 
   const load = async (manual = false) => {
@@ -183,6 +186,13 @@ export default function App() {
       setScorers(Array.isArray(league?.scorers) ? [...league.scorers].sort((a: Scorer, b: Scorer) => b.goals - a.goals || a.player.localeCompare(b.player)).slice(0, 5) : []);
       setSeasonCountdown(countdown as SeasonCountdown | null);
       setNow(Date.now());
+      try {
+        const token = await loadStoredSession();
+        setSessionToken(token);
+        setProfile(token ? await fetchMe() : null);
+      } catch {
+        setProfile(null);
+      }
       setOnline(true);
     } catch {
       setOnline(false);
@@ -212,13 +222,15 @@ export default function App() {
     return dateLabel ? `${left} · ${dateLabel}` : left;
   }, [seasonCountdown, now]);
 
-  const demoClub = 'Olympique Marseille';
-  const demoClubDisplay = 'Olympique de Marsella';
-  const demoClubRank = useMemo(() => {
-    const index = standings.findIndex(row => normalize(row.team) === normalize(demoClub));
+  const myClub = profile?.club || '';
+  const myClubDisplay = myClub || (profile?.is_staff ? 'Staff / sin club' : 'Club sin vincular');
+  const myManager = profile?.user?.global_name || profile?.user?.username || 'DT sin vincular';
+  const myClubRank = useMemo(() => {
+    if (!myClub) return null;
+    const index = standings.findIndex(row => normalize(row.team) === normalize(myClub));
     return index >= 0 ? index + 1 : null;
-  }, [standings]);
-  const demoClubBadge = badgeFor(demoClub);
+  }, [standings, myClub]);
+  const myClubBadge = myClub ? badgeFor(myClub) : null;
 
   const top = useMemo(
     () => standings.length ? standings.slice(0, 5) : [
@@ -333,23 +345,23 @@ export default function App() {
         </ImageBackground>
 
         <View style={s.clubIdentityCard}>
-          {demoClubBadge ? (
-            <Image source={demoClubBadge} style={s.clubIdentityBadge} resizeMode="contain" />
+          {myClubBadge ? (
+            <Image source={myClubBadge} style={s.clubIdentityBadge} resizeMode="contain" />
           ) : (
-            <View style={s.clubIdentityBadgeFallback}><Text style={s.clubIdentityBadgeLetter}>O</Text></View>
+            <View style={s.clubIdentityBadgeFallback}><AjpaIcon name="club" size={24} color={P.blue2} /></View>
           )}
           <View style={s.clubIdentityCopy}>
             <Text style={s.clubIdentityEyebrow}>TU CLUB</Text>
-            <Text numberOfLines={1} style={s.clubIdentityName}>{demoClubDisplay}</Text>
+            <Text numberOfLines={1} style={s.clubIdentityName}>{myClubDisplay}</Text>
             <View style={s.clubIdentityMetaRow}>
-              <Text numberOfLines={1} style={s.clubIdentityManager}>DT: ElLokoSantooss</Text>
-              <View style={s.linkedPill}><View style={s.linkedDot} /><Text style={s.linkedText}>Vinculado</Text></View>
+              <Text numberOfLines={1} style={s.clubIdentityManager}>DT: {myManager}</Text>
+              {myClub ? <View style={s.linkedPill}><View style={s.linkedDot} /><Text style={s.linkedText}>Vinculado</Text></View> : null}
             </View>
           </View>
           <View style={s.clubIdentityDivider} />
           <View style={s.clubIdentityPosition}>
             <Text style={s.clubIdentityPosLabel}>Pos</Text>
-            <Text style={s.clubIdentityPosValue}>{demoClubRank ?? '—'}</Text>
+            <Text style={s.clubIdentityPosValue}>{myClubRank ?? '—'}</Text>
           </View>
         </View>
 
