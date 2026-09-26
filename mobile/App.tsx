@@ -269,18 +269,8 @@ export default function App() {
 
   const mainContent = functionalScreen ? (
     <View style={s.functionalRoot}>
-      <View style={s.functionalHeader}>
-        <Pressable onPress={() => setSelected('Inicio')} style={({ pressed }) => [s.functionalBack, pressed && s.pressed]}>
-          <Text style={s.functionalBackText}>‹</Text>
-        </Pressable>
-        <View style={s.functionalHeaderCopy}>
-          <Text style={s.functionalEyebrow}>AJPA</Text>
-          <Text style={s.functionalTitle}>{functionalTitle}</Text>
-        </View>
-        <Image source={require('./assets/ajpa-league-logo.png')} style={s.functionalLogo} resizeMode="contain" />
-      </View>
       <View style={s.functionalBody}>
-        <BotParityAppV2 key={selected} initialScreen={functionalScreen} embedded />
+        <BotParityAppV2 key={selected} initialScreen={functionalScreen} embedded onExit={() => setSelected('Inicio')} />
         {selected === 'Copas' ? <CupCenterFab /> : null}
         {selected === 'Liga' ? <SeasonHistoryFab /> : null}
         {selected === 'Staff' ? <CompetitionCycleAdminFab /> : null}
