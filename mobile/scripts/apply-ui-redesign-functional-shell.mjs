@@ -42,6 +42,20 @@ mustReplace(
   'pantalla inicial',
 );
 
+if (ui.includes("  const [loading, setLoading] = useState(true);")) {
+  ui = ui.replace(
+    "  const [loading, setLoading] = useState(true);",
+    "  const [loading, setLoading] = useState(!embedded);",
+  );
+}
+
+if (ui.includes("      manual ? setRefreshing(true) : setLoading(true);")) {
+  ui = ui.replace(
+    "      manual ? setRefreshing(true) : setLoading(true);",
+    "      if (manual) setRefreshing(true); else if (!embedded) setLoading(true);",
+  );
+}
+
 if (ui.includes('<SeasonCountdownBanner />')) {
   ui = ui.replace('<SeasonCountdownBanner />', '{embedded ? null : <SeasonCountdownBanner />}');
 }
