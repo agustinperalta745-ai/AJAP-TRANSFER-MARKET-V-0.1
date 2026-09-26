@@ -46,6 +46,13 @@ if (ui.includes('<SeasonCountdownBanner />')) {
   ui = ui.replace('<SeasonCountdownBanner />', '{embedded ? null : <SeasonCountdownBanner />}');
 }
 
+if (ui.includes("require('../assets/generated/xi-ideal-splash.webp')")) {
+  ui = ui.replace(
+    "require('../assets/generated/xi-ideal-splash.webp')",
+    "require('../assets/ajpa-hero-neutral.jpg')",
+  );
+}
+
 const emptyBack = `      if (previous.length === 0) {
         setScreen('home');
         return [];
