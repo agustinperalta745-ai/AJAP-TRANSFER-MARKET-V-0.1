@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 
 import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
-import { AJPA_LOGO_DATA_URI } from './src/branding';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
@@ -175,7 +174,7 @@ export default function App() {
         fetchJson('/api/v1/season-countdown').catch(() => null),
       ]);
       setSnapshot(snap as Snapshot);
-      setStandings(Array.isArray(league?.standings) ? league.standings.slice(0, 5) : []);
+      setStandings(Array.isArray(league?.standings) ? league.standings : []);
       setScorers(Array.isArray(league?.scorers) ? [...league.scorers].sort((a: Scorer, b: Scorer) => b.goals - a.goals || a.player.localeCompare(b.player)).slice(0, 5) : []);
       setSeasonCountdown(countdown as SeasonCountdown | null);
       setNow(Date.now());
@@ -217,7 +216,7 @@ export default function App() {
   const demoClubBadge = badgeFor(demoClub);
 
   const top = useMemo(
-    () => standings.length ? standings : [
+    () => standings.length ? standings.slice(0, 5) : [
       { team: 'Olympique Marseille', pj: 0, pts: 0 },
       { team: 'Fulham', pj: 0, pts: 0 },
       { team: 'Ajax', pj: 0, pts: 0 },
@@ -261,7 +260,7 @@ export default function App() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={P.blue} colors={[P.blue]} />}
       >
         <View style={s.header}>
-          <Image source={{ uri: AJPA_LOGO_DATA_URI }} style={s.brandLogo} resizeMode="cover" />
+          <Image source={require('./assets/ajpa-app-icon.png')} style={s.brandLogo} resizeMode="contain" />
           <View style={s.brandCopy}>
             <Text style={s.brand}>AJPA</Text>
             <Text style={s.brandSub}>ASOCIACIÓN DE JUGADORES DE PES ARGENTINA</Text>
@@ -384,7 +383,7 @@ export default function App() {
 
           <View
             style={s.tableCard}
-            onLayout={(event) => setStatsWidth(Math.round(event.nativeEvent.layout.width - 22))}
+            onLayout={(event) => setStatsWidth(Math.round(event.nativeEvent.layout.width - 20))}
           >
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Tabla</Text>
@@ -401,23 +400,23 @@ export default function App() {
             >
               <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
                 <View style={s.tableHead}>
-                  <Text style={[s.th, { width: 18 }]}>#</Text>
-                  <Text style={[s.th, { flex: 1 }]}>Club</Text>
-                  <Text style={[s.th, { width: 22, textAlign: 'right' }]}>PJ</Text>
-                  <Text style={[s.th, { width: 30, textAlign: 'right' }]}>PTS</Text>
+                  <Text style={[s.th, s.rankCol]}>#</Text>
+                  <Text style={[s.th, s.clubHeadCol]}>Club</Text>
+                  <Text style={[s.th, s.pjCol]}>PJ</Text>
+                  <Text style={[s.th, s.ptsCol]}>PTS</Text>
                 </View>
 
                 {top.map((row, index) => {
                   const source = badgeFor(row.team);
                   return (
                     <View key={row.team + index} style={s.tableRow}>
-                      <Text style={[s.rank, { width: 18 }]}>{index + 1}</Text>
+                      <Text style={[s.rank, s.rankCol]}>{index + 1}</Text>
                       <View style={s.clubCell}>
                         {source ? <Image source={source} style={s.badge} resizeMode="contain" /> : <View style={s.badgeFallback}><Text style={s.badgeFallbackText}>{row.team.slice(0, 1)}</Text></View>}
                         <Text numberOfLines={1} style={s.clubName}>{row.team}</Text>
                       </View>
-                      <Text style={s.stat}>{row.pj}</Text>
-                      <Text style={[s.stat, s.points]}>{row.pts}</Text>
+                      <Text style={[s.stat, s.pjCol]}>{row.pj}</Text>
+                      <Text style={[s.stat, s.points, s.ptsCol]}>{row.pts}</Text>
                     </View>
                   );
                 })}
@@ -430,16 +429,16 @@ export default function App() {
               <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
                 <Text style={s.scorersTitle}>Top 5 goleadores</Text>
                 <View style={s.tableHead}>
-                  <Text style={[s.th, { width: 18 }]}>#</Text>
-                  <Text style={[s.th, { flex: 1 }]}>Jugador</Text>
-                  <Text style={[s.th, { width: 28, textAlign: 'right' }]}>G</Text>
+                  <Text style={[s.th, s.rankCol]}>#</Text>
+                  <Text style={[s.th, s.clubHeadCol]}>Jugador</Text>
+                  <Text style={[s.th, s.goalsCol]}>G</Text>
                 </View>
 
                 {scorers.length > 0 ? scorers.map((row, index) => {
                   const source = badgeFor(row.team);
                   return (
                     <View key={row.player + row.team + index} style={s.scorerRow}>
-                      <Text style={[s.rank, { width: 18 }]}>{index + 1}</Text>
+                      <Text style={[s.rank, s.rankCol]}>{index + 1}</Text>
                       <View style={s.scorerCell}>
                         {source ? <Image source={source} style={s.badge} resizeMode="contain" /> : <View style={s.badgeFallback}><Text style={s.badgeFallbackText}>{row.team.slice(0, 1)}</Text></View>}
                         <View style={s.scorerCopy}>
@@ -447,7 +446,7 @@ export default function App() {
                           <Text numberOfLines={1} style={s.scorerTeam}>{row.team}</Text>
                         </View>
                       </View>
-                      <Text style={s.goals}>{row.goals}</Text>
+                      <Text style={[s.goals, s.goalsCol]}>{row.goals}</Text>
                     </View>
                   );
                 }) : (
@@ -521,14 +520,14 @@ const s = StyleSheet.create({
   heroEyebrow: { color: P.blue2, fontSize: 9, fontWeight: '800', letterSpacing: 1.9, marginBottom: 6 },
   heroTitle: { color: P.white, fontSize: 27, lineHeight: 29, fontWeight: '800', letterSpacing: -0.35 },
   heroBlue: { color: P.blue },
-  heroMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  heroMeta: { flexDirection: 'row', alignItems: 'center' },
-  heroMetaSeason: { width: 154 },
-  heroMetaMarket: { width: 112 },
+  heroMetaRow: { flexDirection: 'row', alignItems: 'stretch', marginTop: 14 },
+  heroMeta: { flex: 1, minHeight: 47, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  heroMetaSeason: { paddingRight: 4 },
+  heroMetaMarket: { paddingLeft: 4 },
   metaSmall: { color: '#C0CED8', fontSize: 8.5, marginLeft: 7 },
   metaStrong: { color: P.white, fontSize: 11.5, fontWeight: '800', marginTop: 1, marginLeft: 7 },
-  metaTimer: { color: '#93A9B8', fontSize: 6.9, fontWeight: '700', marginTop: 2, marginLeft: 7, maxWidth: 125 },
-  metaDivider: { width: 1, height: 35, backgroundColor: 'rgba(255,255,255,0.82)', marginHorizontal: 10 },
+  metaTimer: { color: '#93A9B8', fontSize: 6.9, fontWeight: '700', marginTop: 2, marginLeft: 7, maxWidth: 126 },
+  metaDivider: { width: 1, height: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.82)', marginHorizontal: 7 },
 
   clubIdentityCard: { minHeight: 76, marginTop: 9, borderRadius: 16, borderWidth: 1, borderColor: '#23618A', backgroundColor: '#0A2233', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9 },
   clubIdentityBadge: { width: 52, height: 52, marginRight: 10 },
@@ -543,9 +542,9 @@ const s = StyleSheet.create({
   linkedDot: { width: 5, height: 5, borderRadius: 5, backgroundColor: P.green, marginRight: 4 },
   linkedText: { color: P.green, fontSize: 7.2, fontWeight: '800' },
   clubIdentityDivider: { width: 1, height: 46, marginHorizontal: 11, backgroundColor: '#2B5874' },
-  clubIdentityPosition: { minWidth: 48, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end' },
-  clubIdentityPosLabel: { color: P.blue2, fontSize: 9.5, fontWeight: '800', marginRight: 5 },
-  clubIdentityPosValue: { color: P.white, fontSize: 20, fontWeight: '900' },
+  clubIdentityPosition: { width: 58, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  clubIdentityPosLabel: { color: P.blue2, fontSize: 8.5, fontWeight: '800', lineHeight: 10, marginBottom: 1 },
+  clubIdentityPosValue: { color: P.white, fontSize: 20, lineHeight: 23, fontWeight: '900', textAlign: 'center' },
 
   menuGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 9 },
   menuCard: { width: '48.5%', minHeight: 121, borderRadius: 16, borderWidth: 1, borderColor: P.border, backgroundColor: P.panel, padding: 12, marginBottom: 8 },
@@ -556,8 +555,8 @@ const s = StyleSheet.create({
   menuChevron: { position: 'absolute', right: 11, top: 58, color: P.blue, fontSize: 20, fontWeight: '800' },
 
   dualRow: { flexDirection: 'row', marginTop: 2 },
-  newsCard: { flex: 1, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5, overflow: 'hidden' },
-  tableCard: { flex: 1, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginLeft: 5, overflow: 'hidden' },
+  newsCard: { flex: 0.94, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 11, marginRight: 5, overflow: 'hidden' },
+  tableCard: { flex: 1.06, minHeight: 252, borderRadius: 16, backgroundColor: P.panel, borderWidth: 1, borderColor: P.border, padding: 10, marginLeft: 5, overflow: 'hidden' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   sectionTitle: { color: P.white, fontSize: 12.5, fontWeight: '800' },
   link: { color: P.blue2, fontSize: 8.5, fontWeight: '800' },
@@ -576,24 +575,29 @@ const s = StyleSheet.create({
   carouselDot: { width: 4, height: 4, borderRadius: 4, backgroundColor: '#425B6C' },
   carouselDotActive: { width: 11, backgroundColor: P.blue },
 
-  tableHead: { flexDirection: 'row', paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#1F3B50' },
-  th: { color: '#71899A', fontSize: 7.5, fontWeight: '800' },
+  tableHead: { flexDirection: 'row', alignItems: 'center', paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#1F3B50' },
+  th: { color: '#71899A', fontSize: 7.1, fontWeight: '800', textAlignVertical: 'center' },
+  rankCol: { width: 16, flexShrink: 0, textAlign: 'left' },
+  clubHeadCol: { flex: 1, minWidth: 0 },
+  pjCol: { width: 20, flexShrink: 0, textAlign: 'center' },
+  ptsCol: { width: 26, flexShrink: 0, textAlign: 'center' },
+  goalsCol: { width: 24, flexShrink: 0, textAlign: 'center' },
   tableRow: { flexDirection: 'row', alignItems: 'center', minHeight: 31, borderBottomWidth: 1, borderBottomColor: '#183247' },
-  rank: { color: P.white, fontSize: 9.5, fontWeight: '800' },
-  clubCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  badge: { width: 17, height: 17, marginRight: 5 },
-  badgeFallback: { width: 17, height: 17, borderRadius: 7, backgroundColor: '#173C56', alignItems: 'center', justifyContent: 'center', marginRight: 5 },
-  badgeFallbackText: { color: P.blue2, fontSize: 8, fontWeight: '900' },
-  clubName: { color: '#D8E4EC', fontSize: 8.8, flex: 1 },
-  stat: { color: '#B4C3CE', fontSize: 8.5, width: 22, textAlign: 'right' },
-  points: { color: P.white, fontWeight: '900', width: 30 },
+  rank: { color: P.white, fontSize: 9, fontWeight: '800', textAlignVertical: 'center' },
+  clubCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
+  badge: { width: 16, height: 16, marginRight: 4, flexShrink: 0 },
+  badgeFallback: { width: 16, height: 16, borderRadius: 7, backgroundColor: '#173C56', alignItems: 'center', justifyContent: 'center', marginRight: 4, flexShrink: 0 },
+  badgeFallbackText: { color: P.blue2, fontSize: 7.5, fontWeight: '900' },
+  clubName: { color: '#D8E4EC', fontSize: 8.2, flex: 1, minWidth: 0 },
+  stat: { color: '#B4C3CE', fontSize: 8.2, textAlignVertical: 'center' },
+  points: { color: P.white, fontWeight: '900' },
   scorersTitle: { color: P.white, fontSize: 10.5, fontWeight: '800', marginBottom: 6 },
   scorerRow: { flexDirection: 'row', alignItems: 'center', minHeight: 34, borderBottomWidth: 1, borderBottomColor: '#183247' },
-  scorerCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  scorerCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
   scorerCopy: { flex: 1, minWidth: 0 },
-  scorerName: { color: '#E4EDF3', fontSize: 8.7, fontWeight: '800' },
-  scorerTeam: { color: P.muted, fontSize: 7.2, marginTop: 1 },
-  goals: { color: P.white, fontSize: 10.5, fontWeight: '900', width: 28, textAlign: 'right' },
+  scorerName: { color: '#E4EDF3', fontSize: 8.2, fontWeight: '800' },
+  scorerTeam: { color: P.muted, fontSize: 6.9, marginTop: 1 },
+  goals: { color: P.white, fontSize: 10, fontWeight: '900', textAlignVertical: 'center' },
   emptyScorers: { minHeight: 150, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   emptyScorersText: { color: P.muted, fontSize: 9, lineHeight: 13, textAlign: 'center' },
 
