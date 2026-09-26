@@ -19,3 +19,10 @@ for (const [name, base64] of Object.entries(icons)) {
   fs.writeFileSync(`assets/ui-icons/${name}.png`, Buffer.from(base64, 'base64'));
 }
 console.log('UI Lab: Font Awesome icon assets prepared.');
+
+const brandingSource = fs.readFileSync('src/branding.ts', 'utf8');
+const logoMatch = brandingSource.match(/data:image\/jpeg;base64,([^']+)/);
+if (!logoMatch?.[1]) throw new Error('UI Lab: no pude reconstruir el escudo oficial AJPA');
+fs.writeFileSync('assets/ajpa-league-logo.jpg', Buffer.from(logoMatch[1], 'base64'));
+console.log('UI Lab: escudo oficial AJPA preparado como asset local.');
+
