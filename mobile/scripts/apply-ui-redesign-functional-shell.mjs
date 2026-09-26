@@ -12,8 +12,10 @@ if (!/^export type Screen =/m.test(ui)) {
   ui = ui.replace(/^type Screen =/m, 'export type Screen =');
 }
 
-mustReplace(
-  'export default function BotParityAppV2() {',
+const signatureRe = /export default function BotParityAppV2\([^)]*\)\s*\{/;
+if (!signatureRe.test(ui)) throw new Error('AJPA redesign shell: no encontré firma del componente');
+ui = ui.replace(
+  signatureRe,
   `export type BotParityAppV2Props = {
   initialScreen?: Screen;
   embedded?: boolean;
@@ -25,7 +27,6 @@ export default function BotParityAppV2({
   embedded = false,
   onExit,
 }: BotParityAppV2Props) {`,
-  'firma del componente',
 );
 
 mustReplace(
