@@ -299,14 +299,14 @@ function TrophyCard({
   );
 }
 
-export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void }) {
+export default function TrophyCabinetScreen({ onClose, initialTrophy = 'league' }: { onClose?: () => void; initialTrophy?: TrophyKey }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ArchivedCompetition[]>([]);
   const [leagueChampions, setLeagueChampions] = useState<LeagueChampionHistoryEntry[]>([]);
   const [cups, setCups] = useState<CupsPayload | null>(null);
   const [honours, setHonours] = useState<Awaited<ReturnType<typeof fetchLatestHonours>> | null>(null);
-  const [selected, setSelected] = useState<TrophyKey>('league');
+  const [selected, setSelected] = useState<TrophyKey>(initialTrophy);
   const [rankingMode, setRankingMode] = useState<RankingMode>('clubs');
 
   const load = useCallback(async () => {
