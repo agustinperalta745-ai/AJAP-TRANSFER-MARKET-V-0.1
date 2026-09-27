@@ -138,10 +138,8 @@ def _apply_offer_terms(main_module):
         if getattr(self, "_ajap_is_loan", False):
             player = main_module.jugador_por_nombre(publication["player"])
             maximum = _maximum(player)
-            self.monto.label = "Cargo por temporada (oferta)"
-            self.monto.placeholder = (
-                f"Máximo {_fmt(maximum)} por temporada" if maximum else "Monto por cada temporada"
-            )[:100]
+            self.monto.label = "Precio fijo del préstamo"
+            self.monto.placeholder = f"Único monto permitido: {_fmt(maximum)}"[:100]
 
     async def submit(self, interaction):
         if not getattr(self, "_ajap_is_loan", False):
@@ -193,10 +191,8 @@ def _apply_negotiation(main_module):
             offer = main_module.oferta_por_id(int(offer_id))
             player = main_module.jugador_por_nombre(offer["player"]) if offer else None
             maximum = _maximum(player)
-            self.monto.label = "Cargo por temporada"
-            self.monto.placeholder = (
-                f"Máximo {_fmt(maximum)} por temporada" if maximum else "Monto por cada temporada"
-            )[:100]
+            self.monto.label = "Precio fijo del préstamo"
+            self.monto.placeholder = f"Único monto permitido: {_fmt(maximum)}"[:100]
 
     async def submit(self, interaction):
         if not self.is_loan:
