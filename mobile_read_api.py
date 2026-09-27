@@ -439,6 +439,17 @@ def market_payload(conn: sqlite3.Connection) -> list[dict]:
     for row in rows:
         keys = set(row.keys())
         operation_type = str(row["operation_type"] or "TRANSFERENCIA")
+        operation_key = (
+            operation_type.strip().upper()
+            .replace("Á", "A")
+            .replace("É", "E")
+            .replace("Í", "I")
+            .replace("Ó", "O")
+            .replace("Ú", "U")
+        )
+        is_loan = operation_key in {"PRESTAMO", "CESION"}
+        if is_loan:
+            operation_type = "PRÉSTAMO"
         result.append(
             {
                 "publication_id": int(row["publication_id"]),
@@ -455,7 +466,7 @@ def market_payload(conn: sqlite3.Connection) -> list[dict]:
                 "player": row["player"],
                 "position": row["position"],
                 "club": row["club"],
-                "price": row["price"],
+                "price": "$1.000.000" if is_loan else row["price"],
                 "detail": row["detail"],
                 "operation_type": operation_type,
                 "ovr": (
