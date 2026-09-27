@@ -8,12 +8,12 @@ import TrophyCabinetScreen from './TrophyCabinetFab';
 
 type CompetitionKey = 'champions' | 'europa';
 
-const HERO_BG = require('../assets/cup-menu/hero.jpg');
-const CHAMPIONS_BG = require('../assets/cup-menu/champions.jpg');
-const EUROPA_BG = require('../assets/cup-menu/europa.jpg');
-const RANKING_BG = require('../assets/cup-menu/ranking.jpg');
-const CABINET_BG = require('../assets/cup-menu/cabinet.jpg');
-const HISTORY_BG = require('../assets/cup-menu/history.jpg');
+const HERO_BG = require('../assets/trophies/liga-ajpa-banner.jpg');
+const CHAMPIONS_BG = require('../assets/trophies/champions-ajpa.jpg');
+const EUROPA_BG = require('../assets/trophies/europa-ajpa.jpg');
+const RANKING_BG = require('../assets/trophies/liga-ajpa-banner.jpg');
+const CABINET_BG = require('../assets/trophies/champions-ajpa-banner.jpg');
+const HISTORY_BG = require('../assets/trophies/europa-ajpa-banner.jpg');
 
 function CupGlyph({ dark = false }: { dark?: boolean }) {
   return (
