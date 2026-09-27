@@ -14,9 +14,9 @@ from types import SimpleNamespace
 from discord.ext import tasks
 
 import guild_isolation_patch
-import market_rumor_patch
 import mobile_write_api
 import offer_notifications_patch as offer_notifications
+import publication_announce_patch as publication_announcements
 
 APP = None
 BOT = None
@@ -45,15 +45,42 @@ def _pending_events(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
     ]
 
 
+def _pending_publications(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
+    mobile_write_api.ensure_schema(conn)
+    rows = conn.execute(
+        """
+        SELECT id, publication_id, attempts
+        FROM mobile_publication_discord_outbox
+        WHERE status='PENDING'
+          AND datetime(next_attempt_at) <= datetime('now')
+        ORDER BY id ASC
+        LIMIT ?
+        """,
+        (max(1, min(int(limit), 100)),),
+    ).fetchall()
+    return [
+        {
+            "id": int(row["id"]),
+            "publication_id": int(row["publication_id"]),
+            "attempts": int(row["attempts"] or 0),
+        }
+        for row in rows
+    ]
+
+
 def _mark_processed(
     conn: sqlite3.Connection,
     event_id: int,
     status: str = "SENT",
     error: str | None = None,
+    *,
+    table: str = "mobile_offer_discord_outbox",
 ) -> None:
+    if table not in {"mobile_offer_discord_outbox", "mobile_publication_discord_outbox"}:
+        raise ValueError("invalid outbox table")
     conn.execute(
-        """
-        UPDATE mobile_offer_discord_outbox
+        f"""
+        UPDATE {table}
         SET status=?,
             last_error=?,
             processed_at=CURRENT_TIMESTAMP
@@ -69,12 +96,16 @@ def _mark_retry(
     event_id: int,
     attempts: int,
     error: str,
+    *,
+    table: str = "mobile_offer_discord_outbox",
 ) -> None:
+    if table not in {"mobile_offer_discord_outbox", "mobile_publication_discord_outbox"}:
+        raise ValueError("invalid outbox table")
     next_attempt = int(attempts) + 1
     if next_attempt >= 5:
         conn.execute(
-            """
-            UPDATE mobile_offer_discord_outbox
+            f"""
+            UPDATE {table}
             SET status='FAILED',
                 attempts=?,
                 last_error=?,
@@ -85,8 +116,8 @@ def _mark_retry(
         )
     else:
         conn.execute(
-            """
-            UPDATE mobile_offer_discord_outbox
+            f"""
+            UPDATE {table}
             SET attempts=?,
                 last_error=?,
                 next_attempt_at=datetime('now', '+30 seconds')
@@ -95,6 +126,29 @@ def _mark_retry(
             (next_attempt, str(error)[:500], int(event_id)),
         )
     conn.commit()
+
+
+async def _market_channel(guild):
+    channel_id = None
+    resolver = getattr(APP, "market_usage_channel_id", None)
+    if resolver is not None:
+        try:
+            with guild_isolation_patch.guild_context(guild.id):
+                channel_id = resolver(guild.id)
+        except Exception as exc:
+            print(
+                f"WARNING AJPA mobile parity: no pude resolver canal mercado guild={guild.id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+    if not channel_id:
+        return None
+    channel = guild.get_channel(int(channel_id))
+    if channel is None:
+        try:
+            channel = await BOT.fetch_channel(int(channel_id))
+        except Exception:
+            return None
+    return channel if hasattr(channel, "send") else None
 
 
 async def sync_guild(guild) -> None:
@@ -143,25 +197,30 @@ async def sync_guild(guild) -> None:
             conn.close()
 
         try:
+            channel = await _market_channel(guild)
             with guild_isolation_patch.guild_context(guild.id):
-                sent = bool(await offer_notifications._send_seller_dm(offer))
-                # App offers have no Discord source channel, so mirror their
-                # public side through the canonical deduplicated market rumor.
-                try:
-                    await market_rumor_patch.publish_offer_rumor(
-                        SimpleNamespace(guild=guild),
-                        offer,
+                dm_ok = bool(await offer_notifications._send_seller_dm(offer))
+                public_ok = False
+                if channel is not None:
+                    public_ok = bool(
+                        await offer_notifications._send_public_notice(
+                            SimpleNamespace(guild=guild, channel=channel),
+                            offer,
+                        )
                     )
-                except Exception as rumor_exc:
-                    print(
-                        f"WARNING AJPA: rumor de oferta mobile #{offer_id} fallo: "
-                        f"{type(rumor_exc).__name__}: {rumor_exc}"
-                    )
+                sent = dm_ok and public_ok
         except Exception as exc:
             sent = False
             error = f"{type(exc).__name__}: {exc}"
         else:
-            error = None if sent else "Discord no pudo entregar el DM al vendedor."
+            missing = []
+            if not dm_ok:
+                missing.append("DM")
+            if channel is None:
+                missing.append("canal de mercado no configurado")
+            elif not public_ok:
+                missing.append("aviso público")
+            error = None if sent else "Falló: " + ", ".join(missing)
 
         conn = APP.db_for_guild(guild.id)
         try:
@@ -178,6 +237,93 @@ async def sync_guild(guild) -> None:
                     event_id,
                     attempts,
                     error or "No se pudo entregar la oferta en Discord.",
+                )
+        finally:
+            conn.close()
+
+
+    # Publications created from AJPA Mobile must generate the same market-channel
+    # card (@everyone + Ofertar button) as publications created from Discord.
+    conn = APP.db_for_guild(guild.id)
+    try:
+        conn.row_factory = sqlite3.Row
+        publication_events = _pending_publications(conn)
+        conn.commit()
+    finally:
+        conn.close()
+
+    for event in publication_events:
+        event_id = int(event["id"])
+        publication_id = int(event["publication_id"])
+        attempts = int(event["attempts"])
+
+        conn = APP.db_for_guild(guild.id)
+        try:
+            conn.row_factory = sqlite3.Row
+            publication = conn.execute(
+                "SELECT * FROM publications WHERE id=? LIMIT 1",
+                (publication_id,),
+            ).fetchone()
+            if publication is None:
+                _mark_processed(
+                    conn,
+                    event_id,
+                    "SKIPPED_MISSING",
+                    "La publicación ya no existe.",
+                    table="mobile_publication_discord_outbox",
+                )
+                continue
+            if not bool(publication["active"]):
+                _mark_processed(
+                    conn,
+                    event_id,
+                    "SKIPPED_INACTIVE",
+                    "La publicación dejó de estar activa antes del aviso.",
+                    table="mobile_publication_discord_outbox",
+                )
+                continue
+        finally:
+            conn.close()
+
+        try:
+            channel = await _market_channel(guild)
+            if channel is None:
+                published = False
+                error = "Canal de mercado no configurado o inaccesible."
+            else:
+                with guild_isolation_patch.guild_context(guild.id):
+                    published = bool(
+                        await publication_announcements._send_public_announcement(
+                            SimpleNamespace(guild=guild, channel=channel),
+                            publication,
+                        )
+                    )
+                error = None if published else "Discord no pudo publicar la tarjeta del jugador."
+        except Exception as exc:
+            published = False
+            error = f"{type(exc).__name__}: {exc}"
+
+        conn = APP.db_for_guild(guild.id)
+        try:
+            conn.row_factory = sqlite3.Row
+            if published:
+                _mark_processed(
+                    conn,
+                    event_id,
+                    "SENT",
+                    table="mobile_publication_discord_outbox",
+                )
+                print(
+                    f"AJPA mobile publication bridge: publicación #{publication_id} "
+                    f"enviada al canal de mercado guild={guild.id}"
+                )
+            else:
+                _mark_retry(
+                    conn,
+                    event_id,
+                    attempts,
+                    error or "No se pudo publicar en Discord.",
+                    table="mobile_publication_discord_outbox",
                 )
         finally:
             conn.close()
