@@ -5,15 +5,23 @@ import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from '
 import CupCenterFab from './CupCenterFab';
 import SeasonHistoryFab from './SeasonHistoryFab';
 import TrophyCabinetScreen from './TrophyCabinetFab';
+import {
+  CUP_CABINET_BG,
+  CUP_CHAMPIONS_BG,
+  CUP_EUROPA_BG,
+  CUP_HERO_BG,
+  CUP_HISTORY_BG,
+  CUP_RANKING_BG,
+} from './cup_menu_assets';
 
 type CompetitionKey = 'champions' | 'europa';
 
-const HERO_BG = require('../assets/trophies/liga-ajpa-banner.jpg');
-const CHAMPIONS_BG = require('../assets/trophies/champions-ajpa.jpg');
-const EUROPA_BG = require('../assets/trophies/europa-ajpa.jpg');
-const RANKING_BG = require('../assets/trophies/liga-ajpa-banner.jpg');
-const CABINET_BG = require('../assets/trophies/champions-ajpa-banner.jpg');
-const HISTORY_BG = require('../assets/trophies/europa-ajpa-banner.jpg');
+const HERO_BG = { uri: CUP_HERO_BG } as const;
+const CHAMPIONS_BG = { uri: CUP_CHAMPIONS_BG } as const;
+const EUROPA_BG = { uri: CUP_EUROPA_BG } as const;
+const RANKING_BG = { uri: CUP_RANKING_BG } as const;
+const CABINET_BG = { uri: CUP_CABINET_BG } as const;
+const HISTORY_BG = { uri: CUP_HISTORY_BG } as const;
 
 function CupGlyph({ dark = false }: { dark?: boolean }) {
   return (
