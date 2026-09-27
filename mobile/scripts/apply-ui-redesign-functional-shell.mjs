@@ -60,6 +60,96 @@ if (ui.includes('<SeasonCountdownBanner />')) {
   ui = ui.replace('<SeasonCountdownBanner />', '{embedded ? null : <SeasonCountdownBanner />}');
 }
 
+if (!ui.includes('const embeddedScreenTitle =')) {
+  const anchor = '  const screenBackground = (() => {';
+  if (!ui.includes(anchor)) throw new Error('AJPA redesign shell: no encontré screenBackground para título embebido');
+  const titleMap = `  const embeddedScreenTitle = (() => {
+    const labels: Partial<Record<Screen, string>> = {
+      club: 'Mi Club',
+      roster: 'Plantilla',
+      economy: 'Economía',
+      clubValue: 'Valor del Club',
+      clubInfo: 'Información del club',
+      market: 'Mercado',
+      publish: 'Publicar jugador',
+      transferibles: 'Transferibles',
+      freeAgents: 'Agentes libres',
+      clausulazo: 'Clausulazo',
+      offers: 'Ofertas',
+      search: 'Buscar jugador',
+      history: 'Historial',
+      league: 'Liga',
+      titles: 'Copas',
+      admin: 'Staff / Admin',
+      adminTools: 'Administración',
+      assignments: 'Asignaciones',
+      resign: 'Renunciar al club',
+      profile: 'Perfil',
+    };
+    return labels[screen] || 'AJPA';
+  })();
+
+`;
+  ui = ui.replace(anchor, titleMap + anchor);
+}
+
+const oldTopBar = `      <View style={s.topBar}>
+        {screen !== 'home' ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+            <Pressable onPress={goBack} style={s.topAction}><Text style={s.topActionText}>‹ VOLVER</Text></Pressable>
+            <Pressable onPress={goHome} style={s.topAction}><Text style={s.topActionText}>⌂ MENÚ</Text></Pressable>
+          </View>
+        ) : (
+          <View><Text style={s.brand}>AJPA</Text><Text style={s.brandSub}>TRANSFER MARKET · MOBILE</Text></View>
+        )}
+        <Pressable onPress={() => void openScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>MI PERFIL</Text></Pressable>
+      </View>`;
+
+if (ui.includes(oldTopBar)) {
+  ui = ui.replace(oldTopBar, `      {embedded ? (
+        <View style={s.topBar}>
+          <Pressable
+            onPress={() => {
+              if (screen === initialScreen && onExit) onExit();
+              else goBack();
+            }}
+            style={s.topAction}
+          >
+            <Text style={s.topActionText}>‹ VOLVER</Text>
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
+            <Text style={s.brandSub}>AJPA</Text>
+            <Text style={s.embeddedHeaderTitle} numberOfLines={1}>{embeddedScreenTitle}</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={s.topBar}>
+          {screen !== 'home' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Pressable onPress={goBack} style={s.topAction}><Text style={s.topActionText}>‹ VOLVER</Text></Pressable>
+              <Pressable onPress={goHome} style={s.topAction}><Text style={s.topActionText}>⌂ MENÚ</Text></Pressable>
+            </View>
+          ) : (
+            <View><Text style={s.brand}>AJPA</Text><Text style={s.brandSub}>TRANSFER MARKET · MOBILE</Text></View>
+          )}
+          <Pressable onPress={() => void openScreen('profile')} style={s.profileButton}><Text style={s.profileButtonText}>MI PERFIL</Text></Pressable>
+        </View>
+      )}`);
+}
+
+ui = ui.replace(
+  `{screen === 'titles' ? <TrophyCabinetScreen onClose={() => setScreen('home')} /> : null}`,
+  `{screen === 'titles' ? <TrophyCabinetScreen onClose={() => embedded && onExit ? onExit() : setScreen('home')} /> : null}`,
+);
+
+if (!ui.includes('  embeddedHeaderTitle: {')) {
+  const styleEnd = ui.lastIndexOf('\n});');
+  if (styleEnd < 0) throw new Error('AJPA redesign shell: no encontré cierre de estilos');
+  ui = ui.slice(0, styleEnd) + `
+  embeddedHeaderTitle: { color: C.white, fontSize: 15.5, lineHeight: 18, fontWeight: '900' },
+` + ui.slice(styleEnd);
+}
+
 if (ui.includes("require('../assets/generated/xi-ideal-splash.webp')")) {
   ui = ui.replace(
     "require('../assets/generated/xi-ideal-splash.webp')",
