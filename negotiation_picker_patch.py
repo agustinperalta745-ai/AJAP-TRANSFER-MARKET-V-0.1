@@ -13,6 +13,7 @@ import discord
 import flexible_offer_patch as flexible
 import global_player_search_patch as global_search
 import offer_value_floor_patch as value_floor
+import offer_withdrawal_patch as offer_withdrawal
 
 
 APP = None
@@ -588,6 +589,80 @@ class NegotiationDecisionView(discord.ui.View):
         )
 
 
+
+async def _withdraw_from_discord(interaction: discord.Interaction, offer_id: int):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "⚠️ Retirá la oferta desde el servidor de AJPA.",
+            ephemeral=True,
+        )
+        return
+
+    try:
+        with APP.db() as conn:
+            offer = offer_withdrawal.withdraw_offer(
+                conn,
+                int(interaction.user.id),
+                int(offer_id),
+            )
+    except offer_withdrawal.OfferWithdrawalError as exc:
+        await interaction.response.send_message(str(exc), ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="↩️ Oferta retirada",
+        description=(
+            f"Retiraste tu oferta por **{offer['player']}**. "
+            "La negociación quedó cerrada."
+        ),
+        color=discord.Color.dark_grey(),
+    )
+    embed.add_field(name="Propuesta retirada", value=_proposal_text(offer), inline=False)
+    embed.add_field(name="Estado", value="↩️ RETIRADA", inline=True)
+    embed.set_footer(text=f"Oferta #{offer['id']} • AJPA Transfer Market")
+    await interaction.response.edit_message(embed=embed, view=None)
+
+    # Use the same durable outbox as AJPA Mobile. Running one sync immediately
+    # makes the Discord button feel instant; the background worker retries it if
+    # Discord has a transient failure.
+    try:
+        await offer_withdrawal.sync_guild(interaction.guild)
+    except Exception as exc:
+        print(
+            f"WARNING AJPA retiro oferta #{offer_id}: sync inmediato falló: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+
+class WithdrawOfferView(discord.ui.View):
+    def __init__(self, offer_id: int):
+        super().__init__(timeout=300)
+        self.offer_id = int(offer_id)
+
+    @discord.ui.button(
+        label="Retirar oferta",
+        emoji="↩️",
+        style=discord.ButtonStyle.danger,
+        row=0,
+    )
+    async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _withdraw_from_discord(interaction, self.offer_id)
+
+
+class NegotiationDecisionWithWithdrawView(NegotiationDecisionView):
+    def __init__(self, offer_id: int):
+        super().__init__(int(offer_id))
+
+    @discord.ui.button(
+        label="Retirar oferta",
+        emoji="↩️",
+        style=discord.ButtonStyle.danger,
+        row=1,
+    )
+    async def withdraw(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await _withdraw_from_discord(interaction, self.offer_id)
+
+
 class NegotiationOffersSelect(discord.ui.Select):
     def __init__(self, offers):
         options = []
@@ -631,11 +706,34 @@ class NegotiationOffersSelect(discord.ui.Select):
         view = None
         if offer["status"] == "PENDIENTE":
             decision_id = _decision_user_id(offer)
-            if interaction.user.id == decision_id:
+            is_creator = int(interaction.user.id) == int(offer["from_id"])
+
+            if interaction.user.id == decision_id and is_creator:
+                view = NegotiationDecisionWithWithdrawView(offer["id"])
+                embed.add_field(
+                    name="Tu turno",
+                    value=(
+                        "Podés **Aceptar**, **Contraofertar** o **Rechazar** la "
+                        "contraoferta, o **Retirar oferta** y cerrar la negociación."
+                    ),
+                    inline=False,
+                )
+            elif interaction.user.id == decision_id:
                 view = NegotiationDecisionView(offer["id"])
                 embed.add_field(
                     name="Tu turno",
                     value="Podés **Aceptar**, **Contraofertar** o **Rechazar**.",
+                    inline=False,
+                )
+            elif is_creator:
+                view = WithdrawOfferView(offer["id"])
+                waiting_club = _club_for_user(offer, decision_id) or "el otro club"
+                embed.add_field(
+                    name="⏳ Esperando respuesta",
+                    value=(
+                        f"Ahora debe responder **{waiting_club}**. "
+                        "Mientras siga pendiente, podés **Retirar oferta**."
+                    ),
                     inline=False,
                 )
             else:
@@ -718,5 +816,7 @@ def apply_negotiation_picker_patch(main_module):
 
     main_module.RosterPickerView = RosterPickerView
     main_module.CounterOfferModal = CounterOfferModal
+    main_module.WithdrawOfferView = WithdrawOfferView
+    main_module.NegotiationDecisionWithWithdrawView = NegotiationDecisionWithWithdrawView
     main_module._ajap_negotiation_picker_patch = True
     print("AJAP negociación avanzada activa: selector de plantel + contraofertas con cambio de jugador")
