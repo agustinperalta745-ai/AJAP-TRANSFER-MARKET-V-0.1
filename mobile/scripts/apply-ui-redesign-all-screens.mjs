@@ -64,9 +64,9 @@ const menuReplacement = `function MenuTile({
 }) {
   const icon = iconForTitle(title, danger);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.menuTile, danger && s.menuDanger, pressed && s.uiPressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [s.menuTile, danger && s.menuDanger, pressed && { opacity: 0.72, transform: [{ scale: 0.992 }] }]}>
       <AjpaIconTile name={icon} tileSize={42} size={21} tone={danger ? '#873540' : undefined} />
-      <View style={s.menuCopy}>
+      <View style={s.flex}>
         <Text style={[s.menuTitle, danger && { color: C.red }]}>{title}</Text>
         {subtitle ? <Text style={s.menuSubtitle}>{subtitle}</Text> : null}
       </View>
@@ -74,7 +74,12 @@ const menuReplacement = `function MenuTile({
     </Pressable>
   );
 }`;
-ui = replaceBlock(ui, 'function MenuTile({', 'function SectionLabel(', menuReplacement, 'MenuTile');
+const menuEnd = ui.includes('function IconSurfaceDepth(')
+  ? 'function IconSurfaceDepth('
+  : ui.includes('function SurfaceDepth(')
+    ? 'function SurfaceDepth('
+    : 'function SectionLabel(';
+ui = replaceBlock(ui, 'function MenuTile({', menuEnd, menuReplacement, 'MenuTile');
 
 const sectionReplacement = `function SectionLabel({ title, badge }: { title: string; badge?: string }) {
   return (
@@ -101,7 +106,7 @@ const featureReplacement = `function FeatureTile({
 }) {
   const icon = iconForTitle(title, danger);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.featureTile, danger && s.featureTileDanger, pressed && s.uiPressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [s.featureTile, danger && s.featureTileDanger, pressed && { opacity: 0.72, transform: [{ scale: 0.992 }] }]}>
       <AjpaIconTile name={icon} tileSize={46} size={23} tone={danger ? '#873540' : undefined} />
       <View style={s.featureTextWrap}>
         <Text style={[s.featureTitle, danger && { color: C.red }]} numberOfLines={2}>{title}</Text>
@@ -126,14 +131,15 @@ const quickReplacement = `function QuickAction({
 }) {
   const icon = iconForTitle(title, danger);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.quickAction, danger && s.quickActionDanger, pressed && s.uiPressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [s.quickAction, danger && s.quickActionDanger, pressed && { opacity: 0.72, transform: [{ scale: 0.992 }] }]}>
       <AjpaIcon name={icon} size={18} color={danger ? C.red : C.blueSoft} />
       <Text style={[s.quickTitle, danger && { color: C.red }]} numberOfLines={2}>{title}</Text>
       <Text style={[s.quickChevron, danger && { color: C.red }]}>›</Text>
     </Pressable>
   );
 }`;
-ui = replaceBlock(ui, 'function QuickAction({', 'function Title(', quickReplacement, 'QuickAction');
+const quickEnd = ui.includes('function HeroClubCard(') ? 'function HeroClubCard(' : 'function Title(';
+ui = replaceBlock(ui, 'function QuickAction({', quickEnd, quickReplacement, 'QuickAction');
 
 const sourceOld = "source={typeof screenBackground === 'string' ? { uri: screenBackground } : screenBackground}";
 if (ui.includes(sourceOld)) {
@@ -141,7 +147,7 @@ if (ui.includes(sourceOld)) {
 }
 ui = ui.replace(
   "style={s.screenBackground}",
-  "style={[s.screenBackground, embedded && s.embeddedScreen]}",
+  "style={[s.screenBackground, embedded && { backgroundColor: '#07131F' }]}",
 );
 
 const uiRules = {
