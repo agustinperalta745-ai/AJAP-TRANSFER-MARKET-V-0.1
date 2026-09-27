@@ -1254,8 +1254,14 @@ class MercadoView(discord.ui.View):
                 (interaction.user.id, interaction.user.id),
             ).fetchall()
             pendientes = conn.execute(
-                "SELECT * FROM offers WHERE to_id = ? AND status = 'PENDIENTE' ORDER BY id DESC LIMIT 25",
-                (interaction.user.id,),
+                """
+                SELECT * FROM offers
+                WHERE (from_id = ? OR to_id = ?)
+                  AND status = 'PENDIENTE'
+                ORDER BY id DESC
+                LIMIT 25
+                """,
+                (interaction.user.id, interaction.user.id),
             ).fetchall()
 
         embed = discord.Embed(title="💰 Mis ofertas")
@@ -1266,7 +1272,7 @@ class MercadoView(discord.ui.View):
                 enviada = oferta["from_id"] == interaction.user.id
                 tipo = "📤 Enviada" if enviada else "📥 Recibida"
                 icono = {
-                    "PENDIENTE": "🟡", "ACEPTADA": "🟢", "RECHAZADA": "🔴",
+                    "PENDIENTE": "🟡", "ACEPTADA": "🟢", "RECHAZADA": "🔴", "RETIRADA": "↩️",
                     "CANCELADA": "⚫", "CANCELADA_ADMIN": "⛔",
                 }.get(oferta["status"], "⚪")
                 embed.add_field(
