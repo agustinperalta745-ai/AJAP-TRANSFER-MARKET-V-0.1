@@ -121,6 +121,9 @@ jobs:
       - name: Integrate functional sections into redesigned shell
         run: node scripts/apply-ui-redesign-functional-shell.mjs
 
+      - name: Apply unified redesigned UI to every functional screen
+        run: node scripts/apply-ui-redesign-all-screens.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -138,11 +141,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.3.6.2.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.0.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.3.6
-          path: mobile/AJPA-UI-Lab-v0.3.6.2.apk
+          name: AJPA-UI-Lab-v0.4.0
+          path: mobile/AJPA-UI-Lab-v0.4.0.apk
           if-no-files-found: error
