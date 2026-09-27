@@ -480,6 +480,15 @@ def decide_offer(conn, session: dict, offer_id: int, accept: bool) -> dict:
         conn.execute("UPDATE offers SET status='RECHAZADA' WHERE id=?", (int(offer_id),))
         return {"ok": True, "offer_id": int(offer_id), "status": "RECHAZADA"}
 
+    if _normalize_operation(offer["operation_type"]) == "PRÉSTAMO":
+        loan_amount = _price_number(offer["amount"])
+        if int(loan_amount or 0) != FIXED_LOAN_PRICE:
+            raise ApiFailure(
+                "Esta oferta de préstamo usa una regla anterior. El precio fijo actual es $1.000.000. "
+                "Rechazala y generá una nueva oferta.",
+                HTTPStatus.CONFLICT,
+            )
+
     pub = conn.execute("SELECT * FROM publications WHERE id=? AND active=1", (int(offer["publication_id"]),)).fetchone()
     target = conn.execute("SELECT * FROM roster_players WHERE name=? COLLATE NOCASE", (offer["player"],)).fetchone()
     if not pub or not target or str(target["club"]).casefold() != str(offer["to_club"]).casefold():
