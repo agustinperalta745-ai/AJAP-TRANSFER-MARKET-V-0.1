@@ -398,3 +398,97 @@ canon._canon_for_transfer_row = _transfer_canon
 canon._initial_canon_affordability = _affordability
 
 print("AJAP préstamos: 10% = tope por temporada; el cargo puede ser menor y se cobra el monto acordado")
+
+
+# AJPA_FIXED_LOAN_PRICE_FINAL
+# Final authority: every loan costs exactly ARS 1,000,000 total.
+FIXED_LOAN_PRICE = 1_000_000
+
+def _maximum(player):
+    return FIXED_LOAN_PRICE
+
+def _capped(player, amount):
+    return FIXED_LOAN_PRICE
+
+def _validate(player, amount):
+    if int(amount or 0) != FIXED_LOAN_PRICE:
+        return (
+            f"⛔ Los préstamos en AJPA tienen un precio fijo de **{_fmt(FIXED_LOAN_PRICE)}**. "
+            "No se puede ofrecer otro monto."
+        )
+    return None
+
+def _canon_summary_fixed(offer):
+    return f"{_fmt(FIXED_LOAN_PRICE)} total • precio fijo de préstamo"
+
+canon._canon_summary = _canon_summary_fixed
+
+def _transfer_canon_fixed(row):
+    return FIXED_LOAN_PRICE if row else 0
+
+def _initialize_fixed():
+    if canon.loans.APP is None:
+        return 0
+    canon._ensure_canon_tables()
+    updated = 0
+    with canon.loans.APP.db() as conn:
+        rows = conn.execute("SELECT * FROM loans ORDER BY id").fetchall()
+        for loan in rows:
+            if int(loan["canon_per_season"] or 0) != FIXED_LOAN_PRICE:
+                conn.execute(
+                    "UPDATE loans SET canon_per_season = ? WHERE id = ?",
+                    (FIXED_LOAN_PRICE, int(loan["id"])),
+                )
+                updated += 1
+    return updated
+
+def _charge_fixed_once(loan_id, season_id):
+    _initialize_fixed()
+    with canon.loans.APP.db() as conn:
+        loan = conn.execute("SELECT * FROM loans WHERE id = ?", (int(loan_id),)).fetchone()
+        if not loan:
+            return False, "Préstamo no encontrado."
+        already = conn.execute(
+            "SELECT 1 FROM loan_canon_payments WHERE loan_id = ? LIMIT 1",
+            (int(loan_id),),
+        ).fetchone()
+        if already:
+            return True, "Precio fijo del préstamo ya pagado."
+    return _original_charge(loan_id, season_id)
+
+canon._initialize_loan_canons = _initialize_fixed
+canon._charge_canon = _charge_fixed_once
+canon._canon_for_transfer_row = _transfer_canon_fixed
+
+# Rewrite the legacy 10% wording in future publication/movement cards.
+_prev_publication_embed_fixed = publication_announce.publication_embed
+def _publication_embed_fixed(publication):
+    embed = _prev_publication_embed_fixed(publication)
+    if str(publication["operation_type"] or "").upper() not in {"PRÉSTAMO", "PRESTAMO"}:
+        return embed
+    for i, field in enumerate(embed.fields):
+        if field.name in {"💵 Canon de cesión", "💵 Cargo por temporada"}:
+            embed.set_field_at(
+                i,
+                name="💵 Precio fijo del préstamo",
+                value=f"**{_fmt(FIXED_LOAN_PRICE)} total**",
+                inline=False,
+            )
+    return embed
+publication_announce.publication_embed = _publication_embed_fixed
+
+_prev_movement_embed_fixed = market_reports.movement_embed
+def _movement_embed_fixed(transfer_id):
+    embed = _prev_movement_embed_fixed(transfer_id)
+    for i, field in enumerate(embed.fields):
+        if field.name in {"💵 Canon de préstamo", "💵 Cargo por temporada"}:
+            embed.set_field_at(
+                i,
+                name="💵 Precio fijo del préstamo",
+                value=f"**{_fmt(FIXED_LOAN_PRICE)} total**",
+                inline=False,
+            )
+    return embed
+market_reports.movement_embed = _movement_embed_fixed
+
+print("AJAP préstamos FINAL: precio fijo único de $1.000.000")
