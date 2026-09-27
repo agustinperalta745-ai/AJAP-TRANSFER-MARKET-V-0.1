@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 
 import mobile_auth
 import mobile_read_api
+import offer_withdrawal_patch as offer_withdrawal
 
 FREE_AGENT_CLUB = "Jugador Libre"
 MIN_SQUAD = 20
@@ -517,6 +518,30 @@ def offers_payload(conn, session: dict) -> dict:
     return {"incoming": incoming, "outgoing": outgoing}
 
 
+def withdraw_offer(conn, session: dict, offer_id: int) -> dict:
+    try:
+        offer = offer_withdrawal.withdraw_offer(
+            conn,
+            int(session["user_id"]),
+            int(offer_id),
+        )
+    except offer_withdrawal.OfferWithdrawalError as exc:
+        message = str(exc)
+        if message.startswith("Solo el club"):
+            status = HTTPStatus.FORBIDDEN
+        elif message == "La oferta no existe.":
+            status = HTTPStatus.NOT_FOUND
+        else:
+            status = HTTPStatus.CONFLICT
+        raise ApiFailure(message, status) from exc
+    return {
+        "ok": True,
+        "offer_id": int(offer_id),
+        "status": "RETIRADA",
+        "player": offer.get("player"),
+    }
+
+
 def decide_offer(conn, session: dict, offer_id: int, accept: bool) -> dict:
     if not _market_open(conn):
         raise ApiFailure("El mercado está cerrado; las ofertas quedan congeladas.", HTTPStatus.CONFLICT)
@@ -757,6 +782,8 @@ def apply_mobile_write_patch() -> None:
                     result = withdraw_publication(conn, session, int(parts[3]))
                 elif len(parts) == 5 and parts[:3] == ["api", "v1", "publications"] and parts[4] == "offers" and parts[3].isdigit():
                     result = create_offer(conn, session, int(parts[3]), payload)
+                elif len(parts) == 5 and parts[:3] == ["api", "v1", "offers"] and parts[3].isdigit() and parts[4] == "withdraw":
+                    result = withdraw_offer(conn, session, int(parts[3]))
                 elif len(parts) == 5 and parts[:3] == ["api", "v1", "offers"] and parts[3].isdigit() and parts[4] in {"accept", "reject"}:
                     result = decide_offer(conn, session, int(parts[3]), parts[4] == "accept")
                 elif len(parts) == 5 and parts[:3] == ["api", "v1", "free-agents"] and parts[3].isdigit() and parts[4] == "sign":
