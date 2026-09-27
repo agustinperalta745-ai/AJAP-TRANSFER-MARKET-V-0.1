@@ -124,6 +124,9 @@ jobs:
       - name: Apply unified redesigned UI to every functional screen
         run: node scripts/apply-ui-redesign-all-screens.mjs
 
+      - name: Apply approved Mi Club layout and iconography
+        run: node scripts/apply-mi-club-approved-style.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -141,11 +144,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.0.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.1.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.4.0
-          path: mobile/AJPA-UI-Lab-v0.4.0.apk
+          name: AJPA-UI-Lab-v0.4.1
+          path: mobile/AJPA-UI-Lab-v0.4.1.apk
           if-no-files-found: error
