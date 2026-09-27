@@ -27,7 +27,7 @@ if (!ui.includes("import { ClubBadge } from './teamBadges';") && !ui.includes("C
   ui = ui.replace(visualsImport, visualsImport + "\nimport { ClubBadge } from './teamBadges';");
 }
 
-const components = String.raw\`
+const components = String.raw`
 const miClubStyles = StyleSheet.create({
   hero: {
     minHeight: 154, flexDirection: 'row', alignItems: 'center', borderRadius: 22,
@@ -191,11 +191,11 @@ function MiClubDangerTile({ onPress }: { onPress: () => void }) {
     </Pressable>
   );
 }
-\`;
+`;
 
 replaceBlock('function HeroClubCard(', 'function WideTile(', components, 'componentes Mi Club');
 
-const clubMenu = String.raw\`  const clubMenu = (
+const clubMenu = String.raw`  const clubMenu = (
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
       <Title eyebrow="MI CLUB" title="Mi Club" subtitle="Todo lo de tu club, ordenado en un solo lugar." />
 
@@ -234,7 +234,7 @@ const clubMenu = String.raw\`  const clubMenu = (
 
       <MiClubDangerTile onPress={() => openScreen('resign')} />
     </ScrollView>
-  );\`;
+  );`;
 
 replaceBlock('  const clubMenu = (', '  const rosterScreen = (', clubMenu, 'menú Mi Club');
 
