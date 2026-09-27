@@ -85,6 +85,18 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             revoked_at INTEGER,
             created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS mobile_offer_discord_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offer_id INTEGER NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME
+        );
+        CREATE INDEX IF NOT EXISTS idx_mobile_offer_discord_outbox_pending
+        ON mobile_offer_discord_outbox(status, next_attempt_at, id);
         """
     )
     if _table_exists(conn, "offers"):
@@ -439,7 +451,14 @@ def create_offer(conn, session: dict, pub_id: int, payload: dict) -> dict:
          int(pub["owner_id"]), pub["club"], pub["operation_type"], pub["season_id"], kind,
          int(offered["id"]) if offered else None, offered["name"] if offered else None),
     )
-    return {"ok": True, "offer_id": int(cur.lastrowid), "offer_kind": kind}
+    offer_id = int(cur.lastrowid)
+    # Durable App -> Discord handoff. This row is committed atomically with the
+    # offer, so a bot reconnect/restart cannot lose the seller notification.
+    conn.execute(
+        "INSERT OR IGNORE INTO mobile_offer_discord_outbox(offer_id) VALUES(?)",
+        (offer_id,),
+    )
+    return {"ok": True, "offer_id": offer_id, "offer_kind": kind}
 
 
 def offers_payload(conn, session: dict) -> dict:
