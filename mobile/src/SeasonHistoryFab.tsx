@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,14 +47,8 @@ type Competition = {
 type HistoryPayload = { competitions: Competition[] };
 type Section = 'tabla' | 'goleadores' | 'resultados';
 
-type SeasonHistoryFabProps = {
-  hideTrigger?: boolean;
-  initialVisible?: boolean;
-  onDismiss?: () => void;
-};
-
-export default function SeasonHistoryFab({ hideTrigger = false, initialVisible = false, onDismiss }: SeasonHistoryFabProps = {}) {
-  const [visible, setVisible] = useState(initialVisible);
+export default function SeasonHistoryFab() {
+  const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -79,23 +73,13 @@ export default function SeasonHistoryFab({ hideTrigger = false, initialVisible =
     }
   }, []);
 
-  useEffect(() => {
-    if (visible && initialVisible) void load();
-  }, [visible, initialVisible, load]);
-
   const open = () => {
     setVisible(true);
     void load();
   };
 
-  const close = () => {
-    setVisible(false);
-    onDismiss?.();
-  };
-
   return (
     <>
-      {!hideTrigger ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Temporadas anteriores"
@@ -104,9 +88,8 @@ export default function SeasonHistoryFab({ hideTrigger = false, initialVisible =
       >
         <Text style={styles.fabText}>🗂 TEMPORADAS</Text>
       </Pressable>
-      ) : null}
 
-      <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
         <View style={styles.backdrop}>
           <View style={styles.card}>
             <View style={styles.header}>
@@ -115,7 +98,7 @@ export default function SeasonHistoryFab({ hideTrigger = false, initialVisible =
                 <Text style={styles.title}>Temporadas y copas</Text>
                 <Text style={styles.subtitle}>Cada competencia queda guardada y se puede volver a consultar.</Text>
               </View>
-              <Pressable onPress={close} hitSlop={12}>
+              <Pressable onPress={() => setVisible(false)} hitSlop={12}>
                 <Text style={styles.close}>✕</Text>
               </Pressable>
             </View>
