@@ -97,6 +97,18 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_mobile_offer_discord_outbox_pending
         ON mobile_offer_discord_outbox(status, next_attempt_at, id);
+        CREATE TABLE IF NOT EXISTS mobile_publication_discord_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            publication_id INTEGER NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            processed_at DATETIME
+        );
+        CREATE INDEX IF NOT EXISTS idx_mobile_publication_discord_outbox_pending
+        ON mobile_publication_discord_outbox(status, next_attempt_at, id);
         """
     )
     if _table_exists(conn, "offers"):
@@ -379,7 +391,15 @@ def create_publication(conn, session: dict, payload: dict) -> dict:
          session["user_id"], operation, _active_season_id(conn), loan_seasons,
          purchase_enabled, purchase_value),
     )
-    return _publication_item(conn, int(cur.lastrowid))
+    publication_id = int(cur.lastrowid)
+    # Queue the exact same Discord market announcement used by the bot. The
+    # event is committed atomically with the publication and retried if Discord
+    # is reconnecting.
+    conn.execute(
+        "INSERT OR IGNORE INTO mobile_publication_discord_outbox(publication_id) VALUES(?)",
+        (publication_id,),
+    )
+    return _publication_item(conn, publication_id)
 
 
 def withdraw_publication(conn, session: dict, pub_id: int) -> dict:
