@@ -622,16 +622,8 @@ async def _withdraw_from_discord(interaction: discord.Interaction, offer_id: int
     embed.set_footer(text=f"Oferta #{offer['id']} • AJPA Transfer Market")
     await interaction.response.edit_message(embed=embed, view=None)
 
-    # Use the same durable outbox as AJPA Mobile. Running one sync immediately
-    # makes the Discord button feel instant; the background worker retries it if
-    # Discord has a transient failure.
-    try:
-        await offer_withdrawal.sync_guild(interaction.guild)
-    except Exception as exc:
-        print(
-            f"WARNING AJPA retiro oferta #{offer_id}: sync inmediato falló: "
-            f"{type(exc).__name__}: {exc}"
-        )
+    # Discord and Mobile share the same durable outbox. The common worker
+    # delivers the seller DM + market-channel notice and retries transient errors.
 
 
 class WithdrawOfferView(discord.ui.View):
