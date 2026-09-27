@@ -67,8 +67,6 @@ fs.writeFileSync(cupFile, cup);
 // Vitrina-style cards: explicitly show each competition trophy as well as the banner.
 const hubFile = 'src/CupHubScreen.tsx';
 let hub = fs.readFileSync(hubFile, 'utf8');
-const useReferenceCupHub = hub.includes('AJPA_CUP_HUB_REFERENCE_20260927');
-if (!useReferenceCupHub) {
 
 if (!hub.includes('const CHAMPIONS_TROPHY =')) {
   const bannerAnchor = "const EUROPA_BANNER = require('../assets/trophies/europa-ajpa-banner.jpg');";
@@ -108,7 +106,6 @@ if (!hub.includes('  cardTitleRow: {')) {
 
 if (!hub.includes('meta.trophy') || !hub.includes('trophy: CHAMPIONS_TROPHY') || !hub.includes('trophy: EUROPA_TROPHY')) {
   throw new Error('Cup visuals: CupHub trophy validation failed.');
-}
 }
 fs.writeFileSync(hubFile, hub);
 
