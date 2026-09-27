@@ -34,6 +34,7 @@ import {
   setSessionToken,
   signFreeAgent,
   withdrawPublication,
+  withdrawOffer,
 } from './api';
 import { clearStoredSession, loadStoredSession, saveStoredSession } from './session';
 import { BG_INICIO } from './bg_inicio';
@@ -229,11 +230,13 @@ function OfferCard({
   onAccept,
   onCounter,
   onReject,
+  onWithdraw,
 }: {
   offer: OfferItem;
   onAccept?: () => void;
   onCounter?: () => void;
   onReject?: () => void;
+  onWithdraw?: () => void;
 }) {
   const pending = offer.status.toUpperCase() === 'PENDIENTE';
   return (
@@ -249,6 +252,11 @@ function OfferCard({
           <Button label="ACEPTAR" kind="green" onPress={onAccept} />
           <Button label="CONTRAOFERTAR" onPress={onCounter} />
           <Button label="RECHAZAR" kind="red" onPress={onReject} />
+        </View>
+      ) : null}
+      {!offer.incoming && pending && onWithdraw ? (
+        <View style={s.actionRow}>
+          <Button label="RETIRAR OFERTA" kind="red" onPress={onWithdraw} />
         </View>
       ) : null}
     </View>
@@ -796,7 +804,7 @@ export default function BotParityAppV2() {
 
   const offersScreen = (
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl}>
-      <Title eyebrow="OFERTAS" title="Mis ofertas" subtitle="Aceptar, contraofertar o rechazar como en Discord." />
+      <Title eyebrow="OFERTAS" title="Mis ofertas" subtitle="Aceptar, contraofertar, rechazar o retirar una oferta pendiente." />
       <Text style={s.listHeading}>📥 RECIBIDAS · {offers.incoming.length}</Text>
       {offers.incoming.length === 0 ? <View style={s.card}><Text style={s.muted}>No tenés ofertas recibidas.</Text></View> : null}
       {offers.incoming.map((offer) => (
@@ -810,7 +818,27 @@ export default function BotParityAppV2() {
       ))}
       <Text style={s.listHeading}>📤 ENVIADAS · {offers.outgoing.length}</Text>
       {offers.outgoing.length === 0 ? <View style={s.card}><Text style={s.muted}>No tenés ofertas enviadas.</Text></View> : null}
-      {offers.outgoing.map((offer) => <OfferCard key={offer.id} offer={offer} />)}
+      {offers.outgoing.map((offer) => (
+        <OfferCard
+          key={offer.id}
+          offer={offer}
+          onWithdraw={() => Alert.alert(
+            'Retirar oferta',
+            `¿Querés retirar la oferta #${offer.id} por ${offer.player}? La negociación se cerrará.`,
+            [
+              { text: 'CANCELAR', style: 'cancel' },
+              {
+                text: 'RETIRAR',
+                style: 'destructive',
+                onPress: () => mutate(
+                  () => withdrawOffer(offer.id),
+                  `Oferta #${offer.id} retirada.`,
+                ),
+              },
+            ],
+          )}
+        />
+      ))}
     </ScrollView>
   );
 
