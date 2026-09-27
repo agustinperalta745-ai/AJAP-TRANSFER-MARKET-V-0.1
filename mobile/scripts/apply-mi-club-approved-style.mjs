@@ -104,7 +104,6 @@ function HeroClubCard({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [miClubStyles.hero, pressed && { opacity: 0.82 }]}>
       <ImageBackground
-        pointerEvents="none"
         source={{ uri: MI_CLUB_CARD_BG_DATA_URI }}
         resizeMode="cover"
         style={miClubStyles.heroImage}
