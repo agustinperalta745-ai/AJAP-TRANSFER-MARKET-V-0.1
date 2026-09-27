@@ -46,6 +46,8 @@ if (!europaIsPng) {
 }
 
 let hub = fs.readFileSync(hubFile, 'utf8');
+const useReferenceCupHub = hub.includes('AJPA_CUP_HUB_REFERENCE_20260927');
+if (!useReferenceCupHub) {
 const championsBannerAnchor = "const CHAMPIONS_BANNER = require('../assets/trophies/champions-ajpa-banner.jpg');";
 const championsIconConst = "const CHAMPIONS_CARD_ICON = require('../assets/trophies/champions-ajpa-card-icon.png');";
 const europaBannerAnchor = "const EUROPA_BANNER = require('../assets/trophies/europa-ajpa-banner.jpg');";
@@ -81,6 +83,7 @@ if (!hub.includes('image: CHAMPIONS_BANNER,')
   throw new Error('Cup card icons: final CupHub validation failed.');
 }
 
+}
 fs.writeFileSync(hubFile, hub);
 
 let center = fs.readFileSync(centerFile, 'utf8');
