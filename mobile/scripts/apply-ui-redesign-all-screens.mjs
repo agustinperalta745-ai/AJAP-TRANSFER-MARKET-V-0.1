@@ -260,7 +260,7 @@ const matchPath = new URL('../src/MatchSearchShell.tsx', import.meta.url);
 let match = fs.readFileSync(matchPath, 'utf8');
 const matchRules = {
   root: { flex: 1, backgroundColor: '#07131F' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#07131F', zIndex: 50 },
+  overlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#07131F', zIndex: 50 },
   header: { minHeight: 62, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#1E4058', backgroundColor: '#07131F', flexDirection: 'row', alignItems: 'center', gap: 10 },
   content: { padding: 14, paddingBottom: 110, gap: 10 },
   clubStrip: { borderWidth: 1, borderColor: '#244B66', backgroundColor: '#0B2233', borderRadius: 15, padding: 12 },
