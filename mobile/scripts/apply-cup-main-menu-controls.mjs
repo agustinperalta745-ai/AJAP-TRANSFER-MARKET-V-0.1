@@ -5,9 +5,7 @@ const appFile = 'App.tsx';
 let app = fs.readFileSync(appFile, 'utf8');
 app = app
   .replace("import CupCenterFab from './src/CupCenterFab';\n", '')
-  .replace("import SeasonHistoryFab from './src/SeasonHistoryFab';\n", '')
-  .replace('        <CupCenterFab />\n', '')
-  .replace('        <SeasonHistoryFab />\n', '');
+  .replace('        <CupCenterFab />\n', '');
 fs.writeFileSync(appFile, app);
 
 // 2) Make CupCenter reusable from the new main-menu hub and add Staff lifecycle controls.
