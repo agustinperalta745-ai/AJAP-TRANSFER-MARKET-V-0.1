@@ -17,6 +17,14 @@ import {
 
 import { apiRequest } from './api';
 import TrophyCabinetScreen from './TrophyCabinetFab';
+import {
+  CUP_CABINET_BG,
+  CUP_CHAMPIONS_BG,
+  CUP_EUROPA_BG,
+  CUP_HERO_BG,
+  CUP_HISTORY_BG,
+  CUP_RANKING_BG,
+} from './cup_menu_assets';
 
 type TrophyKey = 'league' | 'champions' | 'europa';
 
@@ -28,12 +36,12 @@ type CupsPayload = {
   } | null;
 };
 
-const HERO = require('../assets/copas/copas-hero.jpg');
-const CHAMPIONS = require('../assets/copas/copas-champions.jpg');
-const EUROPA = require('../assets/copas/copas-europa.jpg');
-const RANKING = require('../assets/copas/copas-ranking.jpg');
-const VITRINA = require('../assets/copas/copas-vitrina.jpg');
-const HISTORIAL = require('../assets/copas/copas-historial.jpg');
+const HERO = { uri: CUP_HERO_BG } as const;
+const CHAMPIONS = { uri: CUP_CHAMPIONS_BG } as const;
+const EUROPA = { uri: CUP_EUROPA_BG } as const;
+const RANKING = { uri: CUP_RANKING_BG } as const;
+const VITRINA = { uri: CUP_CABINET_BG } as const;
+const HISTORIAL = { uri: CUP_HISTORY_BG } as const;
 
 const BLUE = '#28A5F5';
 const WHITE = '#F5FAFE';
@@ -80,11 +88,11 @@ function CompetitionCard({
       <View style={styles.competitionShade} />
       <View style={styles.competitionTop}>
         <IconTile tone={tone}>{icon}</IconTile>
+        <View style={styles.competitionCopy}>
+          <Text style={styles.competitionTitle}>{title}</Text>
+          <Text style={styles.competitionSubtitle}>{subtitle}</Text>
+        </View>
         <Text style={styles.chevron}>›</Text>
-      </View>
-      <View style={styles.competitionCopy}>
-        <Text style={styles.competitionTitle}>{title}</Text>
-        <Text style={styles.competitionSubtitle}>{subtitle}</Text>
       </View>
     </Pressable>
   );
@@ -295,14 +303,13 @@ const styles = StyleSheet.create({
   },
   competitionCard: {
     flex: 1,
-    minHeight: 238,
+    minHeight: 252,
     borderRadius: 19,
     borderWidth: 1,
     borderColor: BORDER,
     backgroundColor: PANEL,
     overflow: 'hidden',
     padding: 11,
-    justifyContent: 'space-between',
   },
   competitionImage: { opacity: 0.91 },
   competitionShade: {
@@ -312,16 +319,17 @@ const styles = StyleSheet.create({
   competitionTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   competitionCopy: {
-    paddingTop: 62,
-    paddingRight: 3,
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
   },
   competitionTitle: {
     color: WHITE,
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 15.5,
+    lineHeight: 19,
     fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.75)',
     textShadowOffset: { width: 0, height: 1 },
@@ -329,8 +337,8 @@ const styles = StyleSheet.create({
   },
   competitionSubtitle: {
     color: '#C1CDD6',
-    fontSize: 9.2,
-    lineHeight: 13,
+    fontSize: 10,
+    lineHeight: 14,
     marginTop: 5,
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
@@ -348,9 +356,10 @@ const styles = StyleSheet.create({
   },
   chevron: {
     color: BLUE,
-    fontSize: 24,
-    lineHeight: 27,
+    fontSize: 27,
+    lineHeight: 30,
     fontWeight: '900',
+    marginTop: 5,
   },
 
   sectionLabel: {
