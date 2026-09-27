@@ -206,7 +206,8 @@ const marketMenu = String.raw`  const marketMenu = (
     </ScrollView>
   );`;
 
-replaceBlock('  const marketMenu = (', '  const publishScreen = (', marketMenu, 'menú Mercado');
+const marketMenuEnd = ui.includes('  const clausulazoScreen = (') ? '  const clausulazoScreen = (' : '  const publishScreen = (';
+replaceBlock('  const marketMenu = (', marketMenuEnd, marketMenu, 'menú Mercado');
 
 fs.writeFileSync(uiPath, ui);
 console.log('AJPA UI Lab: Mercado aprobado aplicado con fondos locales y Lucide.');
