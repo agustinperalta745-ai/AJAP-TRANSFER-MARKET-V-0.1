@@ -133,12 +133,6 @@ jobs:
       - name: Apply approved Copas layout and imagery
         run: node scripts/apply-copas-approved-style.mjs
 
-      - name: Install image builder
-        run: python3 -m pip install --quiet pillow
-
-      - name: Build high quality Copas imagery
-        run: python3 scripts/build-copas-hq-assets.py
-
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -156,11 +150,11 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.5.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.6.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.4.5
-          path: mobile/AJPA-UI-Lab-v0.4.5.apk
+          name: AJPA-UI-Lab-v0.4.6
+          path: mobile/AJPA-UI-Lab-v0.4.6.apk
           if-no-files-found: error
