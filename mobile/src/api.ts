@@ -407,6 +407,10 @@ export function rejectOffer(offerId: number) {
   return apiRequest(`/api/v1/offers/${offerId}/reject`, { method: 'POST', body: '{}' });
 }
 
+export function withdrawOffer(offerId: number) {
+  return apiRequest(`/api/v1/offers/${offerId}/withdraw`, { method: 'POST', body: '{}' });
+}
+
 export function signFreeAgent(publicationId: number) {
   return apiRequest(`/api/v1/free-agents/${publicationId}/sign`, { method: 'POST', body: '{}' });
 }
