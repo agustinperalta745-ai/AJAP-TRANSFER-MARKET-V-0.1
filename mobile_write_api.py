@@ -425,7 +425,7 @@ def create_offer(conn, session: dict, pub_id: int, payload: dict) -> dict:
     target_floor = _player_floor(target)
     offered_floor = _player_floor(offered)
     total = cash + offered_floor
-    if target_floor and total < target_floor:
+    if not is_loan and target_floor and total < target_floor:
         raise ApiFailure(f"La propuesta vale {_money(total)} y debe alcanzar al menos {_money(target_floor)}.")
 
     _validate_offer_rosters(conn, str(pub["club"]), buyer, str(pub["operation_type"]), offered)
