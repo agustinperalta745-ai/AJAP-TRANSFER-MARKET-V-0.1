@@ -22,6 +22,22 @@ def _make_action_view(offer_id):
 class InlineNegotiationDecisionView(negotiation.NegotiationDecisionView):
     """Persistent version of the existing negotiation decision view."""
 
+    # AJPA_FIXED_LOAN_ACCEPT_GUARD
+    @discord.ui.button(label="Aceptar", emoji="✅", style=discord.ButtonStyle.success, row=0)
+    async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
+        offer = APP.oferta_por_id(int(self.offer_id)) if APP else None
+        if offer and str(offer["operation_type"] or "").upper() in {"PRÉSTAMO", "PRESTAMO"}:
+            amount = APP.price_number(offer["amount"]) if hasattr(APP, "price_number") else None
+            if int(amount or 0) != 1_000_000:
+                await interaction.response.send_message(
+                    "⛔ Esta oferta de préstamo usa una regla anterior. El precio fijo actual es **$1.000.000**. "
+                    "Rechazala y enviá una nueva oferta por el monto correcto.",
+                    ephemeral=True,
+                )
+                return
+        await super().accept(interaction, button)
+
+
     def __init__(self, offer_id):
         # Keep all validation/business logic from NegotiationDecisionView, then
         # make the view persistent and give every button a deterministic id.
