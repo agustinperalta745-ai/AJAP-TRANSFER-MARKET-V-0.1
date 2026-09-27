@@ -434,7 +434,17 @@ def create_offer(conn, session: dict, pub_id: int, payload: dict) -> dict:
         raise ApiFailure("Ese jugador ya tiene una operación pendiente.")
 
     is_loan = _normalize_operation(pub["operation_type"]) == "PRÉSTAMO"
-    cash = FIXED_LOAN_PRICE if is_loan else _price_number(payload.get("amount") or 0)
+    if is_loan:
+        raw_amount = payload.get("amount")
+        if raw_amount not in (None, ""):
+            requested_amount = _price_number(raw_amount)
+            if requested_amount is None or int(requested_amount) != FIXED_LOAN_PRICE:
+                raise ApiFailure(
+                    "Los préstamos tienen un precio fijo de $1.000.000. No se puede ofrecer otro monto."
+                )
+        cash = FIXED_LOAN_PRICE
+    else:
+        cash = _price_number(payload.get("amount") or 0)
     if cash is None or cash < 0:
         raise ApiFailure("El dinero ofrecido debe ser un número.")
     offered = None
