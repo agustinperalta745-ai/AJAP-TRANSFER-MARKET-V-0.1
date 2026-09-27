@@ -49,6 +49,7 @@ from navigation_patch import apply_navigation_patch
 from admin_finance_patch import apply_admin_finance_patch
 from market_persistence_patch import apply_market_persistence_patch
 from market_usage_channel_patch import apply_market_usage_channel_patch
+from offer_withdrawal_patch import apply_offer_withdrawal_patch
 from guild_isolation_patch import apply_guild_isolation_patch
 from mobile_pairing_patch import apply_mobile_pairing_patch
 from radio_pasillo_rate_limit_patch import apply_radio_pasillo_rate_limit_patch
@@ -164,6 +165,8 @@ apply_loan_integrity_patch(runtime)
 # Registra /canal_mercado y prepara el bloqueo antes de que guild isolation
 # envuelva las interacciones con el contexto de la base correspondiente.
 apply_market_usage_channel_patch(runtime, runtime.bot)
+# Pending offers can be withdrawn from either Discord or AJPA Mobile.
+apply_offer_withdrawal_patch(runtime, runtime.bot)
 # Los botones del panel Staff/PES funcionan aunque el canal de reportes sea
 # distinto al canal general configurado con /canal_mercado.
 apply_staff_review_runtime_fix(runtime, runtime.bot)
