@@ -91,6 +91,15 @@ const money = (value: number | null | undefined) =>
 
 const FIXED_LOAN_PRICE = '1000000';
 
+const isLoanOperation = (value: string | null | undefined) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return normalized === 'PRESTAMO' || normalized === 'CESION';
+};
+
 const apiError = (error: unknown) =>
   typeof error === 'object' && error && 'message' in error
     ? String((error as { message?: string }).message)
@@ -442,7 +451,7 @@ export default function BotParityAppV2() {
 
   const submitOffer = () => {
     if (!offerTarget) return;
-    const loanOffer = offerTarget.operation_type === 'PRÉSTAMO';
+    const loanOffer = isLoanOperation(offerTarget.operation_type);
     if (!loanOffer && !offerAmount.trim() && !offeredPlayerId) {
       Alert.alert('Oferta vacía', 'Ofrecé dinero, un jugador o ambas cosas.');
       return;
@@ -712,8 +721,8 @@ export default function BotParityAppV2() {
           <Text style={s.eyebrow}>HACER OFERTA</Text>
           <Text style={s.editorTitle}>{offerTarget.player}</Text>
           <Text style={s.muted}>{offerTarget.club} · {offerTarget.price}</Text>
-          <Text style={s.inputLabel}>{offerTarget.operation_type === 'PRÉSTAMO' ? 'CARGO FIJO DEL PRÉSTAMO' : 'DINERO OFRECIDO'}</Text>
-          {offerTarget.operation_type === 'PRÉSTAMO' ? (
+          <Text style={s.inputLabel}>{isLoanOperation(offerTarget.operation_type) ? 'CARGO FIJO DEL PRÉSTAMO' : 'DINERO OFRECIDO'}</Text>
+          {isLoanOperation(offerTarget.operation_type) ? (
             <TextInput style={s.input} value="$1.000.000" editable={false} />
           ) : (
             <>
@@ -744,7 +753,7 @@ export default function BotParityAppV2() {
           item={item}
           actions={<Button label="HACER OFERTA" disabled={!snapshot.status.market_open || !profile?.club} onPress={() => {
             setOfferTarget(item);
-            setOfferAmount(item.operation_type === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : '');
+            setOfferAmount(isLoanOperation(item.operation_type) ? FIXED_LOAN_PRICE : '');
             setOfferMessage('');
             setOfferedPlayerId(null);
           }} />}
