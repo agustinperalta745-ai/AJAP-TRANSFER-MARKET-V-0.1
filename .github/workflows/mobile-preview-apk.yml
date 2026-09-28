@@ -6,7 +6,6 @@ on:
     branches:
       - main
       - feature/mobile-app-foundation
-      - feature/ajpa-ui-lab
       - fix/mobile-clausulazo-badges
       - fix/team-card-gradients
     paths:
