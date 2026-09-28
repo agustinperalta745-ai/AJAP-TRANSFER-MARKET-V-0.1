@@ -13,6 +13,7 @@ import {
 import { AJPA_LOGO_DATA_URI } from './branding';
 import { BG_INICIO } from './bg_inicio';
 import { ClubBadge, getClubTheme } from './teamBadges';
+import MarketPreview from './MarketPreview';
 
 const CLUB = 'Olympique de Marsella';
 
@@ -107,6 +108,10 @@ export default function ConceptCPreview() {
   const selectedLabel = active === 'home'
     ? 'Inicio'
     : MENU.find(item => item.key === active)?.title ?? 'Inicio';
+
+  if (active === 'market') {
+    return <MarketPreview onHome={() => setActive('home')} />;
+  }
 
   return (
     <View style={s.root}>
