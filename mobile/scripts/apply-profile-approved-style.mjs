@@ -181,7 +181,9 @@ const styles = String.raw`
   profileApprovedLinkHelp: { color: '#91A5B4', fontSize: 12, lineHeight: 18 },
 `;
 
-ui = ui.slice(0, stylePos) + styles + ui.slice(stylePos);
+let beforeStyles = ui.slice(0, stylePos);
+if (!beforeStyles.trimEnd().endsWith(',')) beforeStyles = beforeStyles.trimEnd() + ',\n';
+ui = beforeStyles + styles + ui.slice(stylePos);
 ui += '\n' + marker + '\n';
 fs.writeFileSync(uiPath, ui);
 console.log('AJPA UI Lab: perfil aprobado aplicado con avatar real e iconografía de internet.');
