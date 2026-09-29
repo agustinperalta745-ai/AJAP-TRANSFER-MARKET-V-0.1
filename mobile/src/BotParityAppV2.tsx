@@ -42,7 +42,7 @@ import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
-import { AjpaIcon } from './AjpaIcon';
+import { AjpaIcon, AjpaIconName, AjpaIconTile } from './AjpaIcon';
 import { ClubBadge, getClubTheme } from './teamBadges';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
