@@ -195,7 +195,7 @@ jobs:
             ["Ofertas", "offers"],
             ["Staff/Admin", "admin"],
             ["Gestión de ciclo", "competition"],
-            ["Liga real", "AJPA_LEAGUE_APPROVED_V3"],
+            ["Liga real", "AJPA_LEAGUE_DIRECT_LOAD_FIX_V4"],
             ["PES6 stats", "PlayerPes6StatsButton"],
           ];
           for (const [label, token] of required) {
