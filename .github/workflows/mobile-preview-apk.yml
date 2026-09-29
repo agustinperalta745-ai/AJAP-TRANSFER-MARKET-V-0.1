@@ -263,7 +263,9 @@ jobs:
           EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Build standalone APK
-        run: ./gradlew assembleRelease
+        run: |
+          printf '\norg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.daemon=false\norg.gradle.workers.max=2\n' >> gradle.properties
+          ./gradlew assembleRelease --no-daemon
         working-directory: mobile/android
         env:
           CI: '1'
