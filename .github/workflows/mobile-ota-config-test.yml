@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: mobile
     env:
-      EXPO_PUBLIC_API_URL: https://ajap-transfer-market-v-01-production.up.railway.app
+      EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
     steps:
       - name: Checkout
@@ -58,6 +58,10 @@ jobs:
 
       - name: Apply OTA production transforms
         run: |
+          node scripts/prepare-ui-lab-icons.mjs
+          node scripts/prepare-ui-lab-badges.mjs
+          node scripts/apply-all-hq-team-badges.mjs
+          node scripts/prepare-ui-lab-hero.mjs
           node scripts/apply-discord-menu-parity.mjs
           node scripts/apply-clausulazo-mobile.mjs
           node scripts/apply-staff-mobile.mjs
@@ -77,6 +81,14 @@ jobs:
           node scripts/apply-profile-team-badges.mjs
           node scripts/apply-team-card-gradients.mjs
           node scripts/apply-club-player-card-colors.mjs
+          node scripts/apply-player-pes6-stats.mjs
+          node scripts/apply-search-player-market-actions.mjs
+          node scripts/apply-ui-redesign-functional-shell.mjs
+          node scripts/apply-ui-redesign-all-screens.mjs
+          node scripts/apply-mi-club-approved-style.mjs
+          node scripts/apply-market-approved-style.mjs
+          node scripts/apply-copas-approved-style.mjs
+          node scripts/apply-profile-approved-style.mjs
           grep -q "league-real-table applied" src/BotParityAppV2.tsx
           grep -q "s.leagueTableHeader" src/BotParityAppV2.tsx
           grep -q "<ClubBadge club={row.team} size={26}" src/BotParityAppV2.tsx
@@ -97,7 +109,7 @@ jobs:
           const config = JSON.parse(fs.readFileSync('/tmp/ajpa-expo-config.json', 'utf8'));
           if (config.runtimeVersion !== '1') throw new Error(`runtimeVersion inesperado: ${config.runtimeVersion}`);
           const url = config.updates?.url;
-          if (url !== 'https://ajap-transfer-market-v-01-production.up.railway.app/api/v1/ota/manifest') {
+          if (url !== 'https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run/api/v1/ota/manifest') {
             throw new Error(`updates.url inesperado: ${url}`);
           }
           if (!config.updates?.enabled) throw new Error('expo-updates quedó deshabilitado');
