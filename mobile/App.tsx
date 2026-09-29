@@ -261,6 +261,15 @@ export default function App() {
     return dateLabel ? `${left} · ${dateLabel}` : left;
   }, [seasonCountdown, now]);
 
+  const seasonClosed = useMemo(() => {
+    if (!seasonCountdown?.configured) return false;
+    if (seasonCountdown.closed) return true;
+    if (!seasonCountdown.deadline_utc) return false;
+    return seasonCountdown.deadline_utc * 1000 <= now;
+  }, [seasonCountdown, now]);
+  const seasonStatusLabel = seasonClosed ? 'FINALIZADA' : 'EN CURSO';
+  const seasonStatusColor = seasonClosed ? P.red : P.white;
+
   const myClub = profile?.club || '';
   const myClubDisplay = myClub || (profile?.is_staff ? 'Staff / sin club' : 'Club sin vincular');
   const myManager = profile?.user?.global_name || profile?.user?.username || 'DT sin vincular';
@@ -364,10 +373,10 @@ export default function App() {
 
             <View style={s.heroMetaRow}>
               <View style={[s.heroMeta, s.heroMetaSeason]}>
-                <AjpaIcon name="season" size={21} color={P.white} />
+                <AjpaIcon name={seasonClosed ? 'closed' : 'season'} size={21} color={seasonClosed ? P.red : P.white} />
                 <View>
                   <Text style={s.metaSmall}>Temporada oficial</Text>
-                  <Text style={s.metaStrong}>En curso</Text>
+                  <Text style={[s.metaStrong, { color: seasonStatusColor }]}>{seasonStatusLabel}</Text>
                   {countdownText ? <Text numberOfLines={1} style={s.metaTimer}>{countdownText}</Text> : null}
                 </View>
               </View>
@@ -544,9 +553,9 @@ export default function App() {
             <Text style={s.link}>Ver todas ›</Text>
           </View>
           <View style={s.competitionRow}>
-            <View style={s.compCard}><AjpaIconTile name="league" tone="#173C5B" size={16} tileSize={30} /><Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{season}</Text><Text style={s.compLive}>● En curso</Text></View>
-            <View style={s.compCard}><AjpaIconTile name="competitions" tone="#6D531D" size={16} tileSize={30} /><Text style={s.compTitle}>Champions AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compMuted}>● Próxima fase</Text></View>
-            <View style={s.compCard}><AjpaIconTile name="cups" tone="#42366A" size={16} tileSize={30} /><Text style={s.compTitle}>Europa AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compLive}>● En curso</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="league" tone="#173C5B" size={16} tileSize={30} /><Text style={s.compTitle}>Liga AJPA</Text><Text style={s.compSub}>{season}</Text><Text style={seasonClosed ? s.compClosed : s.compLive}>● {seasonClosed ? 'Finalizada' : 'En curso'}</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="competitions" tone="#6D531D" size={16} tileSize={30} /><Text style={s.compTitle}>Champions AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compMuted}>Ver competencia ›</Text></View>
+            <View style={s.compCard}><AjpaIconTile name="cups" tone="#42366A" size={16} tileSize={30} /><Text style={s.compTitle}>Europa AJPA</Text><Text style={s.compSub}>Internacional</Text><Text style={s.compMuted}>Ver competencia ›</Text></View>
           </View>
         </View>
       </ScrollView>
@@ -699,6 +708,7 @@ const s = StyleSheet.create({
   compTitle: { color: P.white, fontSize: 9.3, fontWeight: '800' },
   compSub: { color: P.muted, fontSize: 8, lineHeight: 11, marginTop: 3 },
   compLive: { color: P.blue2, fontSize: 7.5, marginTop: 6, fontWeight: '800' },
+  compClosed: { color: P.red, fontSize: 7.5, marginTop: 6, fontWeight: '800' },
   compMuted: { color: '#8C9EAB', fontSize: 7.5, marginTop: 6, fontWeight: '800' },
 
   previewNote: { marginTop: 8, padding: 11, borderRadius: 14, backgroundColor: '#0A1E2D', borderWidth: 1, borderColor: '#1D4D6C' },
