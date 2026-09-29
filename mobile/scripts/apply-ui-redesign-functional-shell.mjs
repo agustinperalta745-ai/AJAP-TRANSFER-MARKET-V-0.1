@@ -8,6 +8,13 @@ function mustReplace(search, replacement, label) {
   ui = ui.replace(search, replacement);
 }
 
+if (ui.includes("import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';")) {
+  ui = ui.replace(
+    "import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';",
+    "import React, { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';",
+  );
+}
+
 if (!/^export type Screen =/m.test(ui)) {
   ui = ui.replace(/^type Screen =/m, 'export type Screen =');
 }
@@ -65,7 +72,7 @@ if (ui.includes(stateSyncAnchor) && !ui.includes("setScreen(initialScreen);\n  }
     stateSyncAnchor,
     stateSyncAnchor + `
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!embedded) return;
     setScreenHistory([]);
     setScreen(initialScreen);
@@ -213,7 +220,7 @@ if (ui.includes(oldTopBar)) {
               <Text style={s.topActionText}>‹ VOLVER</Text>
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Image source={require('../assets/ajpa-league-logo.png')} style={{ width: 34, height: 34 }} resizeMode="contain" />
+              <Image source={require('../assets/ajpa-league-logo.png')} style={{ width: 34, height: 34, borderRadius: 17 }} resizeMode="contain" />
               <Text style={s.brand}>AJPA</Text>
             </View>
           </View>
@@ -282,7 +289,7 @@ if (!ui.includes('  embeddedHeaderTitle: {')) {
   transferApprovedHeader: { backgroundColor: '#07131F', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
   transferBrandRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center' },
   transferBrandPressable: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
-  transferBrandLogo: { width: 58, height: 58, marginRight: 10 },
+  transferBrandLogo: { width: 58, height: 58, borderRadius: 29, marginRight: 10 },
   transferBrandCopy: { flex: 1, minWidth: 0 },
   transferBrandTitle: { color: '#F5FAFE', fontSize: 31, lineHeight: 33, fontWeight: '900', letterSpacing: 1 },
   transferBrandSubtitle: { color: '#58B9F2', fontSize: 8.3, lineHeight: 11, fontWeight: '900', letterSpacing: 1.65 },
