@@ -42,6 +42,7 @@ import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
+import { AjpaIcon } from './AjpaIcon';
 import { ClubBadge, getClubTheme } from './teamBadges';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
@@ -185,22 +186,22 @@ function PlayerCard({ player, actions }: { player: RosterPlayer; actions?: React
 }
 
 function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }) {
-  const theme = getClubTheme(item.club);
   const operation = String(item.operation_type || '').toUpperCase();
   const operationColor =
-    operation.includes('INTERCAMBIO') ? '#48B8FF'
-      : operation.includes('PRÉSTAMO') ? '#F0C45A'
-        : '#50D891';
+    operation.includes('INTERCAMBIO') ? '#2CAEFF'
+      : operation.includes('PRÉSTAMO') ? '#E8B94F'
+        : '#46D887';
+  const rating = Number(item.ovr || 0);
+  const ovrTone = rating >= 85 ? '#18A96F' : rating >= 82 ? '#197FCB' : rating >= 80 ? '#C99A08' : '#526C80';
 
   return (
-    <View style={[s.marketPlayerCard, { borderColor: theme.primary + '88' }]}>
-      <View pointerEvents="none" style={[s.marketClubGlow, { backgroundColor: theme.primary }]} />
+    <View style={s.marketPlayerCard}>
       <View pointerEvents="none" style={s.marketBadgeWatermark}>
-        <ClubBadge club={item.club} size={104} style={{ opacity: 0.16 }} />
+        <ClubBadge club={item.club} size={112} style={{ opacity: 0.18 }} />
       </View>
 
       <View style={s.marketPlayerTop}>
-        <View style={[s.marketOvrBox, { backgroundColor: theme.secondary, borderColor: theme.accent + '99' }]}>
+        <View style={[s.marketOvrBox, { backgroundColor: ovrTone, borderColor: 'rgba(255,255,255,0.35)' }]}>
           <Text style={s.marketOvrValue}>{item.ovr ?? '—'}</Text>
           <Text style={s.marketOvrLabel}>OVR</Text>
         </View>
@@ -211,35 +212,49 @@ function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }
             <Text style={s.marketPositionText}>{item.position || '—'}</Text>
           </View>
           <View style={s.marketClubLine}>
-            <ClubBadge club={item.club} size={28} />
+            <ClubBadge club={item.club} size={29} />
             <Text numberOfLines={1} style={s.marketClubName}>{item.club}</Text>
           </View>
         </View>
 
         <View style={s.marketMeta}>
-          <Text style={s.marketMetaLabel}>OPERACIÓN</Text>
-          <Text style={[s.marketOperation, { color: operationColor }]}>{item.operation_type}</Text>
-          <Text style={s.marketMetaLabel}>PRECIO</Text>
-          <Text style={[s.marketPrice, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
+          <Text style={s.marketMetaLabel}>TIPO DE OPERACIÓN</Text>
+          <View style={s.marketOperationLine}>
+            <AjpaIcon name="market" size={17} color={operationColor} />
+            <Text numberOfLines={1} style={[s.marketOperation, { color: operationColor }]}>{item.operation_type}</Text>
+          </View>
+          <View style={s.marketPriceLine}>
+            <Text style={s.marketTag}>◆</Text>
+            <Text numberOfLines={1} style={[s.marketPrice, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
+          </View>
         </View>
       </View>
 
-      {item.detail ? <Text style={s.marketDetail}>{item.detail}</Text> : null}
-
       <View style={s.marketDivider} />
 
-      <PlayerPes6StatsButton
-        player={{
-          id: item.player_id,
-          code: item.player_code,
-          name: item.player,
-          position: item.position,
-          club: item.club,
-          ovr: item.ovr,
-          market_value: item.market_value,
-        }}
-      />
-      {actions ? <View style={s.marketActions}>{actions}</View> : null}
+      <View style={s.marketBottomRow}>
+        <View style={s.marketDetailRow}>
+          <Text style={s.marketNoteIcon}>▤</Text>
+          <Text numberOfLines={1} style={s.marketDetail}>{item.detail || 'Sin observaciones'}</Text>
+        </View>
+        <View style={s.marketButtonsRow}>
+          <View style={s.marketStatsWrap}>
+            <PlayerPes6StatsButton
+              compact
+              player={{
+                id: item.player_id,
+                code: item.player_code,
+                name: item.player,
+                position: item.position,
+                club: item.club,
+                ovr: item.ovr,
+                market_value: item.market_value,
+              }}
+            />
+          </View>
+          {actions ? <View style={s.marketOfferWrap}>{actions}</View> : null}
+        </View>
+      </View>
     </View>
   );
 }
@@ -734,7 +749,7 @@ export default function BotParityAppV2() {
 
   const transferibles = (
     <ScrollView contentContainerStyle={s.content} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
-      <Title eyebrow="MERCADO · TRANSFERIBLES" title="Jugadores transferibles" subtitle="Separados igual que en Discord." />
+      <Title eyebrow="MERCADO" title="Transferibles" subtitle="Jugadores disponibles de la comunidad AJPA." />
 
       {offerTarget ? (
         <View style={s.editorCard}>
@@ -765,18 +780,27 @@ export default function BotParityAppV2() {
         </View>
       ) : null}
 
-      <Text style={s.listHeading}>🌍 TRANSFERIBLES DE OTROS EQUIPOS · {otherPublications.length}</Text>
+      <Text style={s.marketListHeading}>TRANSFERIBLES DE OTROS EQUIPOS · {otherPublications.length}</Text>
       {otherPublications.length === 0 ? <View style={s.card}><Text style={s.muted}>No hay publicaciones de otros equipos.</Text></View> : null}
       {otherPublications.map((item) => (
         <MarketCard
           key={item.publication_id}
           item={item}
-          actions={<Button label="HACER OFERTA" disabled={!snapshot.status.market_open || !profile?.club} onPress={() => {
-            setOfferTarget(item);
-            setOfferAmount(item.operation_type === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : '');
-            setOfferMessage('');
-            setOfferedPlayerId(null);
-          }} />}
+          actions={
+            <Pressable
+              disabled={!snapshot.status.market_open || !profile?.club}
+              onPress={() => {
+                setOfferTarget(item);
+                setOfferAmount(item.operation_type === 'PRÉSTAMO' ? FIXED_LOAN_PRICE : '');
+                setOfferMessage('');
+                setOfferedPlayerId(null);
+              }}
+              style={({ pressed }) => [s.marketOfferButton, (!snapshot.status.market_open || !profile?.club) && s.disabled, pressed && { opacity: 0.74 }]}
+            >
+              <AjpaIcon name="market" size={19} color="#FFFFFF" />
+              <Text style={s.marketOfferButtonText}>HACER OFERTA</Text>
+            </Pressable>
+          }
         />
       ))}
 
@@ -976,26 +1000,37 @@ const s = StyleSheet.create({
   honourSecondary: { color: '#c4d1dc', fontSize: 8.5, fontWeight: '700', lineHeight: 12, marginTop: 4 },
   honourMeta: { color: C.muted, fontSize: 7.5, lineHeight: 10, marginTop: 4 },
   honourEmpty: { color: '#c4d1dc', fontSize: 9, fontWeight: '700', lineHeight: 12, marginTop: 2 },
-  marketPlayerCard: { position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(8,24,37,0.96)', borderWidth: 1, borderRadius: 20, padding: 14, minHeight: 196 },
-  marketClubGlow: { position: 'absolute', width: 210, height: 180, right: -72, top: -72, borderRadius: 110, opacity: 0.12 },
-  marketBadgeWatermark: { position: 'absolute', right: 3, top: 18 },
-  marketPlayerTop: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 104 },
-  marketOvrBox: { width: 62, height: 74, borderRadius: 15, borderWidth: 1.2, alignItems: 'center', justifyContent: 'center', marginRight: 11 },
-  marketOvrValue: { color: C.white, fontSize: 27, lineHeight: 29, fontWeight: '900' },
-  marketOvrLabel: { color: '#D7E5EF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginTop: 2 },
-  marketIdentity: { flex: 1, minWidth: 0, paddingTop: 2, paddingRight: 7 },
-  marketPlayerName: { color: C.white, fontSize: 18, fontWeight: '900' },
-  marketPositionPill: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9, borderWidth: 1, borderColor: '#2B607D', backgroundColor: 'rgba(11,43,61,0.92)' },
+  marketPlayerCard: { position: 'relative', overflow: 'hidden', backgroundColor: '#0A2233', borderWidth: 1, borderColor: '#1F6288', borderRadius: 19, padding: 13, minHeight: 204, marginBottom: 10 },
+  marketBadgeWatermark: { position: 'absolute', right: 7, top: 17 },
+  marketPlayerTop: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 101 },
+  marketOvrBox: { width: 61, height: 74, borderRadius: 14, borderWidth: 1.2, alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  marketOvrValue: { color: '#FFFFFF', fontSize: 27, lineHeight: 29, fontWeight: '900' },
+  marketOvrLabel: { color: 'rgba(255,255,255,0.82)', fontSize: 8.5, fontWeight: '900', letterSpacing: 0.6, marginTop: 2 },
+  marketIdentity: { flex: 1, minWidth: 0, paddingTop: 1, paddingRight: 7 },
+  marketPlayerName: { color: C.white, fontSize: 18, lineHeight: 21, fontWeight: '900' },
+  marketPositionPill: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9, borderWidth: 1, borderColor: '#276183', backgroundColor: 'rgba(11,43,61,0.92)' },
   marketPositionText: { color: '#C4D8E5', fontSize: 9, fontWeight: '900' },
-  marketClubLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7, maxWidth: 150 },
-  marketClubName: { flex: 1, color: '#B1C4D1', fontSize: 10.5 },
-  marketMeta: { width: 112, paddingTop: 2, paddingLeft: 9, borderLeftWidth: 1, borderLeftColor: '#254F68' },
-  marketMetaLabel: { color: '#7897AC', fontSize: 7, fontWeight: '900', letterSpacing: 1, marginBottom: 3 },
-  marketOperation: { fontSize: 10, lineHeight: 13, fontWeight: '900', marginBottom: 9 },
-  marketPrice: { color: C.white, fontSize: 11.5, lineHeight: 15, fontWeight: '900' },
-  marketDetail: { color: '#9FB1BD', fontSize: 10.5, lineHeight: 15, marginTop: 4 },
-  marketDivider: { height: 1, backgroundColor: '#28536D', opacity: 0.78, marginVertical: 10 },
-  marketActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
+  marketClubLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7, maxWidth: 155 },
+  marketClubName: { flex: 1, color: '#B8C8D2', fontSize: 10.5 },
+  marketMeta: { width: 128, paddingTop: 2, paddingLeft: 10, paddingRight: 2, borderLeftWidth: 1, borderLeftColor: '#285873' },
+  marketMetaLabel: { color: '#7291A6', fontSize: 7, fontWeight: '900', letterSpacing: 0.9, marginBottom: 5 },
+  marketOperationLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 9 },
+  marketOperation: { flex: 1, fontSize: 10.3, lineHeight: 13, fontWeight: '900' },
+  marketPriceLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  marketTag: { color: '#F5FAFE', fontSize: 13, transform: [{ rotate: '45deg' }] },
+  marketPrice: { flex: 1, color: C.white, fontSize: 11.5, lineHeight: 15, fontWeight: '900' },
+  marketDivider: { height: 1, backgroundColor: '#28617E', opacity: 0.82, marginTop: 5, marginBottom: 9 },
+  marketBottomRow: { gap: 8 },
+  marketDetailRow: { minHeight: 23, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  marketNoteIcon: { color: '#7293AB', fontSize: 18, lineHeight: 20 },
+  marketDetail: { flex: 1, color: '#A9BAC5', fontSize: 10.5, lineHeight: 14 },
+  marketButtonsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
+  marketStatsWrap: { flex: 1.08, minWidth: 0 },
+  marketOfferWrap: { flex: 0.92, minWidth: 0, justifyContent: 'stretch' },
+  marketOfferButton: { minHeight: 46, borderRadius: 13, backgroundColor: '#159BF3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 8 },
+  marketOfferButtonText: { color: '#FFFFFF', fontSize: 9.7, fontWeight: '900', letterSpacing: 0.15 },
+  marketListHeading: { color: '#41B7FF', fontWeight: '900', fontSize: 10, letterSpacing: 1.4, marginTop: 8, marginBottom: 7 },
+
   card: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 14 },
   statCard: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 16 },
   statLabel: { color: C.blueSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
