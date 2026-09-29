@@ -221,6 +221,26 @@ jobs:
           console.log('Free agents navigation validated');
           NODE
 
+      - name: Restore official shell imports after legacy transforms
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'App.tsx';
+          let app = fs.readFileSync(path, 'utf8');
+          const anchor = "import BotParityAppV2 from './src/BotParityAppV2';";
+          if (!app.includes(anchor)) throw new Error('BotParity import missing from official shell');
+          const imports = [
+            "import CupCenterFab from './src/CupCenterFab';",
+            "import SeasonHistoryFab from './src/SeasonHistoryFab';",
+            "import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';",
+          ];
+          for (const line of imports) {
+            if (!app.includes(line)) app = app.replace(anchor, anchor + '\n' + line);
+          }
+          fs.writeFileSync(path, app);
+          console.log('Official shell imports restored');
+          NODE
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
