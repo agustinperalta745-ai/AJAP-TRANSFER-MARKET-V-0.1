@@ -5,8 +5,10 @@ let ui = fs.readFileSync(uiPath, 'utf8');
 const marker = '// approved-profile-style applied';
 if (ui.includes(marker)) process.exit(0);
 
-const reactAnchor = "import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';";
+const reactAnchorLegacy = "import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';";
+const reactAnchorLayout = "import React, { ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';";
 if (!ui.includes("Shield, Settings, LogOut")) {
+  const reactAnchor = ui.includes(reactAnchorLayout) ? reactAnchorLayout : reactAnchorLegacy;
   if (!ui.includes(reactAnchor)) throw new Error('Perfil aprobado: import React no encontrado');
   ui = ui.replace(
     reactAnchor,
