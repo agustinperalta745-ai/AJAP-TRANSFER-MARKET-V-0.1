@@ -133,6 +133,9 @@ jobs:
       - name: Apply approved Copas layout and imagery
         run: node scripts/apply-copas-approved-style.mjs
 
+      - name: Apply approved Perfil layout and internet iconography
+        run: node scripts/apply-profile-approved-style.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
