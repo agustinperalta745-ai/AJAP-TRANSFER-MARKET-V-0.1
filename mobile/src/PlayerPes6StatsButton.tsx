@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -40,7 +41,7 @@ const errorMessage = (error: unknown) =>
     ? String((error as { message?: string }).message || 'No se pudieron cargar las estadísticas.')
     : 'No se pudieron cargar las estadísticas.';
 
-export default function PlayerPes6StatsButton({ player }: { player: RosterPlayer }) {
+export default function PlayerPes6StatsButton({ player, compact = false }: { player: RosterPlayer; compact?: boolean }) {
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<PlayerStatsPayload | null>(null);
@@ -67,9 +68,10 @@ export default function PlayerPes6StatsButton({ player }: { player: RosterPlayer
       <Pressable
         disabled={player.id === null || player.id === undefined}
         onPress={() => { void openStats(); }}
-        style={({ pressed }) => [styles.statsButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.statsButton, compact && styles.statsButtonCompact, pressed && styles.pressed]}
       >
-        <Text style={styles.statsButtonText}>📊 VER ESTADÍSTICAS</Text>
+        <Image source={require('../assets/ui-icons/league.png')} resizeMode="contain" style={styles.statsIcon} />
+        <Text style={[styles.statsButtonText, compact && styles.statsButtonTextCompact]}>VER ESTADÍSTICAS</Text>
       </Pressable>
 
       <Modal
@@ -183,8 +185,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  statsButtonText: { color: '#9fd0ff', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 },
+  statsButtonCompact: { marginTop: 0, minHeight: 46, paddingVertical: 8, paddingHorizontal: 9, backgroundColor: 'rgba(5,20,32,0.72)' },
+  statsIcon: { width: 19, height: 19, tintColor: '#2EA8FF' },
+  statsButtonText: { color: '#DDF0FC', fontWeight: '900', fontSize: 12, letterSpacing: 0.4 },
+  statsButtonTextCompact: { fontSize: 9.7, letterSpacing: 0.2 },
   pressed: { opacity: 0.7 },
   backdrop: {
     flex: 1,
