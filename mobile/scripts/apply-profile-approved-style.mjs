@@ -72,7 +72,7 @@ const profile = String.raw`  const profileScreen = (
           </Pressable>
 
           <Pressable
-            onPress={() => Alert.alert('Cuenta de Discord', `${profile.user.global_name || profile.user.username || 'Cuenta vinculada'}\nID: ${profile.user.id}`)}
+            onPress={() => Alert.alert('Cuenta de Discord', (profile.user.global_name || profile.user.username || 'Cuenta vinculada') + '\\nID: ' + profile.user.id)}
             style={({ pressed }) => [s.profileApprovedTile, pressed && s.profileApprovedPressed]}
           >
             <View style={s.profileApprovedTileIcon}>
