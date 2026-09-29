@@ -64,13 +64,13 @@ export default function PremiumHomePreview() {
       manual ? setRefreshing(true) : setLoading(true);
       const result = await Promise.all([
         fetchSnapshot(),
-        fetchLeague().catch(() => ({ standings: [], scorers: [] } as LeagueData)),
+        fetchLeague().catch(() => ({ standings: [], scorers: [] } as unknown as LeagueData)),
       ]);
       setSnapshot(result[0]);
       setLeague(result[1]);
     } catch {
       setSnapshot(null);
-      setLeague({ standings: [], scorers: [] } as LeagueData);
+      setLeague({ standings: [], scorers: [] } as unknown as LeagueData);
     } finally {
       setLoading(false);
       setRefreshing(false);
