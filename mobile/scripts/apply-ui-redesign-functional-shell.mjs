@@ -28,7 +28,9 @@ export default function BotParityAppV2({
   onOpenMatchSearch,
 }: BotParityAppV2Props = {}) {`;
 
-if (ui.includes(organizedSignature)) {
+if (ui.includes(replacementSignature)) {
+  // Production source already exposes the redesigned-shell props.
+} else if (ui.includes(organizedSignature)) {
   ui = ui.replace(organizedSignature, replacementSignature);
 } else if (ui.includes(plainSignature)) {
   ui = ui.replace(plainSignature, replacementSignature);
@@ -36,11 +38,14 @@ if (ui.includes(organizedSignature)) {
   throw new Error('AJPA redesign shell: no encontré firma del componente');
 }
 
-mustReplace(
-  "  const [screen, setScreen] = useState<Screen>('home');",
-  "  const [screen, setScreen] = useState<Screen>(initialScreen);",
-  'pantalla inicial',
-);
+if (ui.includes("  const [screen, setScreen] = useState<Screen>('home');")) {
+  ui = ui.replace(
+    "  const [screen, setScreen] = useState<Screen>('home');",
+    "  const [screen, setScreen] = useState<Screen>(initialScreen);",
+  );
+} else if (!ui.includes("  const [screen, setScreen] = useState<Screen>(initialScreen);")) {
+  throw new Error('AJPA redesign shell: no encontré pantalla inicial');
+}
 
 if (ui.includes("  const [loading, setLoading] = useState(true);")) {
   ui = ui.replace(
