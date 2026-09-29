@@ -42,6 +42,7 @@ import { BG_MERCADO } from './bg_mercado';
 import { BG_LIBRES } from './bg_libres';
 import { BG_PERFIL } from './bg_perfil';
 import PlayerPes6StatsButton from './PlayerPes6StatsButton';
+import { ClubBadge, getClubTheme } from './teamBadges';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
 
@@ -184,21 +185,49 @@ function PlayerCard({ player, actions }: { player: RosterPlayer; actions?: React
 }
 
 function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }) {
+  const theme = getClubTheme(item.club);
+  const operation = String(item.operation_type || '').toUpperCase();
+  const operationColor =
+    operation.includes('INTERCAMBIO') ? '#48B8FF'
+      : operation.includes('PRÉSTAMO') ? '#F0C45A'
+        : '#50D891';
+
   return (
-    <View style={s.card}>
-      <View style={s.playerRow}>
-        <View style={s.ovrBox}>
-          <Text style={s.ovrValue}>{item.ovr ?? '—'}</Text>
-          <Text style={s.ovrLabel}>OVR</Text>
-        </View>
-        <View style={s.flex}>
-          <Text style={s.playerName}>{item.player}</Text>
-          <Text style={s.muted}>{item.position || '—'} · {item.club}</Text>
-          <Text style={s.playerValue}>{item.operation_type}</Text>
-        </View>
-        <Text style={[s.price, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
+    <View style={[s.marketPlayerCard, { borderColor: theme.primary + '88' }]}>
+      <View pointerEvents="none" style={[s.marketClubGlow, { backgroundColor: theme.primary }]} />
+      <View pointerEvents="none" style={s.marketBadgeWatermark}>
+        <ClubBadge club={item.club} size={104} style={{ opacity: 0.16 }} />
       </View>
-      {item.detail ? <Text style={s.detail}>{item.detail}</Text> : null}
+
+      <View style={s.marketPlayerTop}>
+        <View style={[s.marketOvrBox, { backgroundColor: theme.secondary, borderColor: theme.accent + '99' }]}>
+          <Text style={s.marketOvrValue}>{item.ovr ?? '—'}</Text>
+          <Text style={s.marketOvrLabel}>OVR</Text>
+        </View>
+
+        <View style={s.marketIdentity}>
+          <Text numberOfLines={1} style={s.marketPlayerName}>{item.player}</Text>
+          <View style={s.marketPositionPill}>
+            <Text style={s.marketPositionText}>{item.position || '—'}</Text>
+          </View>
+          <View style={s.marketClubLine}>
+            <ClubBadge club={item.club} size={28} />
+            <Text numberOfLines={1} style={s.marketClubName}>{item.club}</Text>
+          </View>
+        </View>
+
+        <View style={s.marketMeta}>
+          <Text style={s.marketMetaLabel}>OPERACIÓN</Text>
+          <Text style={[s.marketOperation, { color: operationColor }]}>{item.operation_type}</Text>
+          <Text style={s.marketMetaLabel}>PRECIO</Text>
+          <Text style={[s.marketPrice, item.is_free_agent && { color: C.green }]}>{item.price}</Text>
+        </View>
+      </View>
+
+      {item.detail ? <Text style={s.marketDetail}>{item.detail}</Text> : null}
+
+      <View style={s.marketDivider} />
+
       <PlayerPes6StatsButton
         player={{
           id: item.player_id,
@@ -210,7 +239,7 @@ function MarketCard({ item, actions }: { item: MarketItem; actions?: ReactNode }
           market_value: item.market_value,
         }}
       />
-      {actions ? <View style={s.actionRow}>{actions}</View> : null}
+      {actions ? <View style={s.marketActions}>{actions}</View> : null}
     </View>
   );
 }
@@ -947,6 +976,26 @@ const s = StyleSheet.create({
   honourSecondary: { color: '#c4d1dc', fontSize: 8.5, fontWeight: '700', lineHeight: 12, marginTop: 4 },
   honourMeta: { color: C.muted, fontSize: 7.5, lineHeight: 10, marginTop: 4 },
   honourEmpty: { color: '#c4d1dc', fontSize: 9, fontWeight: '700', lineHeight: 12, marginTop: 2 },
+  marketPlayerCard: { position: 'relative', overflow: 'hidden', backgroundColor: 'rgba(8,24,37,0.96)', borderWidth: 1, borderRadius: 20, padding: 14, minHeight: 196 },
+  marketClubGlow: { position: 'absolute', width: 210, height: 180, right: -72, top: -72, borderRadius: 110, opacity: 0.12 },
+  marketBadgeWatermark: { position: 'absolute', right: 3, top: 18 },
+  marketPlayerTop: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 104 },
+  marketOvrBox: { width: 62, height: 74, borderRadius: 15, borderWidth: 1.2, alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  marketOvrValue: { color: C.white, fontSize: 27, lineHeight: 29, fontWeight: '900' },
+  marketOvrLabel: { color: '#D7E5EF', fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginTop: 2 },
+  marketIdentity: { flex: 1, minWidth: 0, paddingTop: 2, paddingRight: 7 },
+  marketPlayerName: { color: C.white, fontSize: 18, fontWeight: '900' },
+  marketPositionPill: { alignSelf: 'flex-start', marginTop: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 9, borderWidth: 1, borderColor: '#2B607D', backgroundColor: 'rgba(11,43,61,0.92)' },
+  marketPositionText: { color: '#C4D8E5', fontSize: 9, fontWeight: '900' },
+  marketClubLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 7, maxWidth: 150 },
+  marketClubName: { flex: 1, color: '#B1C4D1', fontSize: 10.5 },
+  marketMeta: { width: 112, paddingTop: 2, paddingLeft: 9, borderLeftWidth: 1, borderLeftColor: '#254F68' },
+  marketMetaLabel: { color: '#7897AC', fontSize: 7, fontWeight: '900', letterSpacing: 1, marginBottom: 3 },
+  marketOperation: { fontSize: 10, lineHeight: 13, fontWeight: '900', marginBottom: 9 },
+  marketPrice: { color: C.white, fontSize: 11.5, lineHeight: 15, fontWeight: '900' },
+  marketDetail: { color: '#9FB1BD', fontSize: 10.5, lineHeight: 15, marginTop: 4 },
+  marketDivider: { height: 1, backgroundColor: '#28536D', opacity: 0.78, marginVertical: 10 },
+  marketActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
   card: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 14 },
   statCard: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, borderRadius: 18, padding: 16 },
   statLabel: { color: C.blueSoft, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
