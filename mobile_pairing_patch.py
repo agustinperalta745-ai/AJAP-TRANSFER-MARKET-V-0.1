@@ -21,6 +21,8 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
     if getattr(bot, "_ajpa_mobile_pairing_patch", False):
         return
 
+    mobile_write_api.set_discord_user_resolver(lambda user_id: bot.get_user(int(user_id)))
+
     @bot.tree.command(
         name="app_codigo",
         description="Genera un código para vincular tu cuenta de Discord con AJPA Mobile",
