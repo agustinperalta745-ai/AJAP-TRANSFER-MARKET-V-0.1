@@ -16,6 +16,8 @@ const organizedSignature = `export default function BotParityAppV2({ onOpenMatch
 const plainSignature = `export default function BotParityAppV2() {`;
 const replacementSignature = `export type BotParityAppV2Props = {
   initialScreen?: Screen;
+  initialSnapshot?: LeagueSnapshot | null;
+  initialProfile?: MobileProfile | null;
   embedded?: boolean;
   onExit?: () => void;
   onOpenMatchSearch?: () => void;
@@ -23,6 +25,8 @@ const replacementSignature = `export type BotParityAppV2Props = {
 
 export default function BotParityAppV2({
   initialScreen = 'home',
+  initialSnapshot = null,
+  initialProfile = null,
   embedded = false,
   onExit,
   onOpenMatchSearch,
@@ -41,6 +45,42 @@ mustReplace(
   "  const [screen, setScreen] = useState<Screen>(initialScreen);",
   'pantalla inicial',
 );
+
+if (ui.includes("  const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);")) {
+  ui = ui.replace(
+    "  const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);",
+    "  const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(initialSnapshot);",
+  );
+}
+if (ui.includes("  const [profile, setProfile] = useState<MobileProfile | null>(null);")) {
+  ui = ui.replace(
+    "  const [profile, setProfile] = useState<MobileProfile | null>(null);",
+    "  const [profile, setProfile] = useState<MobileProfile | null>(initialProfile);",
+  );
+}
+
+const stateSyncAnchor = "  const [offeredPlayerId, setOfferedPlayerId] = useState<number | null>(null);";
+if (ui.includes(stateSyncAnchor) && !ui.includes("setScreen(initialScreen);\n  }, [embedded, initialScreen]")) {
+  ui = ui.replace(
+    stateSyncAnchor,
+    stateSyncAnchor + `
+
+  useEffect(() => {
+    if (!embedded) return;
+    setScreenHistory([]);
+    setScreen(initialScreen);
+  }, [embedded, initialScreen]);
+
+  useEffect(() => {
+    if (initialSnapshot) setSnapshot(initialSnapshot);
+  }, [initialSnapshot]);
+
+  useEffect(() => {
+    if (initialProfile) setProfile(initialProfile);
+  }, [initialProfile]);
+`,
+  );
+}
 
 if (ui.includes("  const [loading, setLoading] = useState(true);")) {
   ui = ui.replace(
