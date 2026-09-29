@@ -96,6 +96,60 @@ if (ui.includes("      manual ? setRefreshing(true) : setLoading(true);")) {
   );
 }
 
+const transientProfileCatch = `      } catch {
+        setProfile(null);
+        setRoster([]);
+      }`;
+if (ui.includes(transientProfileCatch)) {
+  ui = ui.replace(
+    transientProfileCatch,
+    `      } catch (error) {
+        const status = (error as { status?: number } | null)?.status;
+        // A temporary network failure must not make a linked account look unlinked.
+        // Only a confirmed 401 clears the visible identity.
+        if (status === 401) {
+          setProfile(null);
+          setRoster([]);
+        }
+      }`,
+  );
+}
+
+const disconnectedBlock = `  if (!snapshot) {
+    return (
+      <SafeAreaView style={s.root}>
+        <Text style={s.screenTitle}>Sin conexión</Text>
+        <Button label="REINTENTAR" onPress={() => loadAll()} />
+      </SafeAreaView>
+    );
+  }`;
+if (ui.includes(disconnectedBlock)) {
+  ui = ui.replace(
+    disconnectedBlock,
+    `  if (!snapshot) {
+    return (
+      <SafeAreaView style={s.root}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}>
+          {loading ? (
+            <>
+              <ActivityIndicator color={C.blue} />
+              <Text style={[s.screenTitle, { marginTop: 12 }]}>Cargando AJPA</Text>
+              <Text style={s.muted}>Sincronizando datos reales…</Text>
+            </>
+          ) : (
+            <>
+              <Text style={s.screenTitle}>No se pudo conectar</Text>
+              <Text style={s.muted}>Se mantiene oculto el estado hasta poder verificarlo.</Text>
+              <Button label="REINTENTAR" onPress={() => loadAll()} />
+            </>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }`,
+  );
+}
+
 if (ui.includes('<SeasonCountdownBanner />')) {
   ui = ui.replace('<SeasonCountdownBanner />', '{embedded ? null : <SeasonCountdownBanner />}');
 }
