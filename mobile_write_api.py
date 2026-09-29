@@ -73,6 +73,9 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             code TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
             is_staff INTEGER NOT NULL DEFAULT 0,
+            username TEXT,
+            global_name TEXT,
+            avatar_url TEXT,
             expires_at INTEGER NOT NULL,
             used_at INTEGER,
             created_at INTEGER NOT NULL
@@ -81,12 +84,19 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             token_hash TEXT PRIMARY KEY,
             user_id INTEGER NOT NULL,
             is_staff INTEGER NOT NULL DEFAULT 0,
+            username TEXT,
+            global_name TEXT,
+            avatar_url TEXT,
             expires_at INTEGER NOT NULL,
             revoked_at INTEGER,
             created_at INTEGER NOT NULL
         );
         """
     )
+    for table in ("mobile_pair_codes", "mobile_sessions"):
+        _add_column(conn, table, "username", "TEXT")
+        _add_column(conn, table, "global_name", "TEXT")
+        _add_column(conn, table, "avatar_url", "TEXT")
     if _table_exists(conn, "offers"):
         _add_column(conn, "offers", "offer_kind", "TEXT NOT NULL DEFAULT 'DINERO'")
         _add_column(conn, "offers", "offered_player_id", "INTEGER")
@@ -101,7 +111,14 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         _add_column(conn, "publications", "purchase_option_value", "TEXT")
 
 
-def issue_pair_code(connection_factory, user_id: int, is_staff: bool = False) -> str:
+def issue_pair_code(
+    connection_factory,
+    user_id: int,
+    is_staff: bool = False,
+    username: str | None = None,
+    global_name: str | None = None,
+    avatar_url: str | None = None,
+) -> str:
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     now = int(time.time())
     with connection_factory() as conn:
@@ -111,8 +128,17 @@ def issue_pair_code(connection_factory, user_id: int, is_staff: bool = False) ->
             code = "".join(secrets.choice(alphabet) for _ in range(8))
             try:
                 conn.execute(
-                    "INSERT INTO mobile_pair_codes(code,user_id,is_staff,expires_at,created_at) VALUES(?,?,?,?,?)",
-                    (code, int(user_id), 1 if is_staff else 0, now + PAIR_TTL, now),
+                    "INSERT INTO mobile_pair_codes(code,user_id,is_staff,username,global_name,avatar_url,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                    (
+                        code,
+                        int(user_id),
+                        1 if is_staff else 0,
+                        str(username or "") or None,
+                        str(global_name or "") or None,
+                        str(avatar_url or "") or None,
+                        now + PAIR_TTL,
+                        now,
+                    ),
                 )
                 return code
             except sqlite3.IntegrityError:
@@ -142,11 +168,27 @@ def exchange_pair_code(code: str) -> dict:
         token = secrets.token_urlsafe(32)
         conn.execute("UPDATE mobile_pair_codes SET used_at=? WHERE code=?", (now, normalized))
         conn.execute(
-            "INSERT INTO mobile_sessions(token_hash,user_id,is_staff,expires_at,created_at) VALUES(?,?,?,?,?)",
-            (_hash_token(token), int(row["user_id"]), int(row["is_staff"]), now + SESSION_TTL, now),
+            "INSERT INTO mobile_sessions(token_hash,user_id,is_staff,username,global_name,avatar_url,expires_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                _hash_token(token),
+                int(row["user_id"]),
+                int(row["is_staff"]),
+                row["username"],
+                row["global_name"],
+                row["avatar_url"],
+                now + SESSION_TTL,
+                now,
+            ),
         )
         conn.commit()
-        profile = _profile_from_session(conn, int(row["user_id"]), bool(row["is_staff"]))
+        profile = _profile_from_session(
+            conn,
+            int(row["user_id"]),
+            bool(row["is_staff"]),
+            row["username"],
+            row["global_name"],
+            row["avatar_url"],
+        )
         return {"token": token, "profile": profile}
     finally:
         conn.close()
@@ -172,10 +214,23 @@ def _session(headers, conn: sqlite3.Connection) -> dict:
     ).fetchone()
     if not row:
         raise ApiFailure("La sesión venció. Volvé a vincular la app.", HTTPStatus.UNAUTHORIZED)
-    return {"user_id": int(row["user_id"]), "is_staff": bool(row["is_staff"])}
+    return {
+        "user_id": int(row["user_id"]),
+        "is_staff": bool(row["is_staff"]),
+        "username": row["username"] if "username" in row.keys() else None,
+        "global_name": row["global_name"] if "global_name" in row.keys() else None,
+        "avatar_url": row["avatar_url"] if "avatar_url" in row.keys() else None,
+    }
 
 
-def _profile_from_session(conn, user_id: int, is_staff: bool) -> dict:
+def _profile_from_session(
+    conn,
+    user_id: int,
+    is_staff: bool,
+    username: str | None = None,
+    global_name: str | None = None,
+    avatar_url: str | None = None,
+) -> dict:
     club = mobile_auth.resolve_club_readonly(conn, int(user_id))
     balance = None
     roster_count = 0
@@ -189,7 +244,12 @@ def _profile_from_session(conn, user_id: int, is_staff: bool) -> dict:
     return {
         "authenticated": True,
         "read_only": False,
-        "user": {"id": str(user_id)},
+        "user": {
+            "id": str(user_id),
+            "username": username,
+            "global_name": global_name,
+            "avatar_url": avatar_url,
+        },
         "in_guild": True,
         "is_staff": bool(is_staff),
         "club": club,
@@ -669,7 +729,14 @@ def apply_mobile_write_patch() -> None:
             if path == "/api/v1/me":
                 with write_db() as conn:
                     session = _session(self.headers, conn)
-                    self._json(_profile_from_session(conn, session["user_id"], session["is_staff"]))
+                    self._json(_profile_from_session(
+                        conn,
+                        session["user_id"],
+                        session["is_staff"],
+                        session.get("username"),
+                        session.get("global_name"),
+                        session.get("avatar_url"),
+                    ))
                 return
             if path == "/api/v1/my/offers":
                 with write_db() as conn:
