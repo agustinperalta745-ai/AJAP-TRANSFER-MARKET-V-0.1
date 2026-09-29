@@ -11,6 +11,9 @@ on:
       - ui-redesign
     paths:
       - 'mobile/**'
+      - 'bot_mobile.py'
+      - 'mobile_*api*.py'
+      - 'mobile_transport_patch.py'
       - '.github/workflows/mobile-preview-apk.yml'
 
 jobs:
@@ -86,6 +89,9 @@ jobs:
       - name: Apply runtime crash and visual fixes
         run: node scripts/apply-runtime-visual-fixes.mjs
 
+      - name: Fix saved GES admin state
+        run: node scripts/fix-ges-admin-sync-state.mjs
+
       - name: Apply club profiles, treasury and awards
         run: node scripts/apply-club-profiles-awards.mjs
 
@@ -112,11 +118,50 @@ jobs:
       - name: Apply club and player card colors
         run: node scripts/apply-club-player-card-colors.mjs
 
+      - name: Build real Liga standings table
+        run: node scripts/apply-league-team-card-colors.mjs
+
+      - name: Sync Champions and Europa qualification labels
+        run: node scripts/apply-league-qualification-zones.mjs
+
+      - name: Add assigned DT names to Liga table
+        run: node scripts/apply-league-manager-names.mjs
+
       - name: Keep PES6 player stats in player cards
         run: node scripts/apply-player-pes6-stats.mjs
 
       - name: Add contextual market actions to player search
         run: node scripts/apply-search-player-market-actions.mjs
+
+      - name: Connect real competition cycle management
+        run: node scripts/fix-cycle-management-mobile.mjs
+
+      - name: Fix latest honours cards
+        run: node scripts/fix-latest-honours-cards.mjs
+
+      - name: Keep AJPA trophy cabinet in final UI
+        run: node scripts/apply-trophy-cabinet.mjs
+
+      - name: Apply Liga AJPA vitrina banner
+        run: node scripts/apply-league-vitrina-banner.mjs
+
+      - name: Move Copas to main menu and add Staff lifecycle controls
+        run: node scripts/apply-cup-main-menu-controls.mjs
+
+      - name: Fix Copas hub initial content load
+        run: node scripts/fix-cup-hub-initial-load.mjs
+
+      - name: Separate Champions and Europa loading menus
+        run: node scripts/apply-cup-independent-preclassification.mjs
+
+      - name: Add cup badges trophies and standalone menu card
+        run: node scripts/apply-cup-visual-polish.mjs
+
+      - name: Use transparent Champions trophy in card thumbnail
+        run: node scripts/apply-champions-card-icon.mjs
+
+      - name: Place Copa directly below Liga in main menu
+        run: node scripts/fix-cup-main-menu-placement.mjs
 
       - name: Integrate functional sections into redesigned shell
         run: node scripts/apply-ui-redesign-functional-shell.mjs
@@ -136,6 +181,29 @@ jobs:
       - name: Apply approved Perfil layout and internet iconography
         run: node scripts/apply-profile-approved-style.mjs
 
+      - name: Validate production functions survived redesign
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const ui = fs.readFileSync('src/BotParityAppV2.tsx', 'utf8');
+          const required = [
+            ["Agentes libres", "openScreen('freeAgents')"],
+            ["Clausulazo", "clausulazo"],
+            ["Ofertas", "offers"],
+            ["Staff/Admin", "admin"],
+            ["Gestión de ciclo", "competition"],
+            ["Liga real", "leagueTableHeader"],
+            ["PES6 stats", "PlayerPes6StatsButton"],
+          ];
+          for (const [label, token] of required) {
+            if (!ui.includes(token)) throw new Error(label + ' missing after redesign transforms: ' + token);
+          }
+          if (/title="Agentes libres"[^\n>]*onPress=\{\(\) => openScreen\('transferibles'\)\}/.test(ui)) {
+            throw new Error('Agentes libres volvió a apuntar a Transferibles');
+          }
+          console.log('AJPA Lab parity OK: production functions survived visual transforms');
+          NODE
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -146,18 +214,20 @@ jobs:
           EXPO_NO_TELEMETRY: '1'
 
       - name: Build standalone APK
-        run: ./gradlew assembleRelease
+        run: |
+          printf '\norg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.daemon=false\norg.gradle.workers.max=2\n' >> gradle.properties
+          ./gradlew assembleRelease --no-daemon
         working-directory: mobile/android
         env:
           CI: '1'
           EXPO_NO_TELEMETRY: '1'
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab-v0.4.6.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk AJPA-UI-Lab.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AJPA-UI-Lab-v0.4.6
-          path: mobile/AJPA-UI-Lab-v0.4.6.apk
+          name: AJPA-UI-Lab
+          path: mobile/AJPA-UI-Lab.apk
           if-no-files-found: error
