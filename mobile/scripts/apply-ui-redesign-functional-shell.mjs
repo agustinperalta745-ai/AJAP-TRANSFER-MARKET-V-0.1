@@ -107,21 +107,43 @@ const oldTopBar = `      <View style={s.topBar}>
 
 if (ui.includes(oldTopBar)) {
   ui = ui.replace(oldTopBar, `      {embedded ? (
-        <View style={s.topBar}>
-          <Pressable
-            onPress={() => {
-              if (screen === initialScreen && onExit) onExit();
-              else goBack();
-            }}
-            style={s.topAction}
-          >
-            <Text style={s.topActionText}>‹ VOLVER</Text>
-          </Pressable>
-          <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
-            <Text style={s.brandSub}>AJPA</Text>
-            <Text style={s.embeddedHeaderTitle} numberOfLines={1}>{embeddedScreenTitle}</Text>
+        screen === 'transferibles' ? (
+          <View style={s.transferApprovedHeader}>
+            <View style={s.transferBrandRow}>
+              <Pressable onPress={goBack} style={s.transferBrandPressable}>
+                <Image source={require('../assets/ajpa-league-logo.png')} style={s.transferBrandLogo} resizeMode="contain" />
+                <View style={s.transferBrandCopy}>
+                  <Text style={s.transferBrandTitle}>AJPA</Text>
+                  <Text style={s.transferBrandSubtitle}>ASOCIACIÓN DE JUGADORES DE PES ARGENTINA</Text>
+                </View>
+              </Pressable>
+              <View style={s.transferLiveDot} />
+            </View>
+            <Pressable onPress={() => void openScreen('profile')} style={s.transferHelloCard}>
+              <View>
+                <Text style={s.transferHelloTitle}>Hola, DT</Text>
+                <Text style={s.transferHelloSub}>{profile ? 'Conectado a AJPA' : 'Conectá tu cuenta'}</Text>
+              </View>
+              <Text style={s.transferHelloChevron}>›</Text>
+            </Pressable>
           </View>
-        </View>
+        ) : (
+          <View style={s.topBar}>
+            <Pressable
+              onPress={() => {
+                if (screen === initialScreen && onExit) onExit();
+                else goBack();
+              }}
+              style={s.topAction}
+            >
+              <Text style={s.topActionText}>‹ VOLVER</Text>
+            </Pressable>
+            <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
+              <Text style={s.brandSub}>AJPA</Text>
+              <Text style={s.embeddedHeaderTitle} numberOfLines={1}>{embeddedScreenTitle}</Text>
+            </View>
+          </View>
+        )
       ) : (
         <View style={s.topBar}>
           {screen !== 'home' ? (
@@ -147,6 +169,19 @@ if (!ui.includes('  embeddedHeaderTitle: {')) {
   if (styleEnd < 0) throw new Error('AJPA redesign shell: no encontré cierre de estilos');
   ui = ui.slice(0, styleEnd) + `
   embeddedHeaderTitle: { color: C.white, fontSize: 15.5, lineHeight: 18, fontWeight: '900' },
+  transferApprovedHeader: { backgroundColor: '#07131F', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8 },
+  transferBrandRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center' },
+  transferBrandPressable: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
+  transferBrandLogo: { width: 58, height: 58, marginRight: 10 },
+  transferBrandCopy: { flex: 1, minWidth: 0 },
+  transferBrandTitle: { color: '#F5FAFE', fontSize: 31, lineHeight: 33, fontWeight: '900', letterSpacing: 1 },
+  transferBrandSubtitle: { color: '#58B9F2', fontSize: 8.3, lineHeight: 11, fontWeight: '900', letterSpacing: 1.65 },
+  transferLiveDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: '#35DF72', marginLeft: 8 },
+  transferHelloCard: { alignSelf: 'flex-end', width: 156, minHeight: 58, marginTop: 5, borderRadius: 16, borderWidth: 1, borderColor: '#245374', backgroundColor: '#0B2030', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  transferHelloTitle: { color: '#F3F7FA', fontSize: 14, fontWeight: '900' },
+  transferHelloSub: { color: '#8C9BA8', fontSize: 9.5, marginTop: 2 },
+  transferHelloChevron: { color: '#32B7FF', fontSize: 28, lineHeight: 29, fontWeight: '700' },
+
 ` + ui.slice(styleEnd);
 }
 
