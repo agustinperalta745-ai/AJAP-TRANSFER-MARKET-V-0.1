@@ -16,7 +16,7 @@ import {
 import * as Updates from 'expo-updates';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { AjpaIcon, AjpaIconName, AjpaIconTile } from './src/AjpaIcon';
-import BotParityAppV2, { Screen as FunctionalScreen } from './src/BotParityAppV2';
+import BotParityAppV2 from './src/BotParityAppV2';
 import CupCenterFab from './src/CupCenterFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
@@ -24,6 +24,8 @@ import { MobileProfile, fetchMe, setSessionToken } from './src/api';
 import { loadStoredSession } from './src/session';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 'Staff' | 'Más';
+type FunctionalScreen = 'market' | 'club' | 'league' | 'titles' | 'profile' | 'admin';
+const FunctionalBotParityAppV2 = BotParityAppV2 as React.ComponentType<any>;
 type Standing = { team: string; pj: number; pts: number };
 type Scorer = { player: string; team: string; goals: number };
 type SeasonCountdown = {
@@ -319,7 +321,7 @@ export default function App() {
   const mainContent = functionalScreen ? (
     <View style={s.functionalRoot}>
       <View style={s.functionalBody}>
-        <BotParityAppV2 key={selected} initialScreen={functionalScreen} embedded onExit={() => setSelected('Inicio')} />
+        <FunctionalBotParityAppV2 key={selected} initialScreen={functionalScreen} embedded onExit={() => setSelected('Inicio')} />
         {selected === 'Copas' ? <CupCenterFab /> : null}
         {selected === 'Liga' ? <SeasonHistoryFab /> : null}
         {selected === 'Staff' ? <CompetitionCycleAdminFab /> : null}
