@@ -5,6 +5,15 @@ let ui = fs.readFileSync(uiPath, 'utf8');
 const marker = '// AJPA_LEAGUE_APPROVED_V3';
 if (ui.includes(marker)) process.exit(0);
 
+if (!ui.includes("History, Trophy, Medal")) {
+  const reactAnchor = "import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';";
+  if (!ui.includes(reactAnchor)) throw new Error('Liga aprobada: import React no encontrado');
+  ui = ui.replace(
+    reactAnchor,
+    reactAnchor + "\nimport { History, Trophy, Medal } from 'lucide-react-native';",
+  );
+}
+
 const stateAnchor = "  const [leagueData, setLeagueData] = useState<LeagueData | null>(null);";
 if (!ui.includes(stateAnchor)) throw new Error('Liga aprobada: falta leagueData');
 ui = ui.replace(
@@ -128,7 +137,7 @@ const leagueScreen = String.raw`  const leagueScreen = (
         style={({ pressed }) => [s.leagueApprovedHistory, pressed && { opacity: 0.76 }]}
       >
         <View style={s.leagueApprovedHistoryIcon}>
-          <AjpaIcon name="history" size={24} color="#8ED4FF" />
+          <History size={24} color="#8ED4FF" strokeWidth={2.1} />
         </View>
         <View style={s.leagueApprovedHistoryCopy}>
           <Text style={s.leagueApprovedHistoryTitle}>Historial de partidos</Text>
@@ -141,7 +150,7 @@ const leagueScreen = String.raw`  const leagueScreen = (
 
       <View style={s.leagueApprovedSectionHead}>
         <View style={s.leagueApprovedSectionIcon}>
-          <AjpaIcon name="league" size={17} color="#49B9FF" />
+          <Trophy size={17} color="#49B9FF" strokeWidth={2.1} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.leagueApprovedSectionEyebrow}>CLASIFICACIÓN</Text>
@@ -230,7 +239,7 @@ const leagueScreen = String.raw`  const leagueScreen = (
 
       <View style={[s.leagueApprovedSectionHead, { marginTop: 8 }]}>
         <View style={s.leagueApprovedSectionIcon}>
-          <AjpaIcon name="scorers" size={17} color="#49B9FF" />
+          <Medal size={17} color="#49B9FF" strokeWidth={2.1} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.leagueApprovedSectionEyebrow}>ESTADÍSTICAS</Text>
