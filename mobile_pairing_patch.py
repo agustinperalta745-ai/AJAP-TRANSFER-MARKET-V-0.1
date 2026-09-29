@@ -54,6 +54,9 @@ def apply_mobile_pairing_patch(runtime, bot) -> None:
                 mobile_write_api.write_db,
                 int(interaction.user.id),
                 is_staff=is_staff,
+                username=getattr(interaction.user, "name", None),
+                global_name=getattr(interaction.user, "global_name", None),
+                avatar_url=str(interaction.user.display_avatar.url) if getattr(interaction.user, "display_avatar", None) else None,
             )
 
             # Keep this informational field based on the Discord guild where the
