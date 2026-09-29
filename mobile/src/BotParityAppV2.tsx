@@ -1027,7 +1027,7 @@ const s = StyleSheet.create({
   marketDetail: { flex: 1, color: '#A9BAC5', fontSize: 10.5, lineHeight: 14 },
   marketButtonsRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   marketStatsWrap: { flex: 1.08, minWidth: 0 },
-  marketOfferWrap: { flex: 0.92, minWidth: 0, justifyContent: 'stretch' },
+  marketOfferWrap: { flex: 0.92, minWidth: 0 },
   marketOfferButton: { minHeight: 46, borderRadius: 13, backgroundColor: '#159BF3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 8 },
   marketOfferButtonText: { color: '#FFFFFF', fontSize: 9.7, fontWeight: '900', letterSpacing: 0.15 },
   marketListHeading: { color: '#41B7FF', fontWeight: '900', fontSize: 10, letterSpacing: 1.4, marginTop: 8, marginBottom: 7 },
