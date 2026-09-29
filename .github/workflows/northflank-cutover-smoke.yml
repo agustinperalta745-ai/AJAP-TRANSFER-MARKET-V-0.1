@@ -45,6 +45,8 @@ jobs:
                   ready = str(status.get("runtime_ready") or "")
                   if "host=northflank" not in ready:
                       raise RuntimeError(f"Discord runtime not confirmed on Northflank yet: {status}")
+                  if "revision=2026-09-28-emergency-discord-restart" not in ready:
+                      raise RuntimeError(f"Waiting for restarted Discord runtime: {status}")
 
                   print("NORTHFLANK_CUTOVER_OK")
                   print(json.dumps(status, ensure_ascii=False, sort_keys=True))
