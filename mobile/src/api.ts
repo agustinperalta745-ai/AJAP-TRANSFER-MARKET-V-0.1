@@ -168,7 +168,7 @@ export type AdminAssignment = {
 export type MobileProfile = {
   authenticated: boolean;
   read_only: boolean;
-  user: { id: string; username?: string | null; global_name?: string | null; avatar_url?: string | null };
+  user: { id: string; username?: string; global_name?: string | null };
   in_guild: boolean;
   is_staff: boolean;
   club: string | null;

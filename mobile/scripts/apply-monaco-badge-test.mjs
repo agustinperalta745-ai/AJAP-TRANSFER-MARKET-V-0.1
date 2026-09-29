@@ -35,7 +35,7 @@ fs.writeFileSync(badgePath, badge);
 
 let ui = fs.readFileSync(uiPath, 'utf8');
 
-if (!/import\s*\{[^}]*\bClubBadge\b[^}]*\}\s*from\s*['"]\.\/teamBadges['"]/.test(ui)) {
+if (!ui.includes("import { ClubBadge } from './teamBadges';")) {
   const anchor = "import { BG_PERFIL } from './bg_perfil';";
   if (!ui.includes(anchor)) throw new Error('Monaco badge test: no encontré el import de BG_PERFIL');
   ui = ui.replace(anchor, `${anchor}\nimport { ClubBadge } from './teamBadges';`);

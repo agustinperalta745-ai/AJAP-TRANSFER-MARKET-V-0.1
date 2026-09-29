@@ -6,7 +6,7 @@ import fs from 'node:fs';
 const uiPath = 'src/BotParityAppV2.tsx';
 let ui = fs.readFileSync(uiPath, 'utf8');
 
-if (!/import\s*\{[^}]*\bClubBadge\b[^}]*\}\s*from\s*['"]\.\/teamBadges['"]/.test(ui)) {
+if (!ui.includes("import { ClubBadge } from './teamBadges';") && !ui.includes("import { ClubBadge, ClubMatchup } from './teamBadges';")) {
   const anchor = "import { BG_PERFIL } from './bg_perfil';";
   if (!ui.includes(anchor)) throw new Error('Profile badges: no encontré import BG_PERFIL');
   ui = ui.replace(anchor, `${anchor}\nimport { ClubBadge } from './teamBadges';`);

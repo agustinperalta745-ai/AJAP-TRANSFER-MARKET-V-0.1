@@ -2,7 +2,6 @@ import React, { ReactNode, useCallback, useEffect, useMemo, useState } from 'rea
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ImageBackground,
   Pressable,
   RefreshControl,

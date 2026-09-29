@@ -29,9 +29,6 @@ for (const [start, end, club] of [
   ['function MarketCard(', '\nfunction ', "item.is_free_agent ? '' : item.club"],
 ]) {
   section(start, end, text => {
-    // The approved redesigned MarketCard already carries the club theme, badge
-    // watermark and glow. Do not force legacy card anchors onto it.
-    if (start === 'function MarketCard(' && text.includes('marketPlayerCard')) return text;
     text = required(text, '<View style={s.card}>', `<View style={[s.card, ${border(club)}]}>${backdrop(club)}`);
     text = required(text, '<View style={s.ovrBox}>', `<View style={[s.ovrBox, ${border(club)}, { backgroundColor: 'transparent' }]}>${glow(club)}`);
     text = text.replaceAll('style={s.ovrValue}', `style={[s.ovrValue, { color: teamCardTheme(${club}).border }]}`);

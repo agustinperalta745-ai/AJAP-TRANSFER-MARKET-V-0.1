@@ -70,17 +70,6 @@ jobs:
           print(f'AJPA launcher icon ready: {len(data)} bytes')
           PY
 
-      - name: Prepare standard UI icons
-        run: node scripts/prepare-ui-lab-icons.mjs
-
-      - name: Prepare embedded HQ club badges
-        run: |
-          node scripts/prepare-ui-lab-badges.mjs
-          node scripts/apply-all-hq-team-badges.mjs
-
-      - name: Prepare neutral AJPA hero
-        run: node scripts/prepare-ui-lab-hero.mjs
-
       - name: Verify live AJPA API and mutation tunnel
         run: |
           python - <<'PY'
@@ -234,24 +223,6 @@ jobs:
       - name: Add contextual market actions to player search
         run: node scripts/apply-search-player-market-actions.mjs
 
-      - name: Integrate functional sections into redesigned shell
-        run: node scripts/apply-ui-redesign-functional-shell.mjs
-
-      - name: Apply unified redesigned UI to every functional screen
-        run: node scripts/apply-ui-redesign-all-screens.mjs
-
-      - name: Apply approved Mi Club layout and iconography
-        run: node scripts/apply-mi-club-approved-style.mjs
-
-      - name: Apply approved Mercado layout and iconography
-        run: node scripts/apply-market-approved-style.mjs
-
-      - name: Apply approved Copas layout and imagery
-        run: node scripts/apply-copas-approved-style.mjs
-
-      - name: Apply approved Perfil layout and internet iconography
-        run: node scripts/apply-profile-approved-style.mjs
-
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -263,9 +234,7 @@ jobs:
           EXPO_PUBLIC_API_URL: https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run
 
       - name: Build standalone APK
-        run: |
-          printf '\norg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8\norg.gradle.daemon=false\norg.gradle.workers.max=2\n' >> gradle.properties
-          ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease
         working-directory: mobile/android
         env:
           CI: '1'

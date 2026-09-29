@@ -89,14 +89,14 @@ type RankingEntry = {
 };
 
 const TROPHY = {
-  league: require('../assets/trophies/liga-ajpa.jpg'),
-  champions: require('../assets/trophies/champions-ajpa.jpg'),
+  league: require('../assets/trophies/liga-ajpa-banner.jpg'),
+  champions: require('../assets/trophies/champions-ajpa-card-icon.png'),
   europa: require('../assets/trophies/europa-ajpa-card-icon.png'),
 } as const;
 
 const RANKING_TROPHY = {
   league: require('../assets/trophies/liga-ajpa-rank-icon.png'),
-  champions: require('../assets/trophies/champions-ajpa.jpg'),
+  champions: require('../assets/trophies/champions-ajpa-card-icon.png'),
   europa: require('../assets/trophies/europa-ajpa-card-icon.png'),
 } as const;
 
@@ -299,14 +299,14 @@ function TrophyCard({
   );
 }
 
-export default function TrophyCabinetScreen({ onClose, initialTrophy = 'league' }: { onClose?: () => void; initialTrophy?: TrophyKey }) {
+export default function TrophyCabinetScreen({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<ArchivedCompetition[]>([]);
   const [leagueChampions, setLeagueChampions] = useState<LeagueChampionHistoryEntry[]>([]);
   const [cups, setCups] = useState<CupsPayload | null>(null);
   const [honours, setHonours] = useState<Awaited<ReturnType<typeof fetchLatestHonours>> | null>(null);
-  const [selected, setSelected] = useState<TrophyKey>(initialTrophy);
+  const [selected, setSelected] = useState<TrophyKey>('league');
   const [rankingMode, setRankingMode] = useState<RankingMode>('clubs');
 
   const load = useCallback(async () => {

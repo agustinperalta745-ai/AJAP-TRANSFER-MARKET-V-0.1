@@ -55,17 +55,6 @@ jobs:
             | tr -d '\n\r' \
             | base64 --decode > assets/ajpa-app-icon.png
 
-      - name: Prepare standard UI icons
-        run: node scripts/prepare-ui-lab-icons.mjs
-
-      - name: Prepare embedded HQ club badges
-        run: |
-          node scripts/prepare-ui-lab-badges.mjs
-          node scripts/apply-all-hq-team-badges.mjs
-
-      - name: Prepare neutral AJPA hero
-        run: node scripts/prepare-ui-lab-hero.mjs
-
       - name: Prepare XI Ideal splash
         run: node scripts/prepare-xi-ideal-splash.mjs
 
@@ -158,24 +147,6 @@ jobs:
       - name: Add contextual market actions to player search
         run: node scripts/apply-search-player-market-actions.mjs
 
-      - name: Integrate functional sections into redesigned shell
-        run: node scripts/apply-ui-redesign-functional-shell.mjs
-
-      - name: Apply unified redesigned UI to every functional screen
-        run: node scripts/apply-ui-redesign-all-screens.mjs
-
-      - name: Apply approved Mi Club layout and iconography
-        run: node scripts/apply-mi-club-approved-style.mjs
-
-      - name: Apply approved Mercado layout and iconography
-        run: node scripts/apply-market-approved-style.mjs
-
-      - name: Apply approved Copas layout and imagery
-        run: node scripts/apply-copas-approved-style.mjs
-
-      - name: Apply approved Perfil layout and internet iconography
-        run: node scripts/apply-profile-approved-style.mjs
-
       - name: Connect real competition cycle management
         run: node scripts/fix-cycle-management-mobile.mjs
 
@@ -219,26 +190,6 @@ jobs:
             throw new Error('Dedicated freeAgents navigation/screen is missing after build transforms');
           }
           console.log('Free agents navigation validated');
-          NODE
-
-      - name: Restore official shell imports after legacy transforms
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = 'App.tsx';
-          let app = fs.readFileSync(path, 'utf8');
-          const anchor = "import BotParityAppV2 from './src/BotParityAppV2';";
-          if (!app.includes(anchor)) throw new Error('BotParity import missing from official shell');
-          const imports = [
-            "import CupCenterFab from './src/CupCenterFab';",
-            "import SeasonHistoryFab from './src/SeasonHistoryFab';",
-            "import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';",
-          ];
-          for (const line of imports) {
-            if (!app.includes(line)) app = app.replace(anchor, anchor + '\n' + line);
-          }
-          fs.writeFileSync(path, app);
-          console.log('Official shell imports restored');
           NODE
 
       - name: TypeScript check
