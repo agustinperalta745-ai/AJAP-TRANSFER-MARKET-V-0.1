@@ -2,7 +2,7 @@
   "expo": {
     "name": "AJPA UI Lab",
     "slug": "ajpa-ui-lab-safe",
-    "version": "0.5.1-preview",
+    "version": "0.5.2-preview",
     "runtimeVersion": "1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.ajpa.uilabsafe",
-      "versionCode": 23
+      "versionCode": 24
     },
     "ios": {
       "bundleIdentifier": "com.ajpa.uilabsafe"
