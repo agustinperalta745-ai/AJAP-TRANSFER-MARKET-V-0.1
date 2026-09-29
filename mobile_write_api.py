@@ -34,6 +34,13 @@ ACTIVE_LOAN_STATUSES = ("ACTIVE", "OPTION_PENDING", "RETURN_PENDING", "REVIEW_RE
 PENDING_TRANSFER_STATUSES = ("PENDIENTE_ADMIN", "APROBADA")
 FIXED_LOAN_PRICE = 1_000_000
 
+_discord_user_resolver = None
+
+
+def set_discord_user_resolver(resolver) -> None:
+    global _discord_user_resolver
+    _discord_user_resolver = resolver
+
 
 class ApiFailure(Exception):
     def __init__(self, message: str, status: HTTPStatus = HTTPStatus.BAD_REQUEST):
@@ -256,6 +263,16 @@ def _profile_from_session(
     global_name: str | None = None,
     avatar_url: str | None = None,
 ) -> dict:
+    if _discord_user_resolver is not None and (not username or not global_name or not avatar_url):
+        try:
+            discord_user = _discord_user_resolver(int(user_id))
+            if discord_user is not None:
+                username = username or getattr(discord_user, "name", None)
+                global_name = global_name or getattr(discord_user, "global_name", None)
+                display_avatar = getattr(discord_user, "display_avatar", None)
+                avatar_url = avatar_url or (str(display_avatar.url) if display_avatar else None)
+        except Exception:
+            pass
     club = mobile_auth.resolve_club_readonly(conn, int(user_id))
     balance = None
     roster_count = 0
