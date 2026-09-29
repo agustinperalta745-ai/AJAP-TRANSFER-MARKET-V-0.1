@@ -46,7 +46,7 @@ import PlayerPes6StatsButton from './PlayerPes6StatsButton';
 import TrophyCabinetScreen from './TrophyCabinetFab';
 import SeasonCountdownBanner from './SeasonCountdownBanner';
 
-export type Screen =
+type Screen =
   | 'home'
   | 'club'
   | 'roster'
@@ -263,20 +263,8 @@ function OfferCard({
   );
 }
 
-export type BotParityAppV2Props = {
-  initialScreen?: Screen;
-  embedded?: boolean;
-  onExit?: () => void;
-  onOpenMatchSearch?: () => void;
-};
-
-export default function BotParityAppV2({
-  initialScreen = 'home',
-  embedded = false,
-  onExit,
-  onOpenMatchSearch,
-}: BotParityAppV2Props = {}) {
-  const [screen, setScreen] = useState<Screen>(initialScreen);
+export default function BotParityAppV2() {
+  const [screen, setScreen] = useState<Screen>('home');
   const [snapshot, setSnapshot] = useState<LeagueSnapshot | null>(null);
   const [latestHonours, setLatestHonours] = useState<LatestHonours | null>(null);
   const [profile, setProfile] = useState<MobileProfile | null>(null);
