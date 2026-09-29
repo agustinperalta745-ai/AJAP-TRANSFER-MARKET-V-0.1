@@ -219,7 +219,7 @@ async def _ajpa_runtime_ready_marker():
         marker = db_path.parent / ".ajpa_runtime_ready"
         host = "railway" if (os.getenv("RAILWAY_PROJECT_ID") or "").strip() else "northflank"
         marker.write_text(
-            f"host={host}\nuser={getattr(runtime.bot.user, 'id', '')}\n",
+            f"host={host}\nuser={getattr(runtime.bot.user, 'id', '')}\nrevision=2026-09-28-emergency-discord-restart\n",
             encoding="utf-8",
         )
         print(f"AJPA runtime ready marker: {host}")
