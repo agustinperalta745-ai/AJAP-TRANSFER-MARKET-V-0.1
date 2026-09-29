@@ -18,7 +18,7 @@ import BotParityAppV2, { Screen as FunctionalScreen } from './src/BotParityAppV2
 import CupCenterFab from './src/CupCenterFab';
 import SeasonHistoryFab from './src/SeasonHistoryFab';
 import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';
-import { MobileProfile, fetchMe, setSessionToken } from './src/api';
+import { LeagueSnapshot, MobileProfile, fetchMe, setSessionToken } from './src/api';
 import { loadStoredSession } from './src/session';
 
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 'Staff' | 'Más';
@@ -32,12 +32,7 @@ type SeasonCountdown = {
   time?: string;
   closed?: boolean;
 };
-type Snapshot = {
-  status?: { market_open?: boolean; season?: { name?: string } | null };
-  clubs?: Array<{ name: string }>;
-  market?: unknown[];
-  free_agents?: unknown[];
-};
+type Snapshot = LeagueSnapshot;
 
 const API_URL = 'https://site--ajap-transfer-market-v-01--hkzlw9zsgh25.code.run';
 
@@ -228,8 +223,9 @@ export default function App() {
     if (!seasonCountdown.deadline_utc) return false;
     return seasonCountdown.deadline_utc * 1000 <= now;
   }, [seasonCountdown, now]);
-  const seasonStatusLabel = seasonClosed ? 'FINALIZADA' : 'EN CURSO';
-  const seasonStatusColor = seasonClosed ? P.red : P.white;
+  const seasonStatusKnown = Boolean(seasonCountdown?.configured);
+  const seasonStatusLabel = !seasonStatusKnown ? 'SIN DATOS' : seasonClosed ? 'FINALIZADA' : 'EN CURSO';
+  const seasonStatusColor = !seasonStatusKnown ? P.muted : seasonClosed ? P.red : P.white;
 
   const myClub = profile?.club || '';
   const myClubDisplay = myClub || (profile?.is_staff ? 'Staff / sin club' : 'Club sin vincular');
@@ -291,7 +287,13 @@ export default function App() {
   const mainContent = functionalScreen ? (
     <View style={s.functionalRoot}>
       <View style={s.functionalBody}>
-        <BotParityAppV2 key={selected} initialScreen={functionalScreen} embedded onExit={() => setSelected('Inicio')} />
+        <BotParityAppV2
+          initialScreen={functionalScreen}
+          initialSnapshot={snapshot}
+          initialProfile={profile}
+          embedded
+          onExit={() => setSelected('Inicio')}
+        />
         {selected === 'Copas' ? <CupCenterFab /> : null}
         {selected === 'Liga' ? <SeasonHistoryFab /> : null}
         {selected === 'Staff' ? <CompetitionCycleAdminFab /> : null}
@@ -532,9 +534,25 @@ export default function App() {
       <SafeAreaView style={s.safeRoot} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar barStyle="light-content" backgroundColor={P.bg} translucent={false} />
         <View style={s.root}>
-          {mainContent}
+          {loading && !snapshot ? (
+            <View style={s.bootstrapRoot}>
+              <Image source={require('./assets/ajpa-league-logo.png')} style={s.bootstrapLogo} resizeMode="contain" />
+              <ActivityIndicator color={P.blue} size="small" />
+              <Text style={s.bootstrapTitle}>Cargando AJPA</Text>
+              <Text style={s.bootstrapText}>Sincronizando temporada, mercado y cuenta…</Text>
+            </View>
+          ) : !snapshot ? (
+            <View style={s.bootstrapRoot}>
+              <Image source={require('./assets/ajpa-league-logo.png')} style={s.bootstrapLogo} resizeMode="contain" />
+              <Text style={s.bootstrapTitle}>No se pudo conectar</Text>
+              <Text style={s.bootstrapText}>No mostramos estados temporales para evitar información incorrecta.</Text>
+              <Pressable onPress={() => void load()} style={s.bootstrapRetry}>
+                <Text style={s.bootstrapRetryText}>REINTENTAR</Text>
+              </Pressable>
+            </View>
+          ) : mainContent}
 
-      <View style={s.bottomNav}>
+      {snapshot ? <View style={s.bottomNav}>
         {BOTTOM.map(item => {
           const active = item.key === 'Más'
             ? selected === 'Más' || selected === 'Perfil' || selected === 'Staff'
@@ -546,7 +564,7 @@ export default function App() {
             </Pressable>
           );
         })}
-      </View>
+      </View> : null}
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
@@ -567,6 +585,12 @@ const s = StyleSheet.create({
   functionalBody: { flex: 1 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 86 },
+  bootstrapRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, backgroundColor: P.bg },
+  bootstrapLogo: { width: 78, height: 78, marginBottom: 16 },
+  bootstrapTitle: { color: P.white, fontSize: 18, fontWeight: '900', marginTop: 12 },
+  bootstrapText: { color: P.muted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 6 },
+  bootstrapRetry: { marginTop: 16, minHeight: 42, borderRadius: 12, backgroundColor: P.blue, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  bootstrapRetryText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   brandLogo: { width: 52, height: 52, borderRadius: 26, borderWidth: 1, borderColor: '#2D6A8E', backgroundColor: '#02070B' },
