@@ -181,6 +181,9 @@ jobs:
       - name: Apply approved Perfil layout and internet iconography
         run: node scripts/apply-profile-approved-style.mjs
 
+      - name: Apply approved Liga layout and direct data loading
+        run: node scripts/apply-league-approved-style.mjs
+
       - name: Validate production functions survived redesign
         run: |
           node <<'NODE'
@@ -192,7 +195,7 @@ jobs:
             ["Ofertas", "offers"],
             ["Staff/Admin", "admin"],
             ["Gestión de ciclo", "competition"],
-            ["Liga real", "leagueTableHeader"],
+            ["Liga real", "AJPA_LEAGUE_APPROVED_V3"],
             ["PES6 stats", "PlayerPes6StatsButton"],
           ];
           for (const [label, token] of required) {
