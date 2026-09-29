@@ -39,7 +39,14 @@ function replace(from, to) {
   if (!ui.includes(from)) throw new Error(`Team card gradients: missing ${from.slice(0, 100)}`);
   ui = ui.replace(from, to);
 }
-replace("import { ClubBadge } from './teamBadges';", "import { ClubBadge } from './teamBadges';\nimport { SoftCardGlow, TeamCardBackdrop, teamCardTheme } from './TeamCardTheme';");
+if (ui.includes("import { ClubBadge, getClubTheme } from './teamBadges';")) {
+  ui = ui.replace(
+    "import { ClubBadge, getClubTheme } from './teamBadges';",
+    "import { ClubBadge, getClubTheme } from './teamBadges';\nimport { SoftCardGlow, TeamCardBackdrop, teamCardTheme } from './TeamCardTheme';",
+  );
+} else {
+  replace("import { ClubBadge } from './teamBadges';", "import { ClubBadge } from './teamBadges';\nimport { SoftCardGlow, TeamCardBackdrop, teamCardTheme } from './TeamCardTheme';");
+}
 const start = ui.indexOf('function HeroClubCard(');
 const end = ui.indexOf('\nfunction WideTile(', start);
 if (start < 0 || end < 0) throw new Error('Team card gradients: HeroClubCard missing');

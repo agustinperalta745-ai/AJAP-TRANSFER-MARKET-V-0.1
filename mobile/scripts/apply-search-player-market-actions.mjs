@@ -37,7 +37,7 @@ const helpers = `  const searchIdentity = (value: string | null | undefined) =>
       return;
     }
     setOfferTarget(publication);
-    setOfferAmount(isLoanOperation(publication.operation_type) ? FIXED_LOAN_PRICE : '');
+    setOfferAmount('');
     setOfferMessage('');
     setOfferedPlayerId(null);
     setScreen('transferibles');
