@@ -204,6 +204,48 @@ jobs:
           console.log('AJPA Lab parity OK: production functions survived visual transforms');
           NODE
 
+      - name: Restore redesigned shell imports after production transforms
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          {
+            const path = 'src/BotParityAppV2.tsx';
+            let ui = fs.readFileSync(path, 'utf8');
+            if (!/\bImage\b/.test(ui.split("from 'react-native';")[0])) {
+              ui = ui.replace(
+                "  Alert,\n  ImageBackground,",
+                "  Alert,\n  Image,\n  ImageBackground,"
+              );
+            }
+            fs.writeFileSync(path, ui);
+          }
+
+          {
+            const path = 'App.tsx';
+            let app = fs.readFileSync(path, 'utf8');
+            const anchor = "import BotParityAppV2";
+            const lineEnd = app.indexOf('\n', app.indexOf(anchor));
+            if (lineEnd < 0) throw new Error('BotParity import missing in Lab shell');
+            const importLine = app.slice(app.indexOf(anchor), lineEnd);
+            const additions = [
+              "import CupCenterFab from './src/CupCenterFab';",
+              "import SeasonHistoryFab from './src/SeasonHistoryFab';",
+              "import CompetitionCycleAdminFab from './src/CompetitionCycleAdminFab';",
+            ];
+            let insertAt = lineEnd + 1;
+            for (const line of additions) {
+              if (!app.includes(line)) {
+                app = app.slice(0, insertAt) + line + '\n' + app.slice(insertAt);
+                insertAt += line.length + 1;
+              }
+            }
+            fs.writeFileSync(path, app);
+          }
+
+          console.log('AJPA Lab shell imports restored after production transforms');
+          NODE
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
