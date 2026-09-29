@@ -15,7 +15,8 @@ if (!ui.includes("Shield, Settings, LogOut")) {
 }
 
 const start = ui.indexOf('  const profileScreen = (');
-const end = ui.indexOf('\n  const screenBackground = (() => {', start);
+let end = ui.indexOf('\n  const embeddedScreenTitle =', start);
+if (end < 0) end = ui.indexOf('\n  const screenBackground = (() => {', start);
 if (start < 0 || end < 0) throw new Error('Perfil aprobado: bloque profileScreen no encontrado');
 
 const profile = String.raw`  const profileScreen = (
@@ -136,8 +137,9 @@ const profile = String.raw`  const profileScreen = (
 
 ui = ui.slice(0, start) + profile + ui.slice(end);
 
-const stylePos = ui.lastIndexOf('\n});');
-if (stylePos < 0) throw new Error('Perfil aprobado: cierre de StyleSheet no encontrado');
+const sStart = ui.indexOf('const s = StyleSheet.create({');
+const stylePos = sStart < 0 ? -1 : ui.indexOf('\n});', sStart);
+if (stylePos < 0) throw new Error('Perfil aprobado: cierre de s StyleSheet no encontrado');
 
 const styles = String.raw`
   profileApprovedContent: { paddingTop: 18, paddingHorizontal: 14, paddingBottom: 34, gap: 12 },
