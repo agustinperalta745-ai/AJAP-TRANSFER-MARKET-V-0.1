@@ -107,7 +107,23 @@ const oldTopBar = `      <View style={s.topBar}>
 
 if (ui.includes(oldTopBar)) {
   ui = ui.replace(oldTopBar, `      {embedded ? (
-        screen === 'transferibles' ? (
+        screen === 'profile' ? (
+          <View style={s.topBar}>
+            <Pressable
+              onPress={() => {
+                if (screen === initialScreen && onExit) onExit();
+                else goBack();
+              }}
+              style={s.topAction}
+            >
+              <Text style={s.topActionText}>‹ VOLVER</Text>
+            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Image source={require('../assets/ajpa-league-logo.png')} style={{ width: 34, height: 34 }} resizeMode="contain" />
+              <Text style={s.brand}>AJPA</Text>
+            </View>
+          </View>
+        ) : screen === 'transferibles' ? (
           <View style={s.transferApprovedHeader}>
             <View style={s.transferBrandRow}>
               <Pressable onPress={goBack} style={s.transferBrandPressable}>
