@@ -26,6 +26,7 @@ type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 
 type Standing = { team: string; pj: number; pts: number };
 type Scorer = { player: string; team: string; goals: number };
 type NewsItem = {
+  id: string;
   type: 'market' | 'match' | 'cup' | 'announcement' | 'champion';
   badge: string;
   mark: string;
@@ -276,61 +277,92 @@ export default function App() {
 
   const newsItems = useMemo<NewsItem[]>(() => [
     {
-      type: 'market',
-      image: require('./assets/news/transfer.jpg'),
-      badge: 'MERCADO',
-      mark: marketOpen ? 'ABIERTO' : 'CERRADO',
-      title: marketOpen ? 'Mercado AJPA abierto' : 'Mercado AJPA cerrado',
-      text: marketOpen
-        ? 'Los DT ya pueden publicar, negociar y cerrar operaciones.'
-        : 'Las operaciones están pausadas hasta la próxima apertura oficial.',
-      body: marketOpen
-        ? 'El mercado de pases de AJPA está habilitado. Desde Mercado podés revisar transferibles, agentes libres, ofertas, préstamos, intercambios y clausulazos con las mismas reglas del bot.'
-        : 'El mercado de pases está cerrado. Podés seguir consultando planteles, publicaciones e historial, pero las operaciones quedan pausadas hasta que Staff vuelva a abrir el mercado.',
-      route: 'Mercado',
-      cta: 'IR AL MERCADO',
+      id: 't1-champion-marsella',
+      type: 'champion',
+      image: require('./assets/news/champion.jpg'),
+      badge: 'TEMPORADA 1',
+      mark: 'CAMPEÓN',
+      title: 'Olympique de Marsella, campeón',
+      text: 'ElLokoSantooss llevó al Marsella al título de la Temporada 1.',
+      body: 'Olympique de Marsella se consagró campeón de la Temporada 1 de AJPA. El equipo dirigido por ElLokoSantooss cerró la temporada en lo más alto y ya forma parte de la Vitrina de Campeones.',
+      route: 'Copas',
+      cta: 'VER VITRINA',
     },
     {
-      type: 'match',
-      image: require('./assets/news/match.jpg'),
-      badge: 'LIGA',
-      mark: 'PARTIDOS',
-      title: 'La Liga AJPA, fecha a fecha',
-      text: 'Tabla, resultados y goleadores oficiales en un solo lugar.',
-      body: 'La sección Liga concentra la tabla oficial, los partidos cargados, el historial de tu club y el Top 5 de goleadores. La información es la misma base que utiliza AJPA para sus publicaciones oficiales.',
+      id: 't1-goleador-cisse',
+      type: 'champion',
+      image: require('./assets/news/champion.jpg'),
+      badge: 'GOLEADOR',
+      mark: '25 GOLES',
+      title: 'Djibril Cissé fue el goleador',
+      text: 'El delantero del Marsella terminó la Temporada 1 con 25 goles.',
+      body: 'Djibril Cissé fue el máximo goleador de la Temporada 1 con 25 tantos para Olympique de Marsella. Su registro queda guardado entre los premios individuales oficiales de AJPA.',
       route: 'Liga',
       cta: 'VER LIGA',
     },
     {
+      id: 't1-xi-ideal',
+      type: 'match',
+      image: require('./assets/news/match.jpg'),
+      badge: 'TEMPORADA 1',
+      mark: 'XI IDEAL',
+      title: 'El XI Ideal de la temporada',
+      text: 'Los once destacados de la T1 ya forman parte de la historia de AJPA.',
+      body: 'El XI Ideal de la Temporada 1 quedó conformado por Coupet; Habib Beye, G. Milito, Cufré y Givet; Maduro, Ribéry y Riquelme; Ángel, Cissé y Boa Morte. La selección reúne a los jugadores más destacados de la primera temporada.',
+      route: 'Liga',
+      cta: 'VER LIGA',
+    },
+    {
+      id: 'season-one-finished',
+      type: 'announcement',
+      image: require('./assets/news/announcement.jpg'),
+      badge: 'LIGA AJPA',
+      mark: 'FINALIZADA',
+      title: 'Temporada 1 finalizada',
+      text: 'La primera temporada oficial de AJPA ya quedó cerrada.',
+      body: 'La Temporada 1 terminó oficialmente. Resultados, posiciones, goleadores y reconocimientos permanecen disponibles dentro de la app para consultar el cierre de la competencia.',
+      route: 'Liga',
+      cta: 'VER TEMPORADA',
+    },
+    {
+      id: 'market-live-status',
+      type: 'market',
+      image: require('./assets/news/transfer.jpg'),
+      badge: 'MERCADO',
+      mark: marketOpen ? 'ABIERTO' : 'CERRADO',
+      title: marketOpen ? 'Mercado de pases abierto' : 'Mercado de pases cerrado',
+      text: marketOpen
+        ? 'Transferencias, préstamos, intercambios y clausulazos ya están habilitados.'
+        : 'Las operaciones están pausadas hasta la próxima apertura oficial.',
+      body: marketOpen
+        ? 'El mercado de pases de AJPA está abierto. Desde Mercado podés revisar transferibles, agentes libres, ofertas, préstamos, intercambios y clausulazos. Las operaciones hechas desde la app utilizan la misma lógica funcional que el bot.'
+        : 'El mercado de pases está cerrado. Los DT pueden seguir consultando planteles, publicaciones e historial, pero no concretar operaciones hasta la próxima apertura.',
+      route: 'Mercado',
+      cta: 'IR AL MERCADO',
+    },
+    {
+      id: 'ranking-titulos',
+      type: 'cup',
+      image: require('./assets/news/cup.jpg'),
+      badge: 'VITRINA',
+      mark: 'RANKING',
+      title: 'Ranking de títulos disponible',
+      text: 'Escudos, DT y copas reunidos en la Vitrina de Campeones.',
+      body: 'El Ranking de Títulos de AJPA reúne los campeonatos obtenidos por cada club, sus escudos, DT y trofeos. Se encuentra dentro de la Vitrina de Campeones para consultar el historial competitivo de la liga.',
+      route: 'Copas',
+      cta: 'VER VITRINA',
+    },
+    {
+      id: 'competitions-ajpa',
       type: 'cup',
       image: require('./assets/news/cup.jpg'),
       badge: 'COPAS',
       mark: 'AJPA',
       title: 'Champions y Europa AJPA',
-      text: 'Seguimiento de copas, fases, campeones y clasificación.',
-      body: 'Las competencias de copa tienen su propio seguimiento dentro de AJPA. Desde Copas podés consultar cada torneo, sus fases, clasificaciones y la vitrina histórica.',
+      text: 'Las competencias internacionales tienen su propio seguimiento en la app.',
+      body: 'Champions AJPA y Europa AJPA forman parte del calendario competitivo. Desde Copas se puede seguir cada torneo, sus fases, clasificados, campeones y el historial de temporadas.',
       route: 'Copas',
       cta: 'VER COPAS',
-    },
-    {
-      type: 'announcement',
-      image: require('./assets/news/announcement.jpg'),
-      badge: 'COMUNICADO',
-      mark: 'OFICIAL',
-      title: 'Comunicados oficiales de AJPA',
-      text: 'Reglas, avisos de Staff y novedades importantes de la liga.',
-      body: 'Los comunicados oficiales van a aparecer acá cuando Staff necesite informar cambios de reglas, fechas, aperturas, cierres o cualquier novedad que afecte a los DT.',
-    },
-    {
-      type: 'champion',
-      image: require('./assets/news/champion.jpg'),
-      badge: 'PREMIOS',
-      mark: 'CAMPEONES',
-      title: 'Campeones, goleadores y premios',
-      text: 'Los grandes hitos de cada temporada también quedan registrados.',
-      body: 'Cuando termina una competencia, AJPA puede destacar automáticamente al campeón, goleador, XI ideal y otros reconocimientos. Estas noticias usan una presentación periodística especial y quedan disponibles para volver a consultarlas.',
-      route: 'Copas',
-      cta: 'VER VITRINA',
     },
   ], [marketOpen]);
 
@@ -442,26 +474,30 @@ export default function App() {
         </View>
 
         <View style={s.dualRow}>
-          <View
-            style={s.newsCard}
-            onLayout={(event) => setNewsWidth(Math.round(event.nativeEvent.layout.width - 22))}
-          >
+          <View style={s.newsCard}>
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Noticias AJPA</Text>
               <Text style={s.link}>Deslizá · tocá ›</Text>
             </View>
 
+            <View
+              style={s.carouselViewport}
+              onLayout={(event) => setNewsWidth(Math.round(event.nativeEvent.layout.width))}
+            >
             <ScrollView
               horizontal
-              pagingEnabled
               nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
+              snapToInterval={newsWidth || undefined}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              bounces={false}
               style={s.innerCarousel}
             >
               {newsItems.map((item, index) => (
                 <Pressable
-                  key={item.type}
+                  key={item.id}
                   onPress={() => setSelectedNews(item)}
                   style={({ pressed }) => [
                     s.newsPage,
@@ -479,8 +515,8 @@ export default function App() {
                     <Text style={s.newsBadge}>{item.badge}</Text>
                     <Text numberOfLines={1} style={s.newsVisualMark}>{item.mark}</Text>
                   </ImageBackground>
-                  <Text style={s.newsTitle}>{item.title}</Text>
-                  <Text numberOfLines={3} style={s.newsText}>{item.text}</Text>
+                  <Text numberOfLines={2} style={s.newsTitle}>{item.title}</Text>
+                  <Text numberOfLines={2} style={s.newsText}>{item.text}</Text>
                   <Text style={s.newsReadMore}>Leer más ›</Text>
                   <View style={s.carouselDots}>
                     {newsItems.map((_dot, dotIndex) => (
@@ -490,23 +526,28 @@ export default function App() {
                 </Pressable>
               ))}
             </ScrollView>
+            </View>
           </View>
 
-          <View
-            style={s.tableCard}
-            onLayout={(event) => setStatsWidth(Math.round(event.nativeEvent.layout.width - 20))}
-          >
+          <View style={s.tableCard}>
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Tabla</Text>
               <Text style={s.link}>Deslizá · tocá ›</Text>
             </View>
 
+            <View
+              style={s.carouselViewport}
+              onLayout={(event) => setStatsWidth(Math.round(event.nativeEvent.layout.width))}
+            >
             <ScrollView
               horizontal
-              pagingEnabled
               nestedScrollEnabled
               showsHorizontalScrollIndicator={false}
               decelerationRate="fast"
+              snapToInterval={statsWidth || undefined}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              bounces={false}
               style={s.innerCarousel}
             >
               <Pressable
@@ -585,6 +626,7 @@ export default function App() {
                 </View>
               </Pressable>
             </ScrollView>
+            </View>
           </View>
         </View>
 
@@ -778,16 +820,17 @@ const s = StyleSheet.create({
   sectionTitle: { color: P.white, fontSize: 12.5, fontWeight: '800' },
   link: { color: P.blue2, fontSize: 8.5, fontWeight: '800' },
 
-  innerCarousel: { flexGrow: 0 },
-  newsPage: { minHeight: 204, paddingRight: 1 },
-  statsPage: { minHeight: 204, paddingRight: 1 },
+  carouselViewport: { width: '100%', overflow: 'hidden' },
+  innerCarousel: { flexGrow: 0, width: '100%' },
+  newsPage: { minHeight: 204, overflow: 'hidden' },
+  statsPage: { minHeight: 204, overflow: 'hidden' },
   newsVisual: { height: 78, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'flex-end' },
   newsVisualImage: { borderRadius: 11 },
   newsVisualShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,10,17,0.34)' },
   newsBadge: { position: 'absolute', left: 8, top: 8, color: '#DDF2FF', fontSize: 7.8, fontWeight: '900', letterSpacing: 1.2, backgroundColor: 'rgba(4,20,32,0.72)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 3 },
   newsVisualMark: { color: P.white, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginLeft: 8, marginBottom: 7, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
-  newsTitle: { color: P.white, fontSize: 11.5, lineHeight: 14.5, fontWeight: '800' },
-  newsText: { color: P.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  newsTitle: { color: P.white, fontSize: 11.5, lineHeight: 14.5, fontWeight: '800', minHeight: 29 },
+  newsText: { color: P.muted, fontSize: 9, lineHeight: 13, marginTop: 4, minHeight: 26 },
   newsReadMore: { color: P.blue2, fontSize: 8.2, fontWeight: '900', marginTop: 6 },
   newsTime: { color: P.muted, fontSize: 8.5, marginTop: 8 },
   carouselDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 },
