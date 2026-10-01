@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   ImageBackground,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -24,6 +25,17 @@ import { loadStoredSession } from './src/session';
 type Section = 'Inicio' | 'Mercado' | 'Mi Club' | 'Liga' | 'Copas' | 'Perfil' | 'Staff' | 'Más';
 type Standing = { team: string; pj: number; pts: number };
 type Scorer = { player: string; team: string; goals: number };
+type NewsItem = {
+  type: 'market' | 'match' | 'cup' | 'announcement' | 'champion';
+  badge: string;
+  mark: string;
+  title: string;
+  text: string;
+  body: string;
+  image: any;
+  route?: Section;
+  cta?: string;
+};
 type SeasonCountdown = {
   configured?: boolean;
   deadline_utc?: number | null;
@@ -167,6 +179,7 @@ export default function App() {
   const [seasonCountdown, setSeasonCountdown] = useState<SeasonCountdown | null>(null);
   const [profile, setProfile] = useState<MobileProfile | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null);
 
   const load = async (manual = false) => {
     manual ? setRefreshing(true) : setLoading(true);
@@ -261,26 +274,63 @@ export default function App() {
       : selected === 'Más' ? 'Perfil'
         : selected;
 
-  const newsItems = useMemo(() => [
+  const newsItems = useMemo<NewsItem[]>(() => [
     {
-      badge: 'AJPA',
-      mark: 'PES 6',
-      title: 'Nueva etapa, misma competencia',
-      text: 'Mercado, Liga y Copas en una experiencia más clara y moderna.',
-    },
-    {
+      type: 'market',
+      image: require('./assets/news/transfer.jpg'),
       badge: 'MERCADO',
       mark: marketOpen ? 'ABIERTO' : 'CERRADO',
-      title: marketOpen ? 'El mercado está abierto' : 'El mercado está cerrado',
+      title: marketOpen ? 'Mercado AJPA abierto' : 'Mercado AJPA cerrado',
       text: marketOpen
-        ? 'Los DT pueden publicar jugadores, negociar y seguir los movimientos desde AJPA.'
-        : 'Las operaciones quedan pausadas hasta la próxima apertura oficial.',
+        ? 'Los DT ya pueden publicar, negociar y cerrar operaciones.'
+        : 'Las operaciones están pausadas hasta la próxima apertura oficial.',
+      body: marketOpen
+        ? 'El mercado de pases de AJPA está habilitado. Desde Mercado podés revisar transferibles, agentes libres, ofertas, préstamos, intercambios y clausulazos con las mismas reglas del bot.'
+        : 'El mercado de pases está cerrado. Podés seguir consultando planteles, publicaciones e historial, pero las operaciones quedan pausadas hasta que Staff vuelva a abrir el mercado.',
+      route: 'Mercado',
+      cta: 'IR AL MERCADO',
     },
     {
-      badge: 'COMPETENCIAS',
+      type: 'match',
+      image: require('./assets/news/match.jpg'),
+      badge: 'LIGA',
+      mark: 'PARTIDOS',
+      title: 'La Liga AJPA, fecha a fecha',
+      text: 'Tabla, resultados y goleadores oficiales en un solo lugar.',
+      body: 'La sección Liga concentra la tabla oficial, los partidos cargados, el historial de tu club y el Top 5 de goleadores. La información es la misma base que utiliza AJPA para sus publicaciones oficiales.',
+      route: 'Liga',
+      cta: 'VER LIGA',
+    },
+    {
+      type: 'cup',
+      image: require('./assets/news/cup.jpg'),
+      badge: 'COPAS',
       mark: 'AJPA',
-      title: 'Liga, Champions y Europa',
-      text: 'Seguí desde la app las tres competencias oficiales de la temporada.',
+      title: 'Champions y Europa AJPA',
+      text: 'Seguimiento de copas, fases, campeones y clasificación.',
+      body: 'Las competencias de copa tienen su propio seguimiento dentro de AJPA. Desde Copas podés consultar cada torneo, sus fases, clasificaciones y la vitrina histórica.',
+      route: 'Copas',
+      cta: 'VER COPAS',
+    },
+    {
+      type: 'announcement',
+      image: require('./assets/news/announcement.jpg'),
+      badge: 'COMUNICADO',
+      mark: 'OFICIAL',
+      title: 'Comunicados oficiales de AJPA',
+      text: 'Reglas, avisos de Staff y novedades importantes de la liga.',
+      body: 'Los comunicados oficiales van a aparecer acá cuando Staff necesite informar cambios de reglas, fechas, aperturas, cierres o cualquier novedad que afecte a los DT.',
+    },
+    {
+      type: 'champion',
+      image: require('./assets/news/champion.jpg'),
+      badge: 'PREMIOS',
+      mark: 'CAMPEONES',
+      title: 'Campeones, goleadores y premios',
+      text: 'Los grandes hitos de cada temporada también quedan registrados.',
+      body: 'Cuando termina una competencia, AJPA puede destacar automáticamente al campeón, goleador, XI ideal y otros reconocimientos. Estas noticias usan una presentación periodística especial y quedan disponibles para volver a consultarlas.',
+      route: 'Copas',
+      cta: 'VER VITRINA',
     },
   ], [marketOpen]);
 
@@ -398,7 +448,7 @@ export default function App() {
           >
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Noticias AJPA</Text>
-              <Text style={s.link}>Deslizá ›</Text>
+              <Text style={s.link}>Deslizá · tocá ›</Text>
             </View>
 
             <ScrollView
@@ -410,20 +460,34 @@ export default function App() {
               style={s.innerCarousel}
             >
               {newsItems.map((item, index) => (
-                <View key={item.title} style={[s.newsPage, newsWidth > 0 && { width: newsWidth }]}>
-                  <View style={s.newsVisual}>
-                    <View style={s.newsGlow} />
+                <Pressable
+                  key={item.type}
+                  onPress={() => setSelectedNews(item)}
+                  style={({ pressed }) => [
+                    s.newsPage,
+                    newsWidth > 0 && { width: newsWidth },
+                    pressed && { opacity: 0.82 },
+                  ]}
+                >
+                  <ImageBackground
+                    source={item.image}
+                    resizeMode="cover"
+                    style={s.newsVisual}
+                    imageStyle={s.newsVisualImage}
+                  >
+                    <View style={s.newsVisualShade} />
                     <Text style={s.newsBadge}>{item.badge}</Text>
                     <Text numberOfLines={1} style={s.newsVisualMark}>{item.mark}</Text>
-                  </View>
+                  </ImageBackground>
                   <Text style={s.newsTitle}>{item.title}</Text>
-                  <Text style={s.newsText}>{item.text}</Text>
+                  <Text numberOfLines={3} style={s.newsText}>{item.text}</Text>
+                  <Text style={s.newsReadMore}>Leer más ›</Text>
                   <View style={s.carouselDots}>
                     {newsItems.map((_dot, dotIndex) => (
                       <View key={dotIndex} style={[s.carouselDot, dotIndex === index && s.carouselDotActive]} />
                     ))}
                   </View>
-                </View>
+                </Pressable>
               ))}
             </ScrollView>
           </View>
@@ -434,7 +498,7 @@ export default function App() {
           >
             <View style={s.sectionHeader}>
               <Text style={s.sectionTitle}>Tabla</Text>
-              <Text style={s.link}>Deslizá ›</Text>
+              <Text style={s.link}>Deslizá · tocá ›</Text>
             </View>
 
             <ScrollView
@@ -445,7 +509,14 @@ export default function App() {
               decelerationRate="fast"
               style={s.innerCarousel}
             >
-              <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
+              <Pressable
+                onPress={() => setSelected('Liga')}
+                style={({ pressed }) => [
+                  s.statsPage,
+                  statsWidth > 0 && { width: statsWidth },
+                  pressed && { opacity: 0.82 },
+                ]}
+              >
                 <View style={s.tableHead}>
                   <Text style={[s.th, s.rankCol]}>#</Text>
                   <Text style={[s.th, s.clubHeadCol]}>Club</Text>
@@ -471,9 +542,16 @@ export default function App() {
                   <View style={[s.carouselDot, s.carouselDotActive]} />
                   <View style={s.carouselDot} />
                 </View>
-              </View>
+              </Pressable>
 
-              <View style={[s.statsPage, statsWidth > 0 && { width: statsWidth }]}>
+              <Pressable
+                onPress={() => setSelected('Liga')}
+                style={({ pressed }) => [
+                  s.statsPage,
+                  statsWidth > 0 && { width: statsWidth },
+                  pressed && { opacity: 0.82 },
+                ]}
+              >
                 <Text style={s.scorersTitle}>Top 5 goleadores</Text>
                 <View style={s.tableHead}>
                   <Text style={[s.th, s.rankCol]}>#</Text>
@@ -505,7 +583,7 @@ export default function App() {
                   <View style={s.carouselDot} />
                   <View style={[s.carouselDot, s.carouselDotActive]} />
                 </View>
-              </View>
+              </Pressable>
             </ScrollView>
           </View>
         </View>
@@ -551,6 +629,54 @@ export default function App() {
               </Pressable>
             </View>
           ) : mainContent}
+
+          <Modal
+            visible={Boolean(selectedNews)}
+            transparent
+            animationType="slide"
+            statusBarTranslucent
+            onRequestClose={() => setSelectedNews(null)}
+          >
+            <View style={s.newsModalBackdrop}>
+              <SafeAreaView style={s.newsModalCard} edges={['top', 'bottom', 'left', 'right']}>
+                <View style={s.newsModalHeader}>
+                  <View>
+                    <Text style={s.newsModalEyebrow}>AJPA · NOTICIAS</Text>
+                    <Text style={s.newsModalHeaderTitle}>Detalle</Text>
+                  </View>
+                  <Pressable onPress={() => setSelectedNews(null)} style={s.newsModalClose}>
+                    <Text style={s.newsModalCloseText}>×</Text>
+                  </Pressable>
+                </View>
+                {selectedNews ? (
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.newsModalContent}>
+                    <Image source={selectedNews.image} style={s.newsModalImage} resizeMode="cover" />
+                    <View style={s.newsModalBadgeRow}>
+                      <Text style={s.newsModalBadge}>{selectedNews.badge}</Text>
+                      <Text style={s.newsModalMark}>{selectedNews.mark}</Text>
+                    </View>
+                    <Text style={s.newsModalTitle}>{selectedNews.title}</Text>
+                    <Text style={s.newsModalLead}>{selectedNews.text}</Text>
+                    <View style={s.newsModalDivider} />
+                    <Text style={s.newsModalBody}>{selectedNews.body}</Text>
+                    {selectedNews.route ? (
+                      <Pressable
+                        style={({ pressed }) => [s.newsModalCta, pressed && { opacity: 0.8 }]}
+                        onPress={() => {
+                          const route = selectedNews.route;
+                          setSelectedNews(null);
+                          if (route) setSelected(route);
+                        }}
+                      >
+                        <Text style={s.newsModalCtaText}>{selectedNews.cta || 'VER MÁS'}</Text>
+                        <Text style={s.newsModalCtaArrow}>›</Text>
+                      </Pressable>
+                    ) : null}
+                  </ScrollView>
+                ) : null}
+              </SafeAreaView>
+            </View>
+          </Modal>
 
       {snapshot ? <View style={s.bottomNav}>
         {BOTTOM.map(item => {
@@ -655,12 +781,14 @@ const s = StyleSheet.create({
   innerCarousel: { flexGrow: 0 },
   newsPage: { minHeight: 204, paddingRight: 1 },
   statsPage: { minHeight: 204, paddingRight: 1 },
-  newsVisual: { height: 78, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'center', alignItems: 'center' },
-  newsGlow: { position: 'absolute', width: 150, height: 150, borderRadius: 90, backgroundColor: 'rgba(38,145,220,0.18)' },
-  newsBadge: { position: 'absolute', left: 8, top: 8, color: P.blue2, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.3 },
-  newsVisualMark: { color: P.white, fontSize: 22, fontWeight: '900', letterSpacing: 1.5 },
+  newsVisual: { height: 78, borderRadius: 11, overflow: 'hidden', backgroundColor: '#0B1C29', borderWidth: 1, borderColor: '#1F4E6B', marginBottom: 9, justifyContent: 'flex-end' },
+  newsVisualImage: { borderRadius: 11 },
+  newsVisualShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,10,17,0.34)' },
+  newsBadge: { position: 'absolute', left: 8, top: 8, color: '#DDF2FF', fontSize: 7.8, fontWeight: '900', letterSpacing: 1.2, backgroundColor: 'rgba(4,20,32,0.72)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 3 },
+  newsVisualMark: { color: P.white, fontSize: 11, fontWeight: '900', letterSpacing: 1.1, marginLeft: 8, marginBottom: 7, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
   newsTitle: { color: P.white, fontSize: 11.5, lineHeight: 14.5, fontWeight: '800' },
   newsText: { color: P.muted, fontSize: 9, lineHeight: 13, marginTop: 4 },
+  newsReadMore: { color: P.blue2, fontSize: 8.2, fontWeight: '900', marginTop: 6 },
   newsTime: { color: P.muted, fontSize: 8.5, marginTop: 8 },
   carouselDots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 },
   carouselDot: { width: 4, height: 4, borderRadius: 4, backgroundColor: '#425B6C' },
@@ -709,4 +837,24 @@ const s = StyleSheet.create({
   bottomItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     bottomLabel: { color: '#788D9C', fontSize: 7.3, fontWeight: '700', marginTop: 2 },
   bottomActive: { color: P.blue },
+  newsModalBackdrop: { flex: 1, backgroundColor: 'rgba(1,7,12,0.88)', justifyContent: 'flex-end' },
+  newsModalCard: { flex: 1, marginTop: 44, backgroundColor: P.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#285D7D' },
+  newsModalHeader: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: P.border, backgroundColor: '#081927' },
+  newsModalEyebrow: { color: P.blue2, fontSize: 7.5, fontWeight: '900', letterSpacing: 1.5 },
+  newsModalHeaderTitle: { color: P.white, fontSize: 17, fontWeight: '900', marginTop: 2 },
+  newsModalClose: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#285D7D', backgroundColor: '#0B2233', alignItems: 'center', justifyContent: 'center' },
+  newsModalCloseText: { color: P.white, fontSize: 27, lineHeight: 29, marginTop: -2 },
+  newsModalContent: { padding: 16, paddingBottom: 34 },
+  newsModalImage: { width: '100%', aspectRatio: 16 / 9, borderRadius: 18, backgroundColor: P.panel },
+  newsModalBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
+  newsModalBadge: { color: P.blue2, fontSize: 8.5, fontWeight: '900', letterSpacing: 1.3 },
+  newsModalMark: { color: P.muted, fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  newsModalTitle: { color: P.white, fontSize: 24, lineHeight: 29, fontWeight: '900', marginTop: 8 },
+  newsModalLead: { color: '#BED0DC', fontSize: 12.5, lineHeight: 18, fontWeight: '700', marginTop: 8 },
+  newsModalDivider: { height: 1, backgroundColor: P.border, marginVertical: 16 },
+  newsModalBody: { color: P.muted, fontSize: 12, lineHeight: 19 },
+  newsModalCta: { minHeight: 50, marginTop: 22, borderRadius: 15, backgroundColor: '#149FF5', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  newsModalCtaText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: '900', letterSpacing: 0.8 },
+  newsModalCtaArrow: { color: '#FFFFFF', fontSize: 25, lineHeight: 27, fontWeight: '700' },
+
 });
